@@ -4,25 +4,26 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <vector>
+#include <array>
 
-
-// --- Constants ---
+// === Constants ===
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
 
-// --- Function: note to Hz ---
+// --- Note to Hz ---
 float noteToHz(int noteNumber) {
-    float fC0 = 16.35f; // lowest C
+    float fC0 = 16.35f;
     return fC0 * pow(2.0f, float(noteNumber - 12) / 12.0f);
 }
 
-// --- Waveform functions ---
-float sineWave(float phase)      { return sin(2.0f * M_PI * phase); }
+// --- Basic Oscillators ---
+float sineWave(float phase)      { return sinf(2.0f * M_PI * phase); }
 float squareWave(float phase)    { return (phase < 0.5f) ? 1.0f : -1.0f; }
 float sawWave(float phase)       { return 2.0f * (phase - 0.5f); }
-float triangleWave(float phase)  { return 4.0f * fabs(phase - 0.5f) - 1.0f; }
+float triangleWave(float phase)  { return 4.0f * fabsf(phase - 0.5f) - 1.0f; }
 
-// --- Map keyboard to morph value ---
+// --- Morph knob mapping ---
 float getMorphValue(int knobPos) {
     switch(knobPos) {
         case 1: return 0.0f;   
@@ -37,45 +38,77 @@ float getMorphValue(int knobPos) {
     }
 }
 
-// Source - https://stackoverflow.com/a
-// Posted by Jakob Riedle, modified by community. See post 'Timeline' for change history
-// Retrieved 2025-12-06, License - CC BY-SA 4.0
-#include <vector>
-#include <array>
-#include <cmath>
+// ======================================================
+//      Custom Wave Wavetable System (Optimised)
+// ======================================================
 
-float interpolate(float from, float to, float t, float curvature=1.0f) {
-    // Warp t with curvature
-    float warpedT = pow(t, curvature); // curvature >1 steeper start, <1 flatter
-    return from + (to - from) * warpedT;
+static std::vector<std::array<float,2>> controlPoints = {
+    {0,0.0f}, {512, 2.0f}, {1024, 0.0f}, {1536, -2.0f}, {2048, 0.0f}
+};
+
+static std::vector<float> customTable;
+static bool waveNeedsRebuild = true;
+const int TABLE_SIZE = 2048;
+
+// --- Fast linear interpolation ---
+inline float lerp(float a, float b, float t) {
+    return a + (b - a) * t;
 }
 
-// Recursive De Casteljau algorithm with curvature
-std::array<float,2> bezierPoint(const std::vector<std::array<float,2>>& points, float t, float curvature=1.0f) {
-    if (points.size() == 1) {
-        return points[0]; // Base case
+// --- Iterative De Casteljau ---
+std::array<float,2> bezierPointIter(const std::vector<std::array<float,2>>& pts, float t) {
+    std::vector<std::array<float,2>> temp = pts;
+
+    for (size_t k = pts.size() - 1; k > 0; --k) {
+        for (size_t i = 0; i < k; i++) {
+            temp[i][0] = lerp(temp[i][0], temp[i+1][0], t);
+            temp[i][1] = lerp(temp[i][1], temp[i+1][1], t);
+        }
+    }
+    return temp[0];
+}
+// --- Linear interpolation of control points ---
+inline float linearBezier(const std::vector<std::array<float,2>>& pts, float t) {
+    int n = pts.size();
+    float pos = t * (n - 1);
+    int idx = (int)floor(pos);
+    if(idx >= n-1) return pts.back()[1];
+    float localT = pos - idx;
+    return lerp(pts[idx][1], pts[idx+1][1], localT);
+}
+
+// --- Full Bézier point (De Casteljau) ---
+inline float fullBezier(const std::vector<std::array<float,2>>& pts, float t) {
+    return bezierPointIter(pts, t)[1];
+}
+
+// --- Rebuild wavetable with curvature morph ---
+void rebuildWaveTable(float curvature = 1.0f) {
+    customTable.resize(TABLE_SIZE);
+
+    for(int i = 0; i < TABLE_SIZE; i++) {
+        float t = float(i) / float(TABLE_SIZE - 1);
+
+        float linearVal = linearBezier(controlPoints, t);
+        float smoothVal = fullBezier(controlPoints, t);
+
+        // Morph between linear and smooth using curvature
+        customTable[i] = lerp(linearVal, smoothVal, curvature);
     }
 
-    std::vector<std::array<float,2>> newPoints;
-    for (size_t i = 0; i < points.size() - 1; ++i) {
-        float x = interpolate(points[i][0], points[i+1][0], t, curvature);
-        float y = interpolate(points[i][1], points[i+1][1], t, curvature);
-        newPoints.push_back({x, y});
-    }
-
-    return bezierPoint(newPoints, t, curvature);
-}
-
-// Generalized custom wave function
-float customWave(float phase, const std::vector<std::array<float,2>>& controlPoints, float curvature=1.0f) {
-    auto pt = bezierPoint(controlPoints, phase, curvature);
-    float y = pt[1];
-    return (y / 127.0f) * 2.0f - 1.0f; // Normalize -1 to 1
+    waveNeedsRebuild = false;
 }
 
 
 
-// --- Voice struct ---
+// --- Your requested function ---
+void updateWave() {
+    waveNeedsRebuild = true;
+}
+
+// =================================================
+//                  Voice Struct
+// =================================================
 struct Voice {
     float phase = 0.0f;
     float frequency = 261.63f;
@@ -83,45 +116,45 @@ struct Voice {
     float time = 0.0f;
     float oscVolume = 0.04f;
 
-    // Commented systems from your old code
     float pInput = 0.0f;
     float pOutput = 0.0f;
 };
 
 float ADSR(float attack, float decay, float sustain, float release, bool trig, float t, float lvl) {
     bool noteOn = trig;
-    float time = t;
-    float baseLevel = lvl;
     float curvature = 3.0f;
 
-    // curving is essentially pow(time / param, curvature)   1.0f/curvature for reverse slope (steep-to-shallow)
-    // linear would remove pow and just use (time / param), could also set curvature = 1.0f
-
     if(noteOn) {
-        if(time < attack) {
-            return pow(time / attack, curvature) * baseLevel;
-        } else if(time < attack + decay) {
-            return (1.0f - (pow((time - attack) / decay, 1.0f/curvature) * (1.0f - sustain))) * baseLevel;
+        if(t < attack) {
+            return powf(t / attack, curvature) * lvl;
+        } else if(t < attack + decay) {
+            return (1.0f - (powf((t - attack) / decay, 1.0f/curvature) * (1.0f - sustain))) * lvl;
         } else {
-            return sustain*baseLevel;
+            return sustain * lvl;
         }
     } else {
-        if(time < release) {
-            return (1.0f - pow(time / release, 1.0f/curvature)) * (sustain * baseLevel);
+        if(t < release) {
+            return (1.0f - powf(t / release, 1.0f/curvature)) * (sustain * lvl);
         } else {
             return 0.0f;
         }
     }
 }
 
-// --- Global variables ---
+// =================================================
+//                  Global Variables
+// =================================================
+
 int knobPosition = 1;
 Voice voices[numVoices];
-int noteMapping[numVoices] = {48, 52, 55, 60}; // 7 keys C,D,E,F,G,A,B-ish
-float drive = 0.004f;
-float sf = 1.2f;
+int noteMapping[numVoices] = {48, 52, 55, 60};
+float voiceSample;
+bool custom = false;
 
-// --- Audio callback ---
+// =================================================
+//                  Audio Callback
+// =================================================
+
 static int audioCallback(
     const void*, void* outputBuffer,
     unsigned long framesPerBuffer,
@@ -132,67 +165,58 @@ static int audioCallback(
     float* output = (float*)outputBuffer;
     float t = getMorphValue(knobPosition);
 
+    if (custom && waveNeedsRebuild)
+        rebuildWaveTable();
+
     for(unsigned long i=0; i<framesPerBuffer; i++) {
-        float sample = 0.0f;
+        float mix = 0.0f;
 
         for(int v=0; v<numVoices; v++) {
-            // if(!voices[v].active){
-            //     continue;
-            // } 
+
             voices[v].time += 1.0f / sampleRate;
-            // Increment phase
             voices[v].phase += voices[v].frequency / sampleRate;
             if(voices[v].phase >= 1.0f) voices[v].phase -= 1.0f;
 
-            // Morph waveform
-            float segment = t * 4.0f;
-            int index = (int)floor(segment);
-            float blend = segment - index;
-
-            float wave1, wave2;
-            switch(index) {
-                case 0: wave1 = sineWave(voices[v].phase);     wave2 = squareWave(voices[v].phase); break;
-                case 1: wave1 = squareWave(voices[v].phase);   wave2 = sawWave(voices[v].phase);    break;
-                case 2: wave1 = sawWave(voices[v].phase);      wave2 = triangleWave(voices[v].phase); break;
-                case 3: wave1 = triangleWave(voices[v].phase); wave2 = sineWave(voices[v].phase);   break;
-                default: wave1 = wave2 = 0.0f;
-            }
             float adsr = ADSR(0.5f, 0.5f, 0.8f, 1.2f, voices[v].active, voices[v].time, voices[v].oscVolume);
-            // float voiceSample = ((1.0f - blend) * wave1 + blend * wave2)*adsr;
-            std::vector<std::array<float,2>> points = {
-                {0,0}, {64,127}, {128,0}, {192,63}, {256,-127}  // Arbitrary number of points
-            };
 
-            float voiceSample = customWave(voices[v].phase, points, 2.0f)*adsr;
+            float sample;
 
-            // ----------------- Drive ----------------- //
-            // if(voiceSample > drive) voiceSample = drive;
-            // if(voiceSample < -drive) voiceSample = -drive;
-            // voiceSample *= (oscVolume / drive);
+            if(custom) {
+                int index = (int)(voices[v].phase * TABLE_SIZE) & (TABLE_SIZE - 1);
+                sample = customTable[index] * adsr;
+            } else {
+                float segment = t * 4.0f;
+                int idx = (int)floor(segment);
+                float blend = segment - idx;
 
-            // ----------------- Filtering ----------------- //
-            // float sampleInput = voiceSample;
-            // voiceSample = sf * (voices[v].pOutput + voiceSample - voices[v].pInput);
-            // voices[v].pInput = sampleInput;
-            // voices[v].pOutput = voiceSample;
+                float wave1, wave2;
+                switch(idx) {
+                    case 0: wave1 = sineWave(voices[v].phase);     wave2 = squareWave(voices[v].phase); break;
+                    case 1: wave1 = squareWave(voices[v].phase);   wave2 = sawWave(voices[v].phase);    break;
+                    case 2: wave1 = sawWave(voices[v].phase);      wave2 = triangleWave(voices[v].phase); break;
+                    case 3: wave1 = triangleWave(voices[v].phase); wave2 = sineWave(voices[v].phase);   break;
+                    default: wave1 = wave2 = 0.0f;
+                }
 
-            sample += voiceSample;
+                sample = ((1.0f - blend) * wave1 + blend * wave2) * adsr;
+            }
+
+            mix += sample;
         }
 
-        // Normalize by number of voices
-
-        output[2*i]     = sample;
-        output[2*i + 1] = sample;
+        output[2*i]     = mix;
+        output[2*i + 1] = mix;
     }
 
     return 0;
 }
 
-// --- Non-blocking keyboard setup ---
+// =================================================
+//         Non-blocking keyboard input
+// =================================================
+
 void setNonBlockingInput() {
     struct termios ttystate;
-    tcgetattr(STDIN_FILENO, &ttystate);
-    ttystate.c_lflag &= ~ICANON;
     tcgetattr(STDIN_FILENO, &ttystate);
     ttystate.c_lflag &= ~ICANON;
     ttystate.c_lflag &= ~ECHO;
@@ -200,49 +224,55 @@ void setNonBlockingInput() {
     fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
 }
 
+// =================================================
+//                        MAIN
+// =================================================
+
 int main() {
     setNonBlockingInput();
 
-    // Initialize PortAudio
-    PaError error = Pa_Initialize();
-    if(error != paNoError) { std::cout << "PortAudio error: " << Pa_GetErrorText(error) << std::endl; return 1; }
+    Pa_Initialize();
 
     PaStream* stream;
-    error = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, sampleRate, 256, audioCallback, nullptr);
-    if(error != paNoError) { std::cout << "PortAudio error: " << Pa_GetErrorText(error) << std::endl; return 1; }
-    error = Pa_StartStream(stream);
-    if(error != paNoError) { std::cout << "PortAudio error: " << Pa_GetErrorText(error) << std::endl; return 1; }
+    Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, sampleRate, 256, audioCallback, nullptr);
+    Pa_StartStream(stream);
 
-    std::cout << "Polyphonic morphing synth. Keys 1-7 trigger notes, 1-8 knob for waveform morph.\n";
+    std::cout << "Polyphonic Synth Ready.\n";
+    std::cout << "Press keys 1–8 to morph wave. Press 0 for CUSTOM curve.\n";
 
-    // --- Main loop ---
     while(true) {
         char c;
         ssize_t n = read(STDIN_FILENO, &c, 1);
+
         if(n > 0) {
-            // Morph knob
+
             if(c >= '1' && c <= '8') {
                 knobPosition = c - '0';
-                std::cout << "Wave morph set to key " << knobPosition << std::endl;
+                custom = false;
+                std::cout << "Morph knob = " << knobPosition << "\n";
             }
 
-            // Note on/off: map keys 1-7 to voices
-            if(c >= 'q' && c <= 'u') { // q=voice0, w=voice1, ... u=voice6
-                int v = c - 'q';
-                if(voices[v].active){
-                    voices[v].active = false;
-                    voices[v].time = 0.0f; // reset envelope time
-                    std::cout << "Voice " << v << " OFF\n";
-                    continue;
-                }else{
-                    voices[v].active = true;
-                }
-                voices[v].time = 0.0f; // reset envelope time
-                voices[v].frequency = noteToHz(noteMapping[v]);
-                voices[v].phase = 0.0f; // reset phase
-                std::cout << "Voice " << v << " ON\n";
+            if(c == '0') {
+                custom = true;
+                updateWave();   // you can manually force rebuild if needed
+                std::cout << "Custom wave ON\n";
             }
-            // Key release could be implemented here
+
+            if(c >= 'q' && c <= 'u') {
+                int v = c - 'q';
+
+                if(voices[v].active) {
+                    voices[v].active = false;
+                    voices[v].time = 0.0f;
+                    std::cout << "Voice " << v << " OFF\n";
+                } else {
+                    voices[v].active = true;
+                    voices[v].time = 0.0f;
+                    voices[v].phase = 0.0f;
+                    voices[v].frequency = noteToHz(noteMapping[v]);
+                    std::cout << "Voice " << v << " ON\n";
+                }
+            }
         }
 
         usleep(1000);
@@ -251,6 +281,5 @@ int main() {
     Pa_StopStream(stream);
     Pa_CloseStream(stream);
     Pa_Terminate();
-
     return 0;
 }
