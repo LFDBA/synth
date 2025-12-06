@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+
 // --- Constants ---
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
@@ -36,6 +37,44 @@ float getMorphValue(int knobPos) {
     }
 }
 
+// Source - https://stackoverflow.com/a
+// Posted by Jakob Riedle, modified by community. See post 'Timeline' for change history
+// Retrieved 2025-12-06, License - CC BY-SA 4.0
+#include <vector>
+#include <array>
+#include <cmath>
+
+float interpolate(float from, float to, float t, float curvature=1.0f) {
+    // Warp t with curvature
+    float warpedT = pow(t, curvature); // curvature >1 steeper start, <1 flatter
+    return from + (to - from) * warpedT;
+}
+
+// Recursive De Casteljau algorithm with curvature
+std::array<float,2> bezierPoint(const std::vector<std::array<float,2>>& points, float t, float curvature=1.0f) {
+    if (points.size() == 1) {
+        return points[0]; // Base case
+    }
+
+    std::vector<std::array<float,2>> newPoints;
+    for (size_t i = 0; i < points.size() - 1; ++i) {
+        float x = interpolate(points[i][0], points[i+1][0], t, curvature);
+        float y = interpolate(points[i][1], points[i+1][1], t, curvature);
+        newPoints.push_back({x, y});
+    }
+
+    return bezierPoint(newPoints, t, curvature);
+}
+
+// Generalized custom wave function
+float customWave(float phase, const std::vector<std::array<float,2>>& controlPoints, float curvature=1.0f) {
+    auto pt = bezierPoint(controlPoints, phase, curvature);
+    float y = pt[1];
+    return (y / 127.0f) * 2.0f - 1.0f; // Normalize -1 to 1
+}
+
+
+
 // --- Voice struct ---
 struct Voice {
     float phase = 0.0f;
@@ -49,10 +88,10 @@ struct Voice {
     float pOutput = 0.0f;
 };
 
-float ADSR(float attack, float decay, float sustain, float release, Voice& voice) {
-    bool noteOn = voice.active;
-    float time = voice.time;
-    float baseLevel = voice.oscVolume;
+float ADSR(float attack, float decay, float sustain, float release, bool trig, float t, float lvl) {
+    bool noteOn = trig;
+    float time = t;
+    float baseLevel = lvl;
     float curvature = 3.0f;
 
     // curving is essentially pow(time / param, curvature)   1.0f/curvature for reverse slope (steep-to-shallow)
@@ -118,8 +157,13 @@ static int audioCallback(
                 case 3: wave1 = triangleWave(voices[v].phase); wave2 = sineWave(voices[v].phase);   break;
                 default: wave1 = wave2 = 0.0f;
             }
-            float adsr = ADSR(0.5f, 0.5f, 0.8f, 1.2f, voices[v]);
-            float voiceSample = ((1.0f - blend) * wave1 + blend * wave2)*adsr;
+            float adsr = ADSR(0.5f, 0.5f, 0.8f, 1.2f, voices[v].active, voices[v].time, voices[v].oscVolume);
+            // float voiceSample = ((1.0f - blend) * wave1 + blend * wave2)*adsr;
+            std::vector<std::array<float,2>> points = {
+                {0,0}, {64,127}, {128,0}, {192,63}, {256,-127}  // Arbitrary number of points
+            };
+
+            float voiceSample = customWave(voices[v].phase, points, 2.0f)*adsr;
 
             // ----------------- Drive ----------------- //
             // if(voiceSample > drive) voiceSample = drive;

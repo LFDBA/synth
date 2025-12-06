@@ -1,0 +1,5 @@
+#!/bin/bash
+pip install numpy
+pip install pyqtgraph
+pip install sounddevice
+pip install pyaudio
