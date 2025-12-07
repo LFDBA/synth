@@ -3,3 +3,6 @@ pip install numpy
 pip install pyqtgraph
 pip install sounddevice
 pip install pyaudio
+sudo apt update
+sudo apt install -y g++ make cmake
+sudo apt install -y portaudio19-dev
