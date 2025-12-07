@@ -1,8 +1,9 @@
 #!/bin/bash
-pip3 install numpy
-pip3 install pyqtgraph
-pip3 install sounddevice
-pip3 install pyaudio
-sudo apt update
+sudo apt install python3-pip -y
+sudo apt update -y
 sudo apt install -y g++ make cmake
 sudo apt install -y portaudio19-dev
+pip install numpy
+pip install pyqtgraph
+pip install sounddevice
+pip install pyaudio
