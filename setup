@@ -3,7 +3,31 @@ sudo apt install python3-pip -y
 sudo apt update -y
 sudo apt install -y g++ make cmake
 sudo apt install -y portaudio19-dev
+sudo apt install pulseaudio-utils -y
+sudo apt install alsa-utils -y
 pip install numpy
 pip install pyqtgraph
 pip install sounddevice
 pip install pyaudio
+
+
+# Set default ALSA card to 1
+sudo tee /etc/asound.conf > /dev/null <<'EOF'
+pcm.!default {
+    type plug
+    slave {
+        pcm "hw:1,0"
+    }
+}
+
+ctl.!default {
+    type hw
+    card 1
+}
+EOF
+
+sudo alsactl init
+
+chmod +x run
+chmod +x test
+chmod +x restart
