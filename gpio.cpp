@@ -3,8 +3,10 @@
 #include <unistd.h>
 
 int main() {
-    // Don't call gpioInitialise() if pigpiod is running
-    // Just try to use the library functions directly
+    if (gpioInitialise() < 0) {
+        std::cerr << "pigpio init failed\n";
+        return 1;
+    }
 
     int pin = 26;
     gpioSetMode(pin, PI_INPUT);
@@ -15,6 +17,6 @@ int main() {
         usleep(100000); // 100ms
     }
 
-    // No gpioTerminate() if pigpiod is running, just exit
+    gpioTerminate();
     return 0;
 }
