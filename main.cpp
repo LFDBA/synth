@@ -364,7 +364,22 @@ int main() {
 
         if(inpMode == 0) editWave();     
         else if(inpMode == 1) editCurve();   
-        // else if(inpMode == 2) 
+        else if(inpMode == 2 && attack >= 0) {
+            attack += inpVal/100;   
+            if(attack < 0) attack = 0;
+        }
+        else if(inpMode == 3 && decay >= 0) {
+            decay += inpVal/100;   
+            if(decay < 0) decay = 0;
+        }
+        else if(inpMode == 4 && sustain >= 0) {
+            sustain += inpVal/100;   
+            if(sustain < 0) sustain = 0;
+        }
+        else if(inpMode == 5 && release >= 0) {
+            release += inpVal/100;
+            if(release < 0) release = 0;
+        }
 
         ssize_t n = read(STDIN_FILENO, &c, 1);
 
