@@ -163,7 +163,11 @@ int fd;
 bool hold;
 float inpVal = 0;
 float sweepPos = 0;
-int inpMode = 0;
+int inpMode = -1;
+float attack = 0.5f;
+float decay = 0.5f;
+float sustain = 0.8f;
+float release = 1.2f;
 
 // =================================================
 //                  Audio Callback
@@ -191,7 +195,7 @@ static int audioCallback(
             voices[v].phase += voices[v].frequency / sampleRate;
             if(voices[v].phase >= 1.0f) voices[v].phase -= 1.0f;
 
-            float adsr = ADSR(0.5f, 0.5f, 0.8f, 1.2f, voices[v].active, voices[v].time, voices[v].oscVolume);
+            float adsr = ADSR(attack, decay, sustain, release, voices[v].active, voices[v].time, voices[v].oscVolume);
 
             float sample;
 
@@ -360,7 +364,7 @@ int main() {
 
         if(inpMode == 0) editWave();     
         else if(inpMode == 1) editCurve();   
-
+        // else if(inpMode == 2) 
 
         ssize_t n = read(STDIN_FILENO, &c, 1);
 
@@ -382,22 +386,29 @@ int main() {
                 else inpMode = 1;
                 
             }
+            if(c == 'a') inpMode = 2;
+            if(c == 'd') inpMode = 3;
+            if(c == 's') inpMode = 4;
+            if(c == 'r') inpMode = 5;
 
-            if(c >= 'q' && c <= 'u') {
-                int v = c - 'q';
+            int v;
 
-                if(voices[v].active) {
-                    voices[v].active = false;
-                    voices[v].time = 0.0f;
-                    std::cout << "Voice " << v << " OFF\n";
-                } else {
-                    voices[v].active = true;
-                    voices[v].time = 0.0f;
-                    voices[v].phase = 0.0f;
-                    voices[v].frequency = noteToHz(noteMapping[v]);
-                    std::cout << "Voice " << v << " ON\n";
-                }
+            if(c == 'z') v=0;
+            if(c == 'x') v=1;
+            if(c == 'c') v=2;
+            if(c == 'v') v=3;
+            if(voices[v].active) {
+                voices[v].active = false;
+                voices[v].time = 0.0f;
+                std::cout << "Voice " << v << " OFF\n";
+            } else {
+                voices[v].active = true;
+                voices[v].time = 0.0f;
+                voices[v].phase = 0.0f;
+                voices[v].frequency = noteToHz(noteMapping[v]);
+                std::cout << "Voice " << v << " ON\n";
             }
+            
         }
         usleep(1000);
     }
