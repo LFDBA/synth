@@ -6,10 +6,18 @@
 #include <fcntl.h>
 #include <vector>
 #include <array>
+#include <unistd.h>
+#include <linux/input.h>
+#include <algorithm>
+
 
 // === Constants ===
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
+const char* device = "/dev/input/by-id/usb-Griffin_Technology__Inc._Griffin_PowerMate-event-if00";
+
+
+float curvature = 1.0f;
 
 // --- Note to Hz ---
 float noteToHz(int noteNumber) {
@@ -39,7 +47,7 @@ float getMorphValue(int knobPos) {
 }
 
 // ======================================================
-//      Custom Wave Wavetable System (Optimised)
+//                     Custom Wave
 // ======================================================
 
 static std::vector<std::array<float,2>> controlPoints = {
@@ -83,7 +91,7 @@ inline float fullBezier(const std::vector<std::array<float,2>>& pts, float t) {
 }
 
 // --- Rebuild wavetable with curvature morph ---
-void rebuildWaveTable(float curvature = 1.0f) {
+void rebuildWaveTable() {
     customTable.resize(TABLE_SIZE);
 
     for(int i = 0; i < TABLE_SIZE; i++) {
@@ -142,7 +150,7 @@ float ADSR(float attack, float decay, float sustain, float release, bool trig, f
 }
 
 // =================================================
-//                  Global Variables
+//                  Global Vars
 // =================================================
 
 int knobPosition = 1;
@@ -150,6 +158,12 @@ Voice voices[numVoices];
 int noteMapping[numVoices] = {48, 52, 55, 60};
 float voiceSample;
 bool custom = false;
+struct input_event ev;
+int fd;
+bool hold;
+float inpVal = 0;
+float sweepPos = 0;
+int inpMode = 0;
 
 // =================================================
 //                  Audio Callback
@@ -225,10 +239,95 @@ void setNonBlockingInput() {
 }
 
 // =================================================
+//               Read Input Device
+// =================================================
+int getInp() {
+    ssize_t n = read(fd, &ev, sizeof(ev));
+
+    if (n < 0) {
+        if (errno == EAGAIN) {
+            return -100;  // no event right now
+        } else {
+            perror("read error");
+            return -100;
+        }
+    }
+
+
+    if (ev.type == EV_REL && ev.code == REL_DIAL) {
+        return ev.value;
+    }
+
+    if (ev.type == EV_KEY && ev.code == BTN_MISC) {
+        return ev.value + 100; // your encoding
+    }
+
+    return -100;
+}
+
+// ========================================
+//                Wave Edit
+// ========================================
+
+void editWave(){
+    if(inpVal >= 100) inpVal = 0;
+    if(hold){
+            
+        int sweepInt = static_cast<int>(sweepPos);
+
+        auto it = std::find_if(controlPoints.begin(), controlPoints.end(),
+                            [sweepInt](const std::array<float,2>& row) {
+                                return row[0] == sweepPos;
+                            });
+
+        if (it != controlPoints.end()) {
+            std::cout << "Found row where first element = " << sweepPos << "\n";
+            std::cout << "Full row: [" << (*it)[0] << ", " << (*it)[1] << "]\n";
+            (*it)[1] += inpVal/10;
+        } else {
+            controlPoints.push_back({sweepPos, inpVal/10});
+        }
+
+        updateWave();
+    }else{
+        sweepPos += inpVal;
+        std::cout << sweepPos << "\n";
+    }
+    
+}
+
+void editCurve(){
+    if(inpVal >= 100) inpVal = 0;
+    if(hold) curvature += inpVal/100; updateWave();
+}
+
+
+// =================================================
 //                        MAIN
 // =================================================
 
 int main() {
+
+    // =============================================
+    //              Init Input Device
+    // =============================================
+
+    fd = open(device, O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        perror("Failed to open device");
+        return 1;
+    }
+
+    
+
+    std::cout << "Reading " << device << " Events \n";
+
+
+    
+    
+
+
+
     setNonBlockingInput();
 
     Pa_Initialize();
@@ -241,7 +340,28 @@ int main() {
     std::cout << "Press keys 1–8 to morph wave. Press 0 for CUSTOM curve.\n";
 
     while(true) {
+        
+        
+        
         char c;
+
+        inpVal = getInp();
+
+        if (inpVal != -100) {
+            if(hold == true) std::cout << "holding";
+                
+            // handle knob input
+            std::cout << "Knob: " << inpVal << "\n";
+            if(inpVal == 100) hold = false;
+            if(inpVal == 101) hold = true;
+        }else{
+            inpVal = 0;
+        }
+
+        if(inpMode == 0) editWave();     
+        else if(inpMode == 1) editCurve();   
+
+
         ssize_t n = read(STDIN_FILENO, &c, 1);
 
         if(n > 0) {
@@ -256,6 +376,11 @@ int main() {
                 custom = true;
                 updateWave();   // you can manually force rebuild if needed
                 std::cout << "Custom wave ON\n";
+            }
+            if(c == '9'){
+                if(inpMode == 1) inpMode = 0;
+                else inpMode = 1;
+                
             }
 
             if(c >= 'q' && c <= 'u') {
@@ -274,10 +399,9 @@ int main() {
                 }
             }
         }
-
         usleep(1000);
     }
-
+    
     Pa_StopStream(stream);
     Pa_CloseStream(stream);
     Pa_Terminate();
