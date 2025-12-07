@@ -1,0 +1,3 @@
+#!/bin/bash
+g++ gpio.cpp -lpigpio -lpthread -o read26
+sudo ./read26
