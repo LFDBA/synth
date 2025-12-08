@@ -300,7 +300,7 @@ bool initSerial(const char* port = "/dev/ttyACM0") {
     return true;
 }
 
-int lastP1;
+int lastP1 = -1;
 int lastP2;
 int lastP3;
 int lastP4;
@@ -335,6 +335,7 @@ void getInp() {
         }
     }
     
+    
 }
 
 // ========================================
@@ -342,7 +343,7 @@ void getInp() {
 // ========================================
 
 void editWave(){
-    sweepPos = norm(p1, 0.0f, 1023.0f, 0.0f, 4096.0f);
+    sweepPos = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
     int sweepInt = static_cast<int>(sweepPos);
     auto it = std::find_if(controlPoints.begin(), controlPoints.end(),
                         [sweepInt](const std::array<float,2>& row) {
@@ -408,8 +409,13 @@ int main() {
         char c;
 
         getInp();
-
-
+        if(lastP1 == -1){
+            lastP1 = p1;
+            lastP2 = p2;
+            lastP3 = p3;
+            lastP4 = p4;
+        }
+        
         if(menu == WAVE_MENU) editWave(); 
         else if(inpMode == 2 && attack >= 0) {
             attack = inpVal/100;   
