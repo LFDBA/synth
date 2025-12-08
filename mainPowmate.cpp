@@ -9,13 +9,6 @@
 #include <unistd.h>
 #include <linux/input.h>
 #include <algorithm>
-#include <sstream>
-#include <string>
-
-
-float norm(float x, float in_min, float in_max, float out_min, float out_max) {
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
 
 
 // === Constants ===
@@ -23,17 +16,6 @@ const float sampleRate = 48000.0f;
 const int numVoices = 7;
 const char* device = "/dev/input/by-id/usb-Griffin_Technology__Inc._Griffin_PowerMate-event-if00";
 
-enum Mode {
-    MODE_NONE,
-    WAVE_MENU,
-    ADSR_MENU
-};
-Mode menu = WAVE_MENU;
-
-int p1;
-int p2;
-int p3;
-int p4;
 
 float curvature = 1.0f;
 
@@ -177,8 +159,8 @@ int noteMapping[numVoices] = {48, 52, 55, 60};
 float voiceSample;
 bool custom = false;
 struct input_event ev;
-int fd = -1;
-bool hold = true;
+int fd;
+bool hold;
 float inpVal = 0;
 float sweepPos = 0;
 int inpMode = -1;
@@ -263,78 +245,28 @@ void setNonBlockingInput() {
 // =================================================
 //               Read Input Device
 // =================================================
-std::string line = "";      // Buffer for incoming serial lines
-int lastValue = 0;          // Last read potentiometer value
+int getInp() {
+    ssize_t n = read(fd, &ev, sizeof(ev));
 
-bool initSerial(const char* port = "/dev/ttyACM0") {
-    fd = open(port, O_RDONLY | O_NOCTTY);
-    if (fd < 0) {
-        std::cerr << "Failed to open serial port\n";
-        return false;
-    }
-
-    termios tty{};
-    if (tcgetattr(fd, &tty) != 0) {
-        std::cerr << "Error: tcgetattr failed\n";
-        return false;
-    }
-
-    cfsetospeed(&tty, B115200);
-    cfsetispeed(&tty, B115200);
-
-    tty.c_cflag |= (CLOCAL | CREAD);
-    tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;
-    tty.c_cflag &= ~PARENB;
-    tty.c_cflag &= ~CSTOPB;
-    tty.c_cflag &= ~CRTSCTS;
-
-    tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
-    tty.c_oflag &= ~OPOST;
-
-    tty.c_cc[VMIN] = 1;
-    tty.c_cc[VTIME] = 0;
-
-    tcsetattr(fd, TCSANOW, &tty);
-    return true;
-}
-
-int lastP1;
-int lastP2;
-int lastP3;
-int lastP4;
-// Reads from serial, returns the latest value
-void getInp() {
-
-    char buf[64];
-    int n = read(fd, buf, sizeof(buf));
-    if (n > 0) {
-        for (int i = 0; i < n; i++) {
-            char c = buf[i];
-
-            if (c == '\n') {
-                if (!line.empty()) {
-                    std::stringstream ss(line);
-                    std::string label;
-                    int value;
-                    ss >> label >> value;
-                    std::cout << "[" << label << "] " << value << std::endl;
-
-                    
-                    if (label == "p1") p1 = (-value)+1023;
-                    else if (label == "p2") p2 = (-value)+1023;
-                    else if (label == "p3") p3 = (-value)+1023;
-                    else if (label == "p4") p4 = (-value)+1023;
-                }
-                line.clear();
-            }
-            else if (c != '\r') {
-                line += c;
-            }
+    if (n < 0) {
+        if (errno == EAGAIN) {
+            return -100;  // no event right now
+        } else {
+            perror("read error");
+            return -100;
         }
     }
-    
+
+
+    if (ev.type == EV_REL && ev.code == REL_DIAL) {
+        return ev.value;
+    }
+
+    if (ev.type == EV_KEY && ev.code == BTN_MISC) {
+        return ev.value + 100; // your encoding
+    }
+
+    return -100;
 }
 
 // ========================================
@@ -342,29 +274,35 @@ void getInp() {
 // ========================================
 
 void editWave(){
-    sweepPos = norm(p1, 0.0f, 1023.0f, 0.0f, 4096.0f);
-    int sweepInt = static_cast<int>(sweepPos);
-    auto it = std::find_if(controlPoints.begin(), controlPoints.end(),
-                        [sweepInt](const std::array<float,2>& row) {
-                            return row[0] == sweepPos;
-                        });
+    if(inpVal >= 100) inpVal = 0;
+    if(hold){
+            
+        int sweepInt = static_cast<int>(sweepPos);
 
-    
-    if(abs(p2-lastP2)>1){
+        auto it = std::find_if(controlPoints.begin(), controlPoints.end(),
+                            [sweepInt](const std::array<float,2>& row) {
+                                return row[0] == sweepPos;
+                            });
+
         if (it != controlPoints.end()) {
             std::cout << "Found row where first element = " << sweepPos << "\n";
             std::cout << "Full row: [" << (*it)[0] << ", " << (*it)[1] << "]\n";
-            (*it)[1] = norm(p2, 0.0f, 1023.0f, -2.0f, 2.0f);
+            (*it)[1] += inpVal/10;
         } else {
-            controlPoints.push_back({sweepPos, norm(p2, 0.0f, 1023.0f, -2.0f, 2.0f)});
-            
+            controlPoints.push_back({sweepPos, inpVal/10});
         }
-    }
-    if(abs(p3-lastP3)>1) curvature = norm(p3, 0.0f, 1023.0f, -2.0f, 2.0f);
-    
 
-    updateWave();
+        updateWave();
+    }else{
+        sweepPos += inpVal;
+        std::cout << sweepPos << "\n";
+    }
     
+}
+
+void editCurve(){
+    if(inpVal >= 100) inpVal = 0;
+    if(hold) curvature += inpVal/100; updateWave();
 }
 
 
@@ -373,12 +311,16 @@ void editWave(){
 // =================================================
 
 int main() {
-    if (!initSerial()) return 1;
+
     // =============================================
     //              Init Input Device
     // =============================================
 
-    
+    fd = open(device, O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        perror("Failed to open device");
+        return 1;
+    }
 
     
 
@@ -407,83 +349,83 @@ int main() {
         
         char c;
 
-        getInp();
+        inpVal = getInp();
 
+        if (inpVal != -100) {
+            if(hold == true) std::cout << "holding";
+                
+            // handle knob input
+            std::cout << "Knob: " << inpVal << "\n";
+            if(inpVal == 100) hold = false;
+            if(inpVal == 101) hold = true;
+        }else{
+            inpVal = 0;
+        }
 
-        if(menu == WAVE_MENU) editWave(); 
+        if(inpMode == 0) editWave();     
+        else if(inpMode == 1) editCurve();   
         else if(inpMode == 2 && attack >= 0) {
-            attack = inpVal/100;   
+            attack += inpVal/100;   
             if(attack < 0) attack = 0;
         }
         else if(inpMode == 3 && decay >= 0) {
-            decay = inpVal/100;   
+            decay += inpVal/100;   
             if(decay < 0) decay = 0;
         }
         else if(inpMode == 4 && sustain >= 0) {
-            sustain = inpVal/100;   
+            sustain += inpVal/100;   
             if(sustain < 0) sustain = 0;
         }
         else if(inpMode == 5 && release >= 0) {
-            release = inpVal/100;
+            release += inpVal/100;
             if(release < 0) release = 0;
         }
 
         ssize_t n = read(STDIN_FILENO, &c, 1);
+
         if(n > 0) {
 
-            // --- Wave Morph Keys (1–8) ---
             if(c >= '1' && c <= '8') {
                 knobPosition = c - '0';
                 custom = false;
                 std::cout << "Morph knob = " << knobPosition << "\n";
             }
 
-            // --- Custom Wave (0) ---
-            else if(c == '0') {
+            if(c == '0') {
                 custom = true;
-                updateWave(); // force rebuild
+                updateWave();   // you can manually force rebuild if needed
                 std::cout << "Custom wave ON\n";
             }
-
-            // --- Edit Wave / Curvature Toggle (9) ---
-            else if(c == '9') {
-                inpMode = (inpMode == 1) ? 0 : 1;
-                std::cout << "Edit mode = " << inpMode << "\n";
+            if(c == '9'){
+                if(inpMode == 1) inpMode = 0;
+                else inpMode = 1;
+                
             }
+            if(c == 'a') inpMode = 2;
+            if(c == 'd') inpMode = 3;
+            if(c == 's') inpMode = 4;
+            if(c == 'r') inpMode = 5;
 
-            // --- ADSR Editing ---
-            else if(c == 'a') inpMode = 2; // attack
-            else if(c == 'd') inpMode = 3; // decay
-            else if(c == 's') inpMode = 4; // sustain
-            else if(c == 'r') inpMode = 5; // release
+            int v;
 
-            // --- Voice Toggle Keys ---
-            else if(c == 'z' || c == 'x' || c == 'c' || c == 'v') {
-                int v = 0;
-                if(c == 'z') v = 0;
-                else if(c == 'x') v = 1;
-                else if(c == 'c') v = 2;
-                else if(c == 'v') v = 3;
-
-                if(voices[v].active) {
-                    voices[v].active = false;
-                    voices[v].time = 0.0f;
-                    std::cout << "Voice " << v << " OFF\n";
-                } else {
-                    voices[v].active = true;
-                    voices[v].time = 0.0f;
-                    voices[v].phase = 0.0f;
-                    voices[v].frequency = noteToHz(noteMapping[v]);
-                    std::cout << "Voice " << v << " ON\n";
-                }
+            if(c == 'z') v=0;
+            if(c == 'x') v=1;
+            if(c == 'c') v=2;
+            if(c == 'v') v=3;
+            if(voices[v].active) {
+                voices[v].active = false;
+                voices[v].time = 0.0f;
+                std::cout << "Voice " << v << " OFF\n";
+            } else {
+                voices[v].active = true;
+                voices[v].time = 0.0f;
+                voices[v].phase = 0.0f;
+                voices[v].frequency = noteToHz(noteMapping[v]);
+                std::cout << "Voice " << v << " ON\n";
             }
+            
         }
-
         usleep(1000);
-        lastP1 = p1;
-        lastP2 = p2;
-        lastP3 = p3;
-        lastP4 = p4;
     }
     
     Pa_StopStream(stream);
