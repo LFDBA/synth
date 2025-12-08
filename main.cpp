@@ -6,17 +6,14 @@
 #include <fcntl.h>
 #include <vector>
 #include <array>
-#include <unistd.h>
 #include <linux/input.h>
 #include <algorithm>
 #include <sstream>
 #include <string>
 
-
 float norm(float x, float in_min, float in_max, float out_min, float out_max) {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
-
 
 // === Constants ===
 const float sampleRate = 48000.0f;
@@ -30,12 +27,8 @@ enum Mode {
 };
 Mode menu = WAVE_MENU;
 
-int p1;
-int p2;
-int p3;
-int p4;
-
-float curvature = 1.0f;
+int p1, p2, p3, p4;
+float curvature = 1.0f;  // Curvature for waveform interpolation
 
 // --- Note to Hz ---
 float noteToHz(int noteNumber) {
@@ -65,70 +58,51 @@ float getMorphValue(int knobPos) {
 }
 
 // ======================================================
-//                     Custom Wave
+//                     Custom Wave (Fixed-Point Editor)
 // ======================================================
-
-static std::vector<std::array<float,2>> controlPoints = {
-    {0,0.0f}, {512, 2.0f}, {1024, 0.0f}, {1536, -2.0f}, {2048, 0.0f}
-};
+const int WAVE_RES = 12;        // Number of editable points
+float wavePoints[WAVE_RES];      // Editable waveform points
+int editIndex = 0;               // Currently edited point
 
 static std::vector<float> customTable;
 static bool waveNeedsRebuild = true;
-const int TABLE_SIZE = 2048;
+const int TABLE_SIZE = 8192;
 
 // --- Fast linear interpolation ---
 inline float lerp(float a, float b, float t) {
     return a + (b - a) * t;
 }
 
-// --- Iterative De Casteljau ---
-std::array<float,2> bezierPointIter(const std::vector<std::array<float,2>>& pts, float t) {
-    std::vector<std::array<float,2>> temp = pts;
-
-    for (size_t k = pts.size() - 1; k > 0; --k) {
-        for (size_t i = 0; i < k; i++) {
-            temp[i][0] = lerp(temp[i][0], temp[i+1][0], t);
-            temp[i][1] = lerp(temp[i][1], temp[i+1][1], t);
-        }
-    }
-    return temp[0];
-}
-// --- Linear interpolation of control points ---
-inline float linearBezier(const std::vector<std::array<float,2>>& pts, float t) {
-    int n = pts.size();
-    float pos = t * (n - 1);
-    int idx = (int)floor(pos);
-    if(idx >= n-1) return pts.back()[1];
-    float localT = pos - idx;
-    return lerp(pts[idx][1], pts[idx+1][1], localT);
+// --- Curvature interpolation ---
+inline float curveInterp(float a, float b, float t, float curv) {
+    if(curv != 1.0f) t = powf(t, curv);  // >1 = starts flat, <1 = starts sharp
+    return lerp(a, b, t);
 }
 
-// --- Full Bézier point (De Casteljau) ---
-inline float fullBezier(const std::vector<std::array<float,2>>& pts, float t) {
-    return bezierPointIter(pts, t)[1];
-}
-
-// --- Rebuild wavetable with curvature morph ---
+// --- Rebuild wavetable from fixed points with curvature ---
 void rebuildWaveTable() {
-    customTable.resize(TABLE_SIZE);
-
     for(int i = 0; i < TABLE_SIZE; i++) {
         float t = float(i) / float(TABLE_SIZE - 1);
-
-        float linearVal = linearBezier(controlPoints, t);
-        float smoothVal = fullBezier(controlPoints, t);
-
-        // Morph between linear and smooth using curvature
-        customTable[i] = lerp(linearVal, smoothVal, curvature);
+        float idxF = t * (WAVE_RES - 1);
+        int idx = int(idxF);
+        float frac = idxF - idx;
+        float v1 = wavePoints[idx];
+        float v2 = wavePoints[std::min(idx+1, WAVE_RES-1)];
+        customTable[i] = curveInterp(v1, v2, frac, curvature); // Apply curvature
     }
-
     waveNeedsRebuild = false;
 }
 
-
-
-// --- Your requested function ---
 void updateWave() {
+    waveNeedsRebuild = true;
+}
+
+// --- Initialize waveform points ---
+void initWavePoints() {
+    for(int i = 0; i < WAVE_RES; i++) {
+        wavePoints[i] = norm(i, 0, WAVE_RES-1, -2.0f, 2.0f);
+    }
+    customTable.resize(TABLE_SIZE);
     waveNeedsRebuild = true;
 }
 
@@ -141,9 +115,6 @@ struct Voice {
     bool active = false;
     float time = 0.0f;
     float oscVolume = 0.04f;
-
-    float pInput = 0.0f;
-    float pOutput = 0.0f;
 };
 
 float ADSR(float attack, float decay, float sustain, float release, bool trig, float t, float lvl) {
@@ -170,15 +141,12 @@ float ADSR(float attack, float decay, float sustain, float release, bool trig, f
 // =================================================
 //                  Global Vars
 // =================================================
-
 float knobPosition = 0.9f;
 Voice voices[numVoices];
 int noteMapping[numVoices] = {48, 52, 55, 60};
-float voiceSample;
 bool custom = false;
 struct input_event ev;
 int fd = -1;
-bool hold = true;
 float inpVal = 0;
 float sweepPos = 0;
 int inpMode = -1;
@@ -190,7 +158,6 @@ float release = 1.2f;
 // =================================================
 //                  Audio Callback
 // =================================================
-
 static int audioCallback(
     const void*, void* outputBuffer,
     unsigned long framesPerBuffer,
@@ -208,18 +175,18 @@ static int audioCallback(
         float mix = 0.0f;
 
         for(int v=0; v<numVoices; v++) {
-
             voices[v].time += 1.0f / sampleRate;
             voices[v].phase += voices[v].frequency / sampleRate;
             if(voices[v].phase >= 1.0f) voices[v].phase -= 1.0f;
 
             float adsr = ADSR(attack, decay, sustain, release, voices[v].active, voices[v].time, voices[v].oscVolume);
-
             float sample;
 
             if(custom) {
-                int index = (int)(voices[v].phase * TABLE_SIZE) & (TABLE_SIZE - 1);
+                int index = static_cast<int>(voices[v].phase * TABLE_SIZE);
+                if(index >= TABLE_SIZE) index = TABLE_SIZE-1;
                 sample = customTable[index] * adsr;
+
             } else {
                 float segment = t * 4.0f;
                 int idx = (int)floor(segment);
@@ -250,7 +217,6 @@ static int audioCallback(
 // =================================================
 //         Non-blocking keyboard input
 // =================================================
-
 void setNonBlockingInput() {
     struct termios ttystate;
     tcgetattr(STDIN_FILENO, &ttystate);
@@ -263,8 +229,8 @@ void setNonBlockingInput() {
 // =================================================
 //               Read Input Device
 // =================================================
-std::string line = "";      // Buffer for incoming serial lines
-int lastValue = 0;          // Last read potentiometer value
+std::string line = "";
+int lastP1=-1, lastP2, lastP3, lastP4;
 
 bool initSerial(const char* port = "/dev/ttyACM0") {
     fd = open(port, O_RDONLY | O_NOCTTY);
@@ -300,10 +266,7 @@ bool initSerial(const char* port = "/dev/ttyACM0") {
     return true;
 }
 
-int lastP1=-1, lastP2, lastP3, lastP4;
-// Reads from serial, returns the latest value
 void getInp() {
-
     char buf[64];
     int n = read(fd, buf, sizeof(buf));
     if (n > 0) {
@@ -316,83 +279,53 @@ void getInp() {
                     std::string label;
                     int value;
                     ss >> label >> value;
-                    std::cout << "[" << label << "] " << value << std::endl;
 
-                    
                     if (label == "p1") p1 = (-value)+1023;
                     else if (label == "p2") p2 = (-value)+1023;
                     else if (label == "p3") p3 = (-value)+1023;
                     else if (label == "p4") p4 = (-value)+1023;
                 }
                 line.clear();
-            }
-            else if (c != '\r') {
+            } else if (c != '\r') {
                 line += c;
             }
         }
     }
-    
-    
 }
 
 // ========================================
 //                Wave Edit
 // ========================================
-
 void editWave(){
-    sweepPos = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
-    int sweepInt = static_cast<int>(sweepPos);
-    auto it = std::find_if(controlPoints.begin(), controlPoints.end(),
-                        [sweepInt](const std::array<float,2>& row) {
-                            return row[0] == sweepPos;
-                        });
+    // Map p1 to point index
+    editIndex = static_cast<int>(norm(p1, 0.0f, 1023.0f, 0.0f, WAVE_RES-1));
 
-    
-    if(abs(p2-lastP2)>1){
-        if (it != controlPoints.end()) {
-            std::cout << "Found row where first element = " << sweepPos << "\n";
-            std::cout << "Full row: [" << (*it)[0] << ", " << (*it)[1] << "]\n";
-            (*it)[1] = norm(p2, 0.0f, 1023.0f, -2.0f, 2.0f);
-        } else {
-            controlPoints.push_back({sweepPos, norm(p2, 0.0f, 1023.0f, -2.0f, 2.0f)});
-            
-        }
+    // Edit the waveform point
+    if(abs(p2 - lastP2) > 1) {
+        wavePoints[editIndex] = norm(p2, 0.0f, 1023.0f, -2.0f, 2.0f);
+        waveNeedsRebuild = true;
     }
-    if(abs(p3-lastP3)>1) curvature = norm(p3, 0.0f, 1023.0f, -2.0f, 2.0f);
+
+    // Curvature
+    if(abs(p3 - lastP3) > 1) curvature = norm(p3, 0.0f, 1023.0f, 0.1f, 5.0f); 
+
+    // Morph knob
     knobPosition = norm(p4, 0.0f, 1023.0f, 0.0f, 0.9f);
-    if(abs(p4-lastP4)>3) custom = false;
+    if(abs(p4 - lastP4) > 3) custom = false;
 
     updateWave();
-    
 }
-
 
 // =================================================
 //                        MAIN
 // =================================================
-
 int main() {
     if (!initSerial()) return 1;
-    // =============================================
-    //              Init Input Device
-    // =============================================
-
-    
-
-    
-
-    std::cout << "Reading " << device << " Events \n";
-
-
-    
-    
-
-
 
     setNonBlockingInput();
+    initWavePoints(); // Initialize waveform
 
     Pa_Initialize();
-
     PaStream* stream;
     Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, sampleRate, 256, audioCallback, nullptr);
     Pa_StartStream(stream);
@@ -401,95 +334,39 @@ int main() {
     std::cout << "Press keys 1–8 to morph wave. Press 0 for CUSTOM curve.\n";
 
     while(true) {
-        
-        
-        
         char c;
 
         getInp();
         if(lastP1 == -1){
-            lastP1 = p1;
-            lastP2 = p2;
-            lastP3 = p3;
-            lastP4 = p4;
+            lastP1 = p1; lastP2 = p2; lastP3 = p3; lastP4 = p4;
         }
-        
+
         if(menu == WAVE_MENU) editWave(); 
-        else if(inpMode == 2 && attack >= 0) {
-            attack = inpVal/100;   
-            if(attack < 0) attack = 0;
-        }
-        else if(inpMode == 3 && decay >= 0) {
-            decay = inpVal/100;   
-            if(decay < 0) decay = 0;
-        }
-        else if(inpMode == 4 && sustain >= 0) {
-            sustain = inpVal/100;   
-            if(sustain < 0) sustain = 0;
-        }
-        else if(inpMode == 5 && release >= 0) {
-            release = inpVal/100;
-            if(release < 0) release = 0;
-        }
+        else if(inpMode == 2 && attack >= 0) { attack = inpVal/100; if(attack<0) attack=0; }
+        else if(inpMode == 3 && decay >= 0) { decay = inpVal/100; if(decay<0) decay=0; }
+        else if(inpMode == 4 && sustain >= 0) { sustain = inpVal/100; if(sustain<0) sustain=0; }
+        else if(inpMode == 5 && release >= 0) { release = inpVal/100; if(release<0) release=0; }
 
         ssize_t n = read(STDIN_FILENO, &c, 1);
         if(n > 0) {
-
-            // --- Wave Morph Keys (1–8) ---
-            if(c >= '1' && c <= '8') {
-                knobPosition = c - '0';
-                custom = false;
-                std::cout << "Morph knob = " << knobPosition << "\n";
-            }
-
-            // --- Custom Wave (0) ---
-            else if(c == '0') {
-                custom = true;
-                updateWave(); // force rebuild
-                std::cout << "Custom wave ON\n";
-            }
-
-            // --- Edit Wave / Curvature Toggle (9) ---
-            else if(c == '9') {
-                inpMode = (inpMode == 1) ? 0 : 1;
-                std::cout << "Edit mode = " << inpMode << "\n";
-            }
-
-            // --- ADSR Editing ---
-            else if(c == 'a') inpMode = 2; // attack
-            else if(c == 'd') inpMode = 3; // decay
-            else if(c == 's') inpMode = 4; // sustain
-            else if(c == 'r') inpMode = 5; // release
-
-            // --- Voice Toggle Keys ---
+            if(c >= '1' && c <= '8') { knobPosition = c - '0'; custom = false; }
+            else if(c == '0') { custom = true; updateWave(); }
+            else if(c == '9') inpMode = (inpMode == 1) ? 0 : 1;
+            else if(c == 'a') inpMode = 2;
+            else if(c == 'd') inpMode = 3;
+            else if(c == 's') inpMode = 4;
+            else if(c == 'r') inpMode = 5;
             else if(c == 'z' || c == 'x' || c == 'c' || c == 'v') {
-                int v = 0;
-                if(c == 'z') v = 0;
-                else if(c == 'x') v = 1;
-                else if(c == 'c') v = 2;
-                else if(c == 'v') v = 3;
-
-                if(voices[v].active) {
-                    voices[v].active = false;
-                    voices[v].time = 0.0f;
-                    std::cout << "Voice " << v << " OFF\n";
-                } else {
-                    voices[v].active = true;
-                    voices[v].time = 0.0f;
-                    voices[v].phase = 0.0f;
-                    voices[v].frequency = noteToHz(noteMapping[v]);
-                    std::cout << "Voice " << v << " ON\n";
-                }
+                int v = (c=='z')?0:(c=='x')?1:(c=='c')?2:3;
+                if(voices[v].active) { voices[v].active=false; voices[v].time=0.0f; }
+                else { voices[v].active=true; voices[v].time=0.0f; voices[v].phase=0.0f; voices[v].frequency=noteToHz(noteMapping[v]); }
             }
         }
 
         usleep(1000);
-        lastP1 = p1;
-        lastP2 = p2;
-        lastP3 = p3;
-        lastP4 = p4;
+        lastP1 = p1; lastP2 = p2; lastP3 = p3; lastP4 = p4;
     }
-    
+
     Pa_StopStream(stream);
     Pa_CloseStream(stream);
     Pa_Terminate();
