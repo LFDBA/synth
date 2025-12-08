@@ -171,7 +171,7 @@ float ADSR(float attack, float decay, float sustain, float release, bool trig, f
 //                  Global Vars
 // =================================================
 
-int knobPosition = 1;
+float knobPosition = 0.9f;
 Voice voices[numVoices];
 int noteMapping[numVoices] = {48, 52, 55, 60};
 float voiceSample;
@@ -199,7 +199,7 @@ static int audioCallback(
     void*)
 {
     float* output = (float*)outputBuffer;
-    float t = getMorphValue(knobPosition);
+    float t = (knobPosition);
 
     if (custom && waveNeedsRebuild)
         rebuildWaveTable();
@@ -300,10 +300,7 @@ bool initSerial(const char* port = "/dev/ttyACM0") {
     return true;
 }
 
-int lastP1 = -1;
-int lastP2;
-int lastP3;
-int lastP4;
+int lastP1=-1, lastP2, lastP3, lastP4;
 // Reads from serial, returns the latest value
 void getInp() {
 
@@ -362,7 +359,8 @@ void editWave(){
         }
     }
     if(abs(p3-lastP3)>1) curvature = norm(p3, 0.0f, 1023.0f, -2.0f, 2.0f);
-    
+    knobPosition = norm(p4, 0.0f, 1023.0f, 0.0f, 0.9f);
+    if(abs(p4-lastP4)>1) custom = false;
 
     updateWave();
     
