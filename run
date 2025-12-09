@@ -1,3 +1,13 @@
 #!/bin/bash
-g++ main.cpp -o main -lportaudio -pthread
+g++ \
+  main.cpp \
+  Reverb.cpp \
+  FFTConvolver.cpp \
+  TwoStageFFTConvolver.cpp \
+  Utilities.cpp \
+  AudioFFT.cpp \
+  -o main \
+  -O3 -std=c++17 \
+  -lportaudio -lpthread -lm
+
 ./main

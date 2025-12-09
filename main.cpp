@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <sstream>
 #include <string>
+#include "Reverb.h"
 
 float norm(float x, float in_min, float in_max, float out_min, float out_max) {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -19,6 +20,8 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
 const char* device = "/dev/input/by-id/usb-Griffin_Technology__Inc._Griffin_PowerMate-event-if00";
+
+Reverb reverb(sampleRate);
 
 enum Mode {
     MODE_NONE,
@@ -153,7 +156,7 @@ int inpMode = -1;
 float attack = 0.5f;
 float decay = 0.5f;
 float sustain = 0.8f;
-float release = 1.2f;
+float release = 0.0f;
 
 // =================================================
 //                  Audio Callback
@@ -206,7 +209,11 @@ static int audioCallback(
 
             mix += sample;
         }
+        //maybe add clamp later
+        //mix = std::clamp(mix, -1.0f, 1.0f);
 
+
+        mix = reverb.process(mix);
         output[2*i]     = mix;
         output[2*i + 1] = mix;
     }
@@ -302,6 +309,7 @@ void editWave(){
 
     // Edit the waveform point
     if(abs(p2 - lastP2) > 1) {
+        std::cout << "Editing pt: " << editIndex;
         wavePoints[editIndex] = norm(p2, 0.0f, 1023.0f, -2.0f, 2.0f);
         waveNeedsRebuild = true;
     }
@@ -311,8 +319,8 @@ void editWave(){
 
     // Morph knob
     knobPosition = norm(p4, 0.0f, 1023.0f, 0.0f, 0.9f);
-    if(abs(p4 - lastP4) > 3) custom = false;
-
+    if(abs(p4 - lastP4) > 2) custom = false;
+    if(abs(p1-lastP1) > 2 || abs(p2-lastP2) > 2 || abs(p3-lastP3) > 2) custom = true;
     updateWave();
 }
 
@@ -321,6 +329,17 @@ void editWave(){
 // =================================================
 int main() {
     if (!initSerial()) return 1;
+
+    
+
+    // Choose type
+    reverb.mode = ReverbType::SCHROEDER;
+
+    // Set parameters
+    reverb.setDryWet(1.0f,0.0f);
+    reverb.setRoomSize(10.0f);  // 0-1
+    reverb.setDecay(0.9f);     // 0-1
+
 
     setNonBlockingInput();
     initWavePoints(); // Initialize waveform

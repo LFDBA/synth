@@ -1,0 +1,95 @@
+#pragma once
+#include <vector>
+#include <array>
+#include <string>
+#include <cmath>
+#include "FFTConvolver.h"
+
+// ---------- Simple Feedback Delay Reverb ----------
+class SimpleReverb {
+public:
+    SimpleReverb(float delaySec, float decay, int sr);
+
+    float process(float input);
+    void setDryWet(float dry, float wet);
+    void setRoomSize(float size);   // 0-1, changes delay length
+    void setDecay(float decay);     // 0-1, changes feedback
+
+private:
+    float feedback;
+    int delaySamples;
+    std::vector<float> buffer;
+    int readIndex = 0, writeIndex = 0;
+
+    float dryMix = 0.7f, wetMix = 0.3f;
+    int sampleRate;
+};
+
+// ---------- Schroeder Reverb ----------
+struct Comb {
+    std::vector<float> buf;
+    int idx = 0;
+    float feedback;
+
+    Comb(int size, float fb);
+    float process(float x);
+    void setFeedback(float fb);
+};
+
+struct Allpass {
+    std::vector<float> buf;
+    int idx = 0;
+    float feedback;
+
+    Allpass(int size, float fb);
+    float process(float x);
+};
+
+class SchroederReverb {
+public:
+    SchroederReverb(int sr);
+
+    float process(float input);
+    void setDryWet(float dry, float wet);
+    void setRoomSize(float size); // 0-1, adjusts comb delays slightly
+    void setDecay(float decay);   // 0-1, adjusts comb feedbacks
+
+private:
+    std::array<Comb, 4> combs;
+    std::array<Allpass, 2> allpasses;
+    float dryMix = 0.7f, wetMix = 0.3f;
+};
+
+// ---------- Convolution Reverb ----------
+class ConvolutionReverb {
+public:
+    bool loadIR(const std::string& path);
+    float process(float input);
+    void setDryWet(float dry, float wet);
+
+private:
+    fftconvolver::FFTConvolver convolver;
+    float dryMix = 0.7f, wetMix = 0.3f;
+};
+
+// ---------- Unified Wrapper ----------
+enum class ReverbType { SIMPLE, SCHROEDER, CONVOLUTION };
+
+class Reverb {
+public:
+    Reverb(int sr);
+
+    ReverbType mode;
+
+    SimpleReverb simple;
+    SchroederReverb schroeder;
+    ConvolutionReverb convolution;
+
+    float process(float input);
+    void setDryWet(float dry, float wet);
+    void setRoomSize(float size);
+    void setDecay(float decay);
+
+private:
+    int sampleRate;
+};
