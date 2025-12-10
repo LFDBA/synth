@@ -360,7 +360,7 @@ int main() {
     setNonBlockingInput();
     initWavePoints();
 
-    RtAudio dac( RtAudio::ALSA );
+    RtAudio dac( RtAudio::LINUX_ALSA );
     RtAudio::StreamParameters oParams;
     oParams.deviceId = dac.getDefaultOutputDevice();
     oParams.nChannels = 2;
