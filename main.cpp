@@ -364,58 +364,64 @@ void editTone() {
 int main() {
     if (!initSerial()) return 1;
 
-    reverb.mode = ReverbType::SCHROEDER;
-    reverb.setDryWet(1.0f,0.0f);
-    reverb.setRoomSize(10.0f);  
-    reverb.setDecay(0.9f);     
+    RtAudio dac(RtAudio::Api::UNSPECIFIED); // fully qualified
+    try {
+        // Output stream parameters
+        RtAudio::StreamParameters oParams;  // fully qualified
+        oParams.deviceId = dac.getDefaultOutputDevice();
+        oParams.nChannels = 2;
+        oParams.firstChannel = 0;
 
-    setNonBlockingInput();
-    initWavePoints(); // Initialize waveform
+        // Stream options
+        RtAudio::StreamOptions options; // fully qualified
+        options.flags = 0;
+        options.numberOfBuffers = 2;
 
-    // RtAudio v6+ setup
-    auto errorCallback = [](RtAudioErrorType type, const std::string &msg) {
-        std::cerr << "RtAudio Error: " << msg << std::endl;
-    };
-    RtAudio dac(RtAudio::Api::UNSPECIFIED, errorCallback);
+        // Open stream
+        dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32,
+                       sampleRate, 256, audioCallback, nullptr, &options);
 
-    StreamParameters oParams;
-    oParams.deviceId = dac.getDefaultOutputDevice();
-    oParams.nChannels = 2;
-    oParams.firstChannel = 0;
-
-    StreamOptions options;
-
-    dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32,
-                   sampleRate, 256, audioCallback, nullptr, &options);
-
-    dac.startStream();
+        dac.startStream();
+    }
+    catch (RtAudio::RtAudioError &e) {  // fully qualified
+        e.printMessage();
+        return 1;
+    }
 
     std::cout << "Polyphonic Synth Ready.\n";
     std::cout << "Press keys 1–8 to morph wave. Press 0 for CUSTOM curve.\n";
 
-    while(true) {
+    // your main loop remains unchanged
+    while (true) {
         char c;
-
         getInp();
-        if(lastP1 == -1){
+
+        if (lastP1 == -1) {
             lastP1 = p1; lastP2 = p2; lastP3 = p3; lastP4 = p4;
         }
 
-        if(menu == TONE_MENU) editTone();
-        if(menu == WAVE_MENU) editWave(); 
-        if(menu == ADSR_MENU) editADSR();
-        if(menu == REVERB_MENU) editReverb();
+        if (menu == TONE_MENU) editTone();
+        if (menu == WAVE_MENU) editWave();
+        if (menu == ADSR_MENU) editADSR();
+        if (menu == REVERB_MENU) editReverb();
 
         ssize_t n = read(STDIN_FILENO, &c, 1);
-        if(n > 0) {
-            if(c == '1') menu = WAVE_MENU;
-            else if(c == '2') menu = ADSR_MENU;
-            else if(c == '3') menu = REVERB_MENU;
-            
-            else if(c == 'z' || c == 'x' || c == 'c' || c == 'v') {
-                int v = (c=='z')?0:(c=='x')?1:(c=='c')?2:3;
-                if(voices[v].active) { voices[v].active=false; voices[v].time=0.0f; }
-                else { voices[v].active=true; voices[v].time=0.0f; voices[v].phase=0.0f; voices[v].frequency=noteToHz(noteMapping[v]); }
+        if (n > 0) {
+            if (c == '1') menu = WAVE_MENU;
+            else if (c == '2') menu = ADSR_MENU;
+            else if (c == '3') menu = REVERB_MENU;
+
+            else if (c == 'z' || c == 'x' || c == 'c' || c == 'v') {
+                int v = (c == 'z') ? 0 : (c == 'x') ? 1 : (c == 'c') ? 2 : 3;
+                if (voices[v].active) {
+                    voices[v].active = false;
+                    voices[v].time = 0.0f;
+                } else {
+                    voices[v].active = true;
+                    voices[v].time = 0.0f;
+                    voices[v].phase = 0.0f;
+                    voices[v].frequency = noteToHz(noteMapping[v]);
+                }
             }
         }
 
@@ -423,8 +429,8 @@ int main() {
         lastP1 = p1; lastP2 = p2; lastP3 = p3; lastP4 = p4;
     }
 
-    dac.stopStream();
-    dac.closeStream();
+    try { dac.stopStream(); } catch (RtAudio::RtAudioError &e) {}
+    if (dac.isStreamOpen()) dac.closeStream();
 
     return 0;
 }
