@@ -9,22 +9,9 @@
 #include <unistd.h>
 #include <termios.h>
 #include <linux/input.h>
-
-// =====================
-// RtAudio version-safe wrapper
-// =====================
-#if defined(RTAUDIO_VERSION_MAJOR) && RTAUDIO_VERSION_MAJOR >= 6
-    // RtAudio v6+ style
-    #include <RtAudio.h>
-    using namespace rt::audio;
-    using RtError = RtAudio::RtAudioError;
-#else
-    // RtAudio v5.x style
-    #include <rtaudio/RtAudio.h>
-    using RtError = RtAudioError;
-#endif
-
+#include <rtaudio/RtAudio.h>
 #include "Reverb.h"
+#include <ncurses.h>  // For proper non-blocking keyboard input
 
 // ======================================================
 //                        Utils
@@ -39,7 +26,7 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
 float outputLevel = 0.2f;
-bool normVoices = true;
+bool normVoices = true; // Normalize by active voices
 float pan = 0.0f;
 int fd;
 int editIndex = 0;
@@ -47,7 +34,14 @@ int editIndex = 0;
 Reverb reverb(sampleRate);
 
 // Menus
-enum Mode { MODE_NONE, VOICE_TONE_MENU, TONE_MENU, WAVE_MENU, ADSR_MENU, REVERB_MENU };
+enum Mode {
+    MODE_NONE,
+    VOICE_TONE_MENU,
+    TONE_MENU,
+    WAVE_MENU,
+    ADSR_MENU,
+    REVERB_MENU
+};
 Mode menu = TONE_MENU;
 
 // Input device variables
@@ -213,11 +207,9 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             mix+=sample;
         }
 
-        // if(normVoices && activeVoices>0) mix/=(activeVoices*0.2f);
-
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
-        std::cout << mix << "\n";
+
         output[2*i]     = mix*(1.0f-pan);
         output[2*i + 1] = mix*(pan+1.0f);
     }
@@ -226,15 +218,24 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 }
 
 // ======================================================
-//                Non-blocking keyboard input
+//                Non-blocking keyboard input via ncurses
 // ======================================================
-void setNonBlockingInput() {
-    struct termios ttystate;
-    tcgetattr(STDIN_FILENO,&ttystate);
-    ttystate.c_lflag &= ~ICANON;
-    ttystate.c_lflag &= ~ECHO;
-    tcsetattr(STDIN_FILENO,TCSANOW,&ttystate);
-    fcntl(STDIN_FILENO,F_SETFL,O_NONBLOCK);
+void initKeyboard() {
+    initscr();            // start ncurses
+    cbreak();             // disable line buffering
+    noecho();             // don't echo keys
+    nodelay(stdscr, TRUE);// non-blocking getch
+    keypad(stdscr, TRUE); // enable special keys
+}
+
+void closeKeyboard() {
+    endwin();
+}
+
+int getKeyPress() {
+    int ch = getch();
+    if(ch != ERR) return ch;
+    return -1;
 }
 
 // ======================================================
@@ -290,12 +291,11 @@ void getInp() {
 }
 
 // ======================================================
-//                    Wave Edit
+//                     Wave Edit
 // ======================================================
 void editWave(){
     editIndex = static_cast<int>(norm(p1,0.0f,1023.0f,0.0f,WAVE_RES-1));
     if(abs(p2-lastP2)>1){
-        std::cout << "Editing pt: " << editIndex << "\n";
         wavePoints[editIndex] = norm(p2,0.0f,1023.0f,-2.0f,2.0f);
         waveNeedsRebuild=true;
     }
@@ -343,71 +343,76 @@ void editTone(){
     if(abs(p2-lastP2)>1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
 }
 
-// =====================
-// Main
-// =====================
+// ======================================================
+//                        MAIN
+// ======================================================
 int main() {
-    if(fd<0 && !initSerial("/dev/ttyACM1")){
-        std::cerr<<"Failed to open serial port\n";
-        return 1;
-    }
+    if(!initSerial()){
+        try{
+            initSerial("/dev/ttyACM0");
+        }catch(...){
+            std::cerr<<"Failed to open serial port\n";
+            return 1;
+        }
+    };
 
     reverb.mode = ReverbType::SCHROEDER;
     reverb.setDryWet(1.0f,0.0f);
     reverb.setRoomSize(10.0f);
     reverb.setDecay(0.9f);
 
-    setNonBlockingInput();
     initWavePoints();
+    initKeyboard();
 
-    RtAudio dac( RtAudio::LINUX_ALSA );
+    // RtAudio setup
+    RtAudio dac;
     RtAudio::StreamParameters oParams;
     oParams.deviceId = dac.getDefaultOutputDevice();
     oParams.nChannels = 2;
     unsigned int bufferFrames = 256;
 
     try {
-        dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32,
-                       sampleRate, &bufferFrames, audioCallback);
+        dac.openStream(&oParams,nullptr,RTAUDIO_FLOAT32,
+                       sampleRate,&bufferFrames,&audioCallback);
         dac.startStream();
-    } catch(RtError &e){
+    } catch(RtAudioError &e){
         e.printMessage();
         return 1;
     }
 
     std::cout << "Polyphonic Synth Ready.\n";
-    for(int v=0; v<numVoices; v++){
-        voices[v].active = true;
-        voices[v].phase = 0.0f;
-        voices[v].time = 0.0f;
-        voices[v].frequency = noteToHz(noteMapping[v]);
-    }
+    std::cout << "Press keys z,x,c,v to trigger voices, 1–3 for menus.\n";
 
     while(true){
-        getInp();
+        getInp(); // microcontroller input
+
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
 
+        // menu edits
         if(menu==TONE_MENU) editTone();
         if(menu==WAVE_MENU) editWave();
         if(menu==ADSR_MENU) editADSR();
         if(menu==REVERB_MENU) editReverb();
 
-        char c;
-        ssize_t n=read(STDIN_FILENO,&c,1);
-        if(n>0){
-            if(c=='1') menu=WAVE_MENU;
-            else if(c=='2') menu=ADSR_MENU;
-            else if(c=='3') menu=REVERB_MENU;
-            else if(c=='z'||c=='x'||c=='c'||c=='v'){
-                int v=(c=='z')?0:(c=='x')?1:(c=='c')?2:3;
-                if(voices[v].active){
-                    voices[v].active=false;
-                    voices[v].time=0.0f;
-                }else{
-                    voices[v].active=true;
-                    voices[v].time=0.0f;
-                    voices[v].phase=0.0f;
-                    voices[v].frequency = noteToHz(noteMapping[v]);
+        // Keyboard triggering
+        int key = getKeyPress();
+        if(key != -1){
+            switch(key){
+                case '1': menu=WAVE_MENU; break;
+                case '2': menu=ADSR_MENU; break;
+                case '3': menu=REVERB_MENU; break;
+                case 'z': case 'x': case 'c': case 'v': {
+                    int v = (key=='z')?0:(key=='x')?1:(key=='c')?2:3;
+                    if(voices[v].active){
+                        voices[v].active=false;
+                        voices[v].time=0.0f;
+                    }else{
+                        voices[v].active=true;
+                        voices[v].time=0.0f;
+                        voices[v].phase=0.0f;
+                        voices[v].frequency = noteToHz(noteMapping[v]);
+                    }
+                    break;
                 }
             }
         }
@@ -416,8 +421,9 @@ int main() {
         lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
     }
 
-    try { dac.stopStream(); } catch(RtError &e) {}
+    try{ dac.stopStream(); } catch(RtAudioError &e){}
     if(dac.isStreamOpen()) dac.closeStream();
+    closeKeyboard();
 
     return 0;
 }

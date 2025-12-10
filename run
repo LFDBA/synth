@@ -8,6 +8,6 @@ g++ \
   AudioFFT.cpp \
   -o main \
   -O3 -std=c++17 \
-  -lportaudio -lpthread -lm -lrtaudio -lasound
+  -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses
 
 ./main
