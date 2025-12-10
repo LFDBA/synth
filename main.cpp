@@ -225,6 +225,124 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
     return 0;
 }
 
+// ======================================================
+//                Non-blocking keyboard input
+// ======================================================
+void setNonBlockingInput() {
+    struct termios ttystate;
+    tcgetattr(STDIN_FILENO,&ttystate);
+    ttystate.c_lflag &= ~ICANON;
+    ttystate.c_lflag &= ~ECHO;
+    tcsetattr(STDIN_FILENO,TCSANOW,&ttystate);
+    fcntl(STDIN_FILENO,F_SETFL,O_NONBLOCK);
+}
+
+// ======================================================
+//               Read Input Device
+// ======================================================
+bool initSerial(const char* port="/dev/ttyACM1") {
+    fd=open(port,O_RDONLY|O_NOCTTY);
+    if(fd<0){ std::cerr<<"Failed to open serial port\n"; return false; }
+
+    termios tty{};
+    if(tcgetattr(fd,&tty)!=0){ std::cerr<<"tcgetattr failed\n"; return false; }
+
+    cfsetospeed(&tty,B115200);
+    cfsetispeed(&tty,B115200);
+    tty.c_cflag|=(CLOCAL|CREAD);
+    tty.c_cflag &= ~CSIZE;
+    tty.c_cflag |= CS8;
+    tty.c_cflag &= ~PARENB;
+    tty.c_cflag &= ~CSTOPB;
+    tty.c_cflag &= ~CRTSCTS;
+    tty.c_lflag &= ~(ICANON|ECHO|ECHOE|ISIG);
+    tty.c_iflag &= ~(IXON|IXOFF|IXANY);
+    tty.c_oflag &= ~OPOST;
+    tty.c_cc[VMIN]=1;
+    tty.c_cc[VTIME]=0;
+    tcsetattr(fd,TCSANOW,&tty);
+
+    return true;
+}
+
+void getInp() {
+    static std::string line="";
+    char buf[64];
+    int n=read(fd,buf,sizeof(buf));
+    if(n>0){
+        for(int i=0;i<n;i++){
+            char c=buf[i];
+            if(c=='\n'){
+                if(!line.empty()){
+                    std::stringstream ss(line);
+                    std::string label;
+                    int value;
+                    ss >> label >> value;
+                    if(label=="p1") p1=(-value)+1023;
+                    else if(label=="p2") p2=(-value)+1023;
+                    else if(label=="p3") p3=(-value)+1023;
+                    else if(label=="p4") p4=(-value)+1023;
+                }
+                line.clear();
+            }else if(c!='\r') line+=c;
+        }
+    }
+}
+
+// ======================================================
+//                    Wave Edit
+// ======================================================
+void editWave(){
+    editIndex = static_cast<int>(norm(p1,0.0f,1023.0f,0.0f,WAVE_RES-1));
+    if(abs(p2-lastP2)>1){
+        std::cout << "Editing pt: " << editIndex << "\n";
+        wavePoints[editIndex] = norm(p2,0.0f,1023.0f,-2.0f,2.0f);
+        waveNeedsRebuild=true;
+    }
+    if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
+    knobPosition = norm(p4,0.0f,1023.0f,0.0f,0.9f);
+    if(abs(p4-lastP4)>2) custom=false;
+    if(abs(p1-lastP1)>2 || abs(p2-lastP2)>2 || abs(p3-lastP3)>2) custom=true;
+    updateWave();
+}
+
+// ======================================================
+//                     ADSR Edit
+// ======================================================
+void editADSR(){
+    if(abs(p1-lastP1)>1) attack = norm(p1,0.0f,1023.0f,0.0f,5.0f);
+    if(abs(p2-lastP2)>1) decay = norm(p2,0.0f,1023.0f,0.0f,5.0f);
+    if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
+    if(abs(p4-lastP4)>1) release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
+}
+
+// ======================================================
+//                   Reverb Edit
+// ======================================================
+void editReverb() {
+    if(abs(p1-lastP1)>1){
+        float dry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
+        float wet = 1.0f - dry;
+        reverb.setDryWet(wet,dry);
+    }
+    if(abs(p2-lastP2)>1){
+        float size = norm(p2,0.0f,1023.0f,0.1f,1.5f);
+        reverb.setRoomSize(size);
+    }
+    if(abs(p3-lastP3)>1){
+        float decay = norm(p3,0.0f,1023.0f,0.1f,1.0f);
+        reverb.setDecay(decay);
+    }
+}
+
+// ======================================================
+//                     Tone Edit
+// ======================================================
+void editTone(){
+    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.5f);
+    if(abs(p2-lastP2)>1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
+}
+
 // =====================
 // Main
 // =====================
