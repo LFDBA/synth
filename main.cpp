@@ -9,8 +9,20 @@
 #include <unistd.h>
 #include <termios.h>
 #include <linux/input.h>
-#include <rtaudio/RtAudio.h>
-using namespace rt::audio;
+
+// =====================
+// RtAudio version-safe wrapper
+// =====================
+#if defined(RTAUDIO_VERSION_MAJOR) && RTAUDIO_VERSION_MAJOR >= 6
+    // RtAudio v6+ style
+    #include <RtAudio.h>
+    using namespace rt::audio;
+    using RtError = RtAudio::RtAudioError;
+#else
+    // RtAudio v5.x style
+    #include <rtaudio/RtAudio.h>
+    using RtError = RtAudioError;
+#endif
 
 #include "Reverb.h"
 
@@ -27,7 +39,7 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
 float outputLevel = 0.2f;
-bool normVoices = true; // Normalize by active voices
+bool normVoices = true;
 float pan = 0.0f;
 int fd;
 int editIndex = 0;
@@ -35,14 +47,7 @@ int editIndex = 0;
 Reverb reverb(sampleRate);
 
 // Menus
-enum Mode {
-    MODE_NONE,
-    VOICE_TONE_MENU,
-    TONE_MENU,
-    WAVE_MENU,
-    ADSR_MENU,
-    REVERB_MENU
-};
+enum Mode { MODE_NONE, VOICE_TONE_MENU, TONE_MENU, WAVE_MENU, ADSR_MENU, REVERB_MENU };
 Mode menu = TONE_MENU;
 
 // Input device variables
@@ -210,12 +215,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
         // if(normVoices && activeVoices>0) mix/=(activeVoices*0.2f);
 
-        // soft clip function
-        
-
-        // in the callback
         mix = softClip(mix * outputLevel);
-
         mix = reverb.process(mix);
 
         output[2*i]     = mix*(1.0f-pan);
@@ -225,136 +225,14 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
     return 0;
 }
 
-// ======================================================
-//                Non-blocking keyboard input
-// ======================================================
-void setNonBlockingInput() {
-    struct termios ttystate;
-    tcgetattr(STDIN_FILENO,&ttystate);
-    ttystate.c_lflag &= ~ICANON;
-    ttystate.c_lflag &= ~ECHO;
-    tcsetattr(STDIN_FILENO,TCSANOW,&ttystate);
-    fcntl(STDIN_FILENO,F_SETFL,O_NONBLOCK);
-}
-
-// ======================================================
-//               Read Input Device
-// ======================================================
-bool initSerial(const char* port="/dev/ttyACM1") {
-    fd=open(port,O_RDONLY|O_NOCTTY);
-    if(fd<0){ std::cerr<<"Failed to open serial port\n"; return false; }
-
-    termios tty{};
-    if(tcgetattr(fd,&tty)!=0){ std::cerr<<"tcgetattr failed\n"; return false; }
-
-    cfsetospeed(&tty,B115200);
-    cfsetispeed(&tty,B115200);
-    tty.c_cflag|=(CLOCAL|CREAD);
-    tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;
-    tty.c_cflag &= ~PARENB;
-    tty.c_cflag &= ~CSTOPB;
-    tty.c_cflag &= ~CRTSCTS;
-    tty.c_lflag &= ~(ICANON|ECHO|ECHOE|ISIG);
-    tty.c_iflag &= ~(IXON|IXOFF|IXANY);
-    tty.c_oflag &= ~OPOST;
-    tty.c_cc[VMIN]=1;
-    tty.c_cc[VTIME]=0;
-    tcsetattr(fd,TCSANOW,&tty);
-
-    return true;
-}
-
-void getInp() {
-    static std::string line="";
-    char buf[64];
-    int n=read(fd,buf,sizeof(buf));
-    if(n>0){
-        for(int i=0;i<n;i++){
-            char c=buf[i];
-            if(c=='\n'){
-                if(!line.empty()){
-                    std::stringstream ss(line);
-                    std::string label;
-                    int value;
-                    ss >> label >> value;
-                    if(label=="p1") p1=(-value)+1023;
-                    else if(label=="p2") p2=(-value)+1023;
-                    else if(label=="p3") p3=(-value)+1023;
-                    else if(label=="p4") p4=(-value)+1023;
-                }
-                line.clear();
-            }else if(c!='\r') line+=c;
-        }
-    }
-}
-
-// ======================================================
-//                    Wave Edit
-// ======================================================
-void editWave(){
-    editIndex = static_cast<int>(norm(p1,0.0f,1023.0f,0.0f,WAVE_RES-1));
-    if(abs(p2-lastP2)>1){
-        std::cout << "Editing pt: " << editIndex << "\n";
-        wavePoints[editIndex] = norm(p2,0.0f,1023.0f,-2.0f,2.0f);
-        waveNeedsRebuild=true;
-    }
-    if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
-    knobPosition = norm(p4,0.0f,1023.0f,0.0f,0.9f);
-    if(abs(p4-lastP4)>2) custom=false;
-    if(abs(p1-lastP1)>2 || abs(p2-lastP2)>2 || abs(p3-lastP3)>2) custom=true;
-    updateWave();
-}
-
-// ======================================================
-//                     ADSR Edit
-// ======================================================
-void editADSR(){
-    if(abs(p1-lastP1)>1) attack = norm(p1,0.0f,1023.0f,0.0f,5.0f);
-    if(abs(p2-lastP2)>1) decay = norm(p2,0.0f,1023.0f,0.0f,5.0f);
-    if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
-    if(abs(p4-lastP4)>1) release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
-}
-
-// ======================================================
-//                   Reverb Edit
-// ======================================================
-void editReverb() {
-    if(abs(p1-lastP1)>1){
-        float dry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
-        float wet = 1.0f - dry;
-        reverb.setDryWet(wet,dry);
-    }
-    if(abs(p2-lastP2)>1){
-        float size = norm(p2,0.0f,1023.0f,0.1f,1.5f);
-        reverb.setRoomSize(size);
-    }
-    if(abs(p3-lastP3)>1){
-        float decay = norm(p3,0.0f,1023.0f,0.1f,1.0f);
-        reverb.setDecay(decay);
-    }
-}
-
-// ======================================================
-//                     Tone Edit
-// ======================================================
-void editTone(){
-    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.5f);
-    if(abs(p2-lastP2)>1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
-}
-
-// ======================================================
-//                        MAIN
-// ======================================================
+// =====================
+// Main
+// =====================
 int main() {
-    if(!initSerial()){
-        try{
-            initSerial("/dev/ttyACM0");
-        }catch(...){
-            std::cerr<<"Failed to open serial port\n";
-            return 1;
-        }
-    };
+    if(fd<0 && !initSerial("/dev/ttyACM1")){
+        std::cerr<<"Failed to open serial port\n";
+        return 1;
+    }
 
     reverb.mode = ReverbType::SCHROEDER;
     reverb.setDryWet(1.0f,0.0f);
@@ -364,25 +242,22 @@ int main() {
     setNonBlockingInput();
     initWavePoints();
 
-    // RtAudio setup
     RtAudio dac;
     RtAudio::StreamParameters oParams;
     oParams.deviceId = dac.getDefaultOutputDevice();
     oParams.nChannels = 2;
-    RtAudio::StreamOptions options;
     unsigned int bufferFrames = 256;
 
     try {
-        dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback, nullptr, &options);
+        dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32,
+                       sampleRate, &bufferFrames, audioCallback);
         dac.startStream();
-    } catch (RtAudioError &e) {  // global namespace in v5
+    } catch(RtError &e){
         e.printMessage();
         return 1;
     }
 
-
     std::cout << "Polyphonic Synth Ready.\n";
-    std::cout << "Press keys 1–8 to morph wave. Press 0 for CUSTOM curve.\n";
 
     while(true){
         getInp();
@@ -393,7 +268,6 @@ int main() {
         if(menu==ADSR_MENU) editADSR();
         if(menu==REVERB_MENU) editReverb();
 
-        // Keyboard triggering
         char c;
         ssize_t n=read(STDIN_FILENO,&c,1);
         if(n>0){
@@ -409,7 +283,7 @@ int main() {
                     voices[v].active=true;
                     voices[v].time=0.0f;
                     voices[v].phase=0.0f;
-                    voices[v].frequency = noteToHz(noteMapping[v]); // fixed pitch
+                    voices[v].frequency = noteToHz(noteMapping[v]);
                 }
             }
         }
@@ -418,104 +292,8 @@ int main() {
         lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
     }
 
-    try{ dac.stopStream(); } catch(RtAudioError &e){}
+    try { dac.stopStream(); } catch(RtError &e) {}
     if(dac.isStreamOpen()) dac.closeStream();
 
     return 0;
 }
-
-
-
-// ======================================
-//            Example ADSR Draw
-// ======================================
-
-// void drawADSR(U8G2 &u8g2)
-// {
-//     float sustainVisTime = 0.2f; // purely visual
-
-//     float totalTime = attack + decay + sustainVisTime + release;
-
-//     for(int x = 0; x < 128; x++)
-//     {
-//         float t = (float)x / 128.0f * totalTime;
-
-//         bool noteHeld = (t < attack + decay + sustainVisTime);
-
-//         float env = ADSR(attack, decay, sustain, release,
-//                          noteHeld,
-//                          t,
-//                          1.0f);
-
-//         // scale ADSR output (0–1) to screen height (0–63)
-//         int y = 63 - int(env * 63.0f);
-
-//         u8g2.drawPixel(x, y);
-//     }
-// }
-
-
-// ======================================
-//          Example Voice Draw
-// ======================================
-
-// void drawVoice(u8g2_t &u8g2)
-// {
-//     u8g2.clearBuffer();
-
-//     const int width  = 128;
-//     const int height = 64;
-
-//     int lastY = -1;
-
-//     for (int x = 0; x < width; x++)
-//     {
-//         float phase = (float)x / (float)(width - 1);
-//         float v = osc(phase);   // -1 to +1
-
-//         int y = (int)((1.0f - v) * 0.5f * (height - 1));
-
-//         if (x > 0)
-//             u8g2.drawLine(x - 1, lastY, x, y);
-
-//         lastY = y;
-//     }
-
-//     u8g2.sendBuffer();
-// }
-
-// ======================================
-//          Example Output Draw
-// ======================================
-
-// void drawOutput(u8g2_t &u8g2, float sample) {
-//     static int x = 0;
-
-//     const int width  = 128;
-//     const int height = 64;
-
-//     // Map sample (-1..+1) to Y coordinate (0..63)
-//     int y = (int)((1.0f - sample) * 0.5f * (height - 1));
-
-//     // --- erase only this column ---
-//     for (int i = 0; i < height; i++) {
-//         u8g2.setDrawColor(0);      // draw "black"
-//         u8g2.drawPixel(x, i);      // clear old pixels
-//     }
-
-//     // --- draw new waveform column ---
-//     u8g2.setDrawColor(1);          // draw "white"
-
-//     // draw a vertical line from the middle to the point
-//     int mid = height / 2;
-//     if (y > mid)
-//         u8g2.drawLine(x, mid, x, y);
-//     else
-//         u8g2.drawLine(x, y, x, mid);
-
-//     // advance x
-//     x++;
-//     if (x >= width) x = 0;
-
-//     u8g2.sendBuffer();
-// }
