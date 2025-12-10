@@ -20,16 +20,21 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
 const char* device = "/dev/input/by-id/usb-Griffin_Technology__Inc._Griffin_PowerMate-event-if00";
+float outputLevel = 1f;
+bool normVoices = true; // Normalize by active voices
+float pan = 0.0f;
 
 Reverb reverb(sampleRate);
 
 enum Mode {
     MODE_NONE,
+    VOICE_TONE_MENU,
+    TONE_MENU,
     WAVE_MENU,
     ADSR_MENU,
     REVERB_MENU
 };
-Mode menu = WAVE_MENU;
+Mode menu = TONE_MENU;
 
 int p1, p2, p3, p4;
 float curvature = 1.0f;  // Curvature for waveform interpolation
@@ -171,6 +176,7 @@ static int audioCallback(
 {
     float* output = (float*)outputBuffer;
     float t = (knobPosition);
+    int activeVoices = 0;
 
     if (custom && waveNeedsRebuild)
         rebuildWaveTable();
@@ -179,6 +185,8 @@ static int audioCallback(
         float mix = 0.0f;
 
         for(int v=0; v<numVoices; v++) {
+            if(!voices[v].active) continue;
+            activeVoices++;
             voices[v].time += 1.0f / sampleRate;
             voices[v].phase += voices[v].frequency / sampleRate;
             if(voices[v].phase >= 1.0f) voices[v].phase -= 1.0f;
@@ -213,11 +221,12 @@ static int audioCallback(
         //maybe add clamp later
         //mix = std::clamp(mix, -1.0f, 1.0f);
 
-        mix = mix / float(numVoices); // Normalize
+        mix = mix * outputLevel; // Normalize
+        if(normVoices) mix = mix / activeVoices;
         mix = reverb.process(mix);
 
-        output[2*i]     = mix;
-        output[2*i + 1] = mix;
+        output[2*i]     = mix * (1.0f-pan);
+        output[2*i + 1] = mix * (pan+1.0f);
     }
 
     return 0;
@@ -371,6 +380,30 @@ void editReverb() {
     }
 }
 
+// =================================================
+//                     Tone Edit
+// =================================================
+
+void editTone() {
+    // Output Level
+    if(abs(p1 - lastP1) > 1) {
+        outputLevel = norm(p1, 0.0f, 1023.0f, 0.0f, 5.0f);
+    }
+
+    // Pan
+    if(abs(p2 - lastP2) > 1) {
+        pan = norm(p3, 0.0f, 1023.0f, -1.0f, 1.0f);
+    }
+
+    // Normalize Voices Toggle maybe
+    // if(abs(p3 - lastP3) > 5) {
+    //     normVoices = (p3 < 512);
+    // }
+
+    
+
+    // future
+}
 
 // =================================================
 //                        MAIN
