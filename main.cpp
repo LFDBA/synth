@@ -394,7 +394,7 @@ void editTone() {
 
     // Pan
     if(abs(p2 - lastP2) > 1) {
-        pan = norm(p3, 0.0f, 1023.0f, -1.0f, 1.0f);
+        pan = norm(p2, 0.0f, 1023.0f, -1.0f, 1.0f);
     }
 
     // Normalize Voices Toggle maybe
