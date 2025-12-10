@@ -8,6 +8,7 @@ sudo apt install alsa-utils -y
 sudo apt install rtaudio rtaudio-devel -y
 sudo apt install alsa-lib-devel -y
 sudo apt install librtaudio-dev -y
+sudo apt install libncurses5-dev libncursesw5-dev -y
 
 
 pip install numpy

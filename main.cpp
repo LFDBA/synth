@@ -25,7 +25,7 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 // ======================================================
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
-float outputLevel = 0.2f;
+float outputLevel = 0.1f;
 bool normVoices = true; // Normalize by active voices
 float pan = 0.0f;
 int fd;
@@ -339,7 +339,7 @@ void editReverb() {
 //                     Tone Edit
 // ======================================================
 void editTone(){
-    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.5f);
+    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.1f);
     if(abs(p2-lastP2)>1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
 }
 
