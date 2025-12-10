@@ -9,11 +9,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <linux/input.h>
-#ifdef HAVE_RTAUDIO_RTAUDIO_H
-  #include <rtaudio/RtAudio.h>
-#else
-  #include <RtAudio/RtAudio.h>
-#endif
+#include <rtaudio/RtAudio.h>
 
 #include "Reverb.h"
 
