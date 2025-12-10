@@ -12,7 +12,7 @@
 #ifdef HAVE_RTAUDIO_RTAUDIO_H
   #include <rtaudio/RtAudio.h>
 #else
-  #include <RtAudio/RtAudio.h>
+  #include <RtAudio.h>
 #endif
 
 #include "Reverb.h"
