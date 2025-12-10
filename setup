@@ -31,5 +31,7 @@ sudo alsactl init
 chmod +x run
 chmod +x test
 chmod +x restart
+chmod +x update
+./update
 
 ###### ADD PIGPIO INSTALL!!!! ######
