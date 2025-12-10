@@ -20,7 +20,7 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 const float sampleRate = 48000.0f;
 const int numVoices = 7;
 const char* device = "/dev/input/by-id/usb-Griffin_Technology__Inc._Griffin_PowerMate-event-if00";
-float outputLevel = 1f;
+float outputLevel = 4.0f;
 bool normVoices = true; // Normalize by active voices
 float pan = 0.0f;
 
@@ -123,7 +123,7 @@ struct Voice {
     float frequency = 261.63f;
     bool active = false;
     float time = 0.0f;
-    float oscVolume = 0.04f;
+    float oscVolume = 1.0f;
 };
 
 float ADSR(float attack, float decay, float sustain, float release, bool trig, float t, float lvl) {
@@ -176,14 +176,14 @@ static int audioCallback(
 {
     float* output = (float*)outputBuffer;
     float t = (knobPosition);
-    int activeVoices = 0;
+    
 
     if (custom && waveNeedsRebuild)
         rebuildWaveTable();
 
     for(unsigned long i=0; i<framesPerBuffer; i++) {
         float mix = 0.0f;
-
+        int activeVoices = 1;
         for(int v=0; v<numVoices; v++) {
             if(!voices[v].active) continue;
             activeVoices++;
@@ -222,7 +222,9 @@ static int audioCallback(
         //mix = std::clamp(mix, -1.0f, 1.0f);
 
         mix = mix * outputLevel; // Normalize
-        if(normVoices) mix = mix / activeVoices;
+
+        // MAYBE ADD BACK LATER WITH IMPROVEMENTS
+        // if(normVoices) mix = mix / (activeVoices*0.3f);
         mix = reverb.process(mix);
 
         output[2*i]     = mix * (1.0f-pan);
@@ -441,9 +443,11 @@ int main() {
             lastP1 = p1; lastP2 = p2; lastP3 = p3; lastP4 = p4;
         }
 
+        if(menu == TONE_MENU) editTone();
         if(menu == WAVE_MENU) editWave(); 
         if(menu == ADSR_MENU) editADSR();
         if(menu == REVERB_MENU) editReverb();
+
 
         ssize_t n = read(STDIN_FILENO, &c, 1);
         if(n > 0) {
