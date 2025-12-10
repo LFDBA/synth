@@ -30,6 +30,7 @@ bool normVoices = true; // Normalize by active voices
 float pan = 0.0f;
 int fd;
 int editIndex = 0;
+bool edit = false;
 
 Reverb reverb(sampleRate);
 
@@ -416,15 +417,19 @@ int main() {
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
 
         // menu edits
-        if(menu==TONE_MENU) editTone();
-        if(menu==WAVE_MENU) editWave();
-        if(menu==ADSR_MENU) editADSR();
-        if(menu==REVERB_MENU) editReverb();
+        if(edit){
+            if(menu==TONE_MENU) editTone();
+            if(menu==WAVE_MENU) editWave();
+            if(menu==ADSR_MENU) editADSR();
+            if(menu==REVERB_MENU) editReverb();
+        }
+        
 
         // Keyboard triggering
         int key = getKeyPress();
         if(key != -1){
             switch(key){
+                case '0': edit = !edit; break;
                 case '1': menu=WAVE_MENU; break;
                 case '2': menu=ADSR_MENU; break;
                 case '3': menu=REVERB_MENU; break;
