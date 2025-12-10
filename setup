@@ -5,6 +5,11 @@ sudo apt install -y g++ make cmake
 sudo apt install -y portaudio19-dev
 sudo apt install pulseaudio-utils -y
 sudo apt install alsa-utils -y
+sudo apt install rtaudio rtaudio-devel -y
+sudo apt install alsa-lib-devel -y
+
+
+
 pip install numpy
 pip install pyqtgraph
 pip install sounddevice

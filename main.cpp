@@ -9,7 +9,11 @@
 #include <unistd.h>
 #include <termios.h>
 #include <linux/input.h>
-#include <rtaudio/RtAudio.h>
+try{
+    #include <rtaudio/RtAudio.h>
+}catch(...){
+    #include <RtAudio.h>
+}
 #include "Reverb.h"
 
 // ======================================================
