@@ -360,10 +360,15 @@ int main() {
     setNonBlockingInput();
     initWavePoints();
 
-    RtAudio dac( RtAudio::LINUX_ALSA );
+    RtAudio dac(RtAudio::LINUX_ALSA);
+
+    unsigned int device = 1;   // or whatever your Pi identifies as real output
+    unsigned int channels = 2;
+
     RtAudio::StreamParameters oParams;
-    oParams.deviceId = dac.getDefaultOutputDevice();
-    oParams.nChannels = 2;
+    oParams.deviceId = device;
+    oParams.nChannels = channels;
+    oParams.firstChannel = 0;
     unsigned int bufferFrames = 256;
 
     try {
