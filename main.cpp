@@ -10,6 +10,8 @@
 #include <termios.h>
 #include <linux/input.h>
 #include <rtaudio/RtAudio.h>
+using namespace rt::audio;
+
 #include "Reverb.h"
 
 // ======================================================
@@ -367,16 +369,17 @@ int main() {
     RtAudio::StreamParameters oParams;
     oParams.deviceId = dac.getDefaultOutputDevice();
     oParams.nChannels = 2;
+    RtAudio::StreamOptions options;
     unsigned int bufferFrames = 256;
 
     try {
-        dac.openStream(&oParams,nullptr,RTAUDIO_FLOAT32,
-                       sampleRate,&bufferFrames,&audioCallback);
+        dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback, nullptr, &options);
         dac.startStream();
-    } catch(RtAudioError &e){
+    } catch (RtAudioError &e) {  // global namespace in v5
         e.printMessage();
         return 1;
     }
+
 
     std::cout << "Polyphonic Synth Ready.\n";
     std::cout << "Press keys 1–8 to morph wave. Press 0 for CUSTOM curve.\n";
