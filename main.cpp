@@ -11,6 +11,7 @@
 #include <algorithm>
 
 #include <rtaudio/RtAudio.h>   // ✅ Correct v6 include
+using namespace rt::audio;
 #include "Reverb.h"
 
 // --- Constants ---
