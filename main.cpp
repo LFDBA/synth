@@ -63,10 +63,13 @@ float curvature = 1.0f;
 struct Voice {
     float phase = 0.0f;
     float frequency = 261.63f;
-    bool active = false;
-    float time = 0.0f;
+    bool active = false;        // is key held
+    bool noteReleased = false;  // has the key been released
+    float time = 0.0f;          // time since note-on
+    float releaseTime = 0.0f;   // time since note-off
     float oscVolume = 1.0f;
 };
+
 Voice voices[numVoices];
 int noteMapping[numVoices] = {48, 52, 55, 60, 64, 67, 72}; // MIDI notes
 bool custom = false;
@@ -161,6 +164,7 @@ float ADSR(float attack,float decay,float sustain,float release,bool trig,float 
     }
 }
 
+
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -176,36 +180,58 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         int activeVoices=0;
 
         for(int v=0;v<numVoices;v++){
-            if(!voices[v].active) continue;
-            activeVoices++;
-            voices[v].time += 1.0f/sampleRate;
-            voices[v].phase += voices[v].frequency/sampleRate;
-            if(voices[v].phase>=1.0f) voices[v].phase -= 1.0f;
+            Voice &voice = voices[v];
+            float sample = 0.0f;
 
-            float adsr = ADSR(attack,decay,sustain,release,voices[v].active,voices[v].time,voices[v].oscVolume);
-            float sample;
+            if(voice.active || voice.releasing){
+                activeVoices++;
 
-            if(custom){
-                int idx=int(voices[v].phase*TABLE_SIZE);
-                if(idx>=TABLE_SIZE) idx=TABLE_SIZE-1;
-                sample = customTable[idx]*adsr;
-            }else{
-                float seg=knobPosition*4.0f;
-                int idx=int(seg);
-                float blend=seg-idx;
-                float w1,w2;
-                switch(idx){
-                    case 0: w1=sineWave(voices[v].phase); w2=squareWave(voices[v].phase); break;
-                    case 1: w1=squareWave(voices[v].phase); w2=sawWave(voices[v].phase); break;
-                    case 2: w1=sawWave(voices[v].phase); w2=triangleWave(voices[v].phase); break;
-                    case 3: w1=triangleWave(voices[v].phase); w2=sineWave(voices[v].phase); break;
-                    default: w1=w2=0.0f;
+                // Increment envelope time
+                voice.envTime += 1.0f/sampleRate;
+
+                // Compute ADSR
+                float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume);
+
+                // Oscillator
+                float oscSample;
+                if(custom){
+                    int idx=int(voice.phase*TABLE_SIZE);
+                    if(idx>=TABLE_SIZE) idx=TABLE_SIZE-1;
+                    oscSample = customTable[idx];
+                }else{
+                    float seg=knobPosition*4.0f;
+                    int idx=int(seg);
+                    float blend=seg-idx;
+                    float w1,w2;
+                    switch(idx){
+                        case 0: w1=sineWave(voice.phase); w2=squareWave(voice.phase); break;
+                        case 1: w1=squareWave(voice.phase); w2=sawWave(voice.phase); break;
+                        case 2: w1=sawWave(voice.phase); w2=triangleWave(voice.phase); break;
+                        case 3: w1=triangleWave(voice.phase); w2=sineWave(voice.phase); break;
+                        default: w1=w2=0.0f;
+                    }
+                    oscSample = ((1.0f-blend)*w1 + blend*w2);
                 }
-                sample = ((1.0f-blend)*w1 + blend*w2)*adsr;
+
+                sample = oscSample * env;
+
+                // Increment phase
+                voice.phase += voice.frequency/sampleRate;
+                if(voice.phase >= 1.0f) voice.phase -= 1.0f;
+
+                // Handle end of release
+                if(voice.releasing && voice.envTime >= release){
+                    voice.releasing = false;
+                    voice.envTime = 0.0f;
+                    voice.phase = 0.0f;
+                }
             }
 
-            mix+=sample;
+            mix += sample;
         }
+
+        // Normalize
+        if(normVoices && activeVoices>0) mix /= activeVoices;
 
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
@@ -216,6 +242,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
     return 0;
 }
+
 
 // ======================================================
 //                Non-blocking keyboard input via ncurses
@@ -403,17 +430,24 @@ int main() {
                 case '3': menu=REVERB_MENU; break;
                 case 'z': case 'x': case 'c': case 'v': {
                     int v = (key=='z')?0:(key=='x')?1:(key=='c')?2:3;
-                    if(voices[v].active){
-                        voices[v].active=false;
-                        voices[v].time=0.0f;
-                    }else{
-                        voices[v].active=true;
-                        voices[v].time=0.0f;
-                        voices[v].phase=0.0f;
-                        voices[v].frequency = noteToHz(noteMapping[v]);
+                    Voice &voice = voices[v];
+
+                    if(voice.active){
+                        // Start release
+                        voice.active = false;
+                        voice.releasing = true;
+                        voice.envTime = 0.0f; // release phase timer
+                    } else {
+                        // Start note
+                        voice.active = true;
+                        voice.releasing = false;
+                        voice.envTime = 0.0f;
+                        voice.phase = 0.0f;
+                        voice.frequency = noteToHz(noteMapping[v]);
                     }
                     break;
                 }
+
             }
         }
 
