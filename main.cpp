@@ -63,12 +63,12 @@ float curvature = 1.0f;
 struct Voice {
     float phase = 0.0f;
     float frequency = 261.63f;
-    bool active = false;        // is key held
-    bool noteReleased = false;  // has the key been released
-    float time = 0.0f;          // time since note-on
-    float releaseTime = 0.0f;   // time since note-off
+    bool active = false;        // key held
+    bool releasing = false;     // is in release phase
+    float envTime = 0.0f;       // time since note-on or release start
     float oscVolume = 1.0f;
 };
+
 
 Voice voices[numVoices];
 int noteMapping[numVoices] = {48, 52, 55, 60, 64, 67, 72}; // MIDI notes
