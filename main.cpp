@@ -26,7 +26,8 @@ Reverb reverb(sampleRate);
 enum Mode {
     MODE_NONE,
     WAVE_MENU,
-    ADSR_MENU
+    ADSR_MENU,
+    REVERB_MENU
 };
 Mode menu = WAVE_MENU;
 
@@ -212,8 +213,9 @@ static int audioCallback(
         //maybe add clamp later
         //mix = std::clamp(mix, -1.0f, 1.0f);
 
-
+        mix = mix / float(numVoices); // Normalize
         mix = reverb.process(mix);
+
         output[2*i]     = mix;
         output[2*i + 1] = mix;
     }
@@ -324,6 +326,52 @@ void editWave(){
     updateWave();
 }
 
+
+// =================================================
+//                     ADSR Edit
+// =================================================
+
+void editADSR(){
+    // Attack
+    if(abs(p1 - lastP1) > 1) attack = norm(p1, 0.0f, 1023.0f, 0.0f, 5.0f);
+    // Decay
+    if(abs(p2 - lastP2) > 1) decay = norm(p2, 0.0f, 1023.0f, 0.0f, 5.0f);
+    // Sustain
+    if(abs(p3 - lastP3) > 1) sustain = norm(p3, 0.0f, 1023.0f, 0.0f, 1.0f);
+    // Release
+    if(abs(p4 - lastP4) > 1) release = norm(p4, 0.0f, 1023.0f, 0.0f, 5.0f);
+}
+
+// =================================================
+//                   Reverb Edit
+// =================================================
+
+void editReverb() {
+    // Dry/Wet
+    if(abs(p1 - lastP1) > 1) {
+        float dry = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
+        float wet = 1.0f - dry;
+        reverb.setDryWet(wet, dry);
+    }
+
+    // Room Size — SAFE range
+    if(abs(p2 - lastP2) > 1) {
+        float size = norm(p2, 0.0f, 1023.0f, 0.1f, 1.5f);
+        reverb.setRoomSize(size);
+    }
+
+    // Decay — SAFE range
+    if(abs(p3 - lastP3) > 1) {
+        float decay = norm(p3, 0.0f, 1023.0f, 0.1f, 1.0f);
+        reverb.setDecay(decay);
+    }
+
+    if(abs(p4 - lastP4) > 1) {
+        // future
+    }
+}
+
+
 // =================================================
 //                        MAIN
 // =================================================
@@ -361,20 +409,15 @@ int main() {
         }
 
         if(menu == WAVE_MENU) editWave(); 
-        else if(inpMode == 2 && attack >= 0) { attack = inpVal/100; if(attack<0) attack=0; }
-        else if(inpMode == 3 && decay >= 0) { decay = inpVal/100; if(decay<0) decay=0; }
-        else if(inpMode == 4 && sustain >= 0) { sustain = inpVal/100; if(sustain<0) sustain=0; }
-        else if(inpMode == 5 && release >= 0) { release = inpVal/100; if(release<0) release=0; }
+        if(menu == ADSR_MENU) editADSR();
+        if(menu == REVERB_MENU) editReverb();
 
         ssize_t n = read(STDIN_FILENO, &c, 1);
         if(n > 0) {
-            if(c >= '1' && c <= '8') { knobPosition = c - '0'; custom = false; }
-            else if(c == '0') { custom = true; updateWave(); }
-            else if(c == '9') inpMode = (inpMode == 1) ? 0 : 1;
-            else if(c == 'a') inpMode = 2;
-            else if(c == 'd') inpMode = 3;
-            else if(c == 's') inpMode = 4;
-            else if(c == 'r') inpMode = 5;
+            if(c == '1') menu = WAVE_MENU;
+            else if(c == '2') menu = ADSR_MENU;
+            else if(c == '3') menu = REVERB_MENU;
+            
             else if(c == 'z' || c == 'x' || c == 'c' || c == 'v') {
                 int v = (c=='z')?0:(c=='x')?1:(c=='c')?2:3;
                 if(voices[v].active) { voices[v].active=false; voices[v].time=0.0f; }
@@ -391,3 +434,102 @@ int main() {
     Pa_Terminate();
     return 0;
 }
+
+
+
+
+
+
+// ======================================
+//            Example ADSR Draw
+// ======================================
+
+// void drawADSR(U8G2 &u8g2)
+// {
+//     float sustainVisTime = 0.2f; // purely visual
+
+//     float totalTime = attack + decay + sustainVisTime + release;
+
+//     for(int x = 0; x < 128; x++)
+//     {
+//         float t = (float)x / 128.0f * totalTime;
+
+//         bool noteHeld = (t < attack + decay + sustainVisTime);
+
+//         float env = ADSR(attack, decay, sustain, release,
+//                          noteHeld,
+//                          t,
+//                          1.0f);
+
+//         // scale ADSR output (0–1) to screen height (0–63)
+//         int y = 63 - int(env * 63.0f);
+
+//         u8g2.drawPixel(x, y);
+//     }
+// }
+
+
+// ======================================
+//          Example Voice Draw
+// ======================================
+
+// void drawVoice(u8g2_t &u8g2)
+// {
+//     u8g2.clearBuffer();
+
+//     const int width  = 128;
+//     const int height = 64;
+
+//     int lastY = -1;
+
+//     for (int x = 0; x < width; x++)
+//     {
+//         float phase = (float)x / (float)(width - 1);
+//         float v = osc(phase);   // -1 to +1
+
+//         int y = (int)((1.0f - v) * 0.5f * (height - 1));
+
+//         if (x > 0)
+//             u8g2.drawLine(x - 1, lastY, x, y);
+
+//         lastY = y;
+//     }
+
+//     u8g2.sendBuffer();
+// }
+
+// ======================================
+//          Example Output Draw
+// ======================================
+
+// void drawOutput(u8g2_t &u8g2, float sample) {
+//     static int x = 0;
+
+//     const int width  = 128;
+//     const int height = 64;
+
+//     // Map sample (-1..+1) to Y coordinate (0..63)
+//     int y = (int)((1.0f - sample) * 0.5f * (height - 1));
+
+//     // --- erase only this column ---
+//     for (int i = 0; i < height; i++) {
+//         u8g2.setDrawColor(0);      // draw "black"
+//         u8g2.drawPixel(x, i);      // clear old pixels
+//     }
+
+//     // --- draw new waveform column ---
+//     u8g2.setDrawColor(1);          // draw "white"
+
+//     // draw a vertical line from the middle to the point
+//     int mid = height / 2;
+//     if (y > mid)
+//         u8g2.drawLine(x, mid, x, y);
+//     else
+//         u8g2.drawLine(x, y, x, mid);
+
+//     // advance x
+//     x++;
+//     if (x >= width) x = 0;
+
+//     u8g2.sendBuffer();
+// }

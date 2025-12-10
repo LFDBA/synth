@@ -9,21 +9,24 @@
 class SimpleReverb {
 public:
     SimpleReverb(float delaySec, float decay, int sr);
-
     float process(float input);
     void setDryWet(float dry, float wet);
-    void setRoomSize(float size);   // 0-1, changes delay length
-    void setDecay(float decay);     // 0-1, changes feedback
+    void setRoomSize(float size);
+    void setDecay(float decay);
 
 private:
-    float feedback;
-    int delaySamples;
     std::vector<float> buffer;
-    int readIndex = 0, writeIndex = 0;
-
-    float dryMix = 0.7f, wetMix = 0.3f;
     int sampleRate;
+    int delaySamples;
+    int readIndex;
+    int writeIndex;
+    float feedback;
+    float dryMix, wetMix;
+
+    // ✅ Add this
+    int baseDelaySamples;  // original delay size, used for scaling
 };
+
 
 // ---------- Schroeder Reverb ----------
 struct Comb {
@@ -48,17 +51,20 @@ struct Allpass {
 class SchroederReverb {
 public:
     SchroederReverb(int sr);
-
     float process(float input);
     void setDryWet(float dry, float wet);
-    void setRoomSize(float size); // 0-1, adjusts comb delays slightly
-    void setDecay(float decay);   // 0-1, adjusts comb feedbacks
+    void setRoomSize(float size);
+    void setDecay(float decay);
 
 private:
-    std::array<Comb, 4> combs;
-    std::array<Allpass, 2> allpasses;
-    float dryMix = 0.7f, wetMix = 0.3f;
+    std::array<Comb,4> combs;
+    std::array<Allpass,2> allpasses;
+    float dryMix, wetMix;
+
+    // ✅ Add this
+    std::array<size_t,4> baseCombSizes;  // original comb buffer sizes
 };
+
 
 // ---------- Convolution Reverb ----------
 class ConvolutionReverb {
