@@ -217,7 +217,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
-
+        std::cout << mix << "\n";
         output[2*i]     = mix*(1.0f-pan);
         output[2*i + 1] = mix*(pan+1.0f);
     }
@@ -376,6 +376,12 @@ int main() {
     }
 
     std::cout << "Polyphonic Synth Ready.\n";
+    for(int v=0; v<numVoices; v++){
+        voices[v].active = true;
+        voices[v].phase = 0.0f;
+        voices[v].time = 0.0f;
+        voices[v].frequency = noteToHz(noteMapping[v]);
+    }
 
     while(true){
         getInp();
