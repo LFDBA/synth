@@ -7,7 +7,7 @@ sudo apt install pulseaudio-utils -y
 sudo apt install alsa-utils -y
 sudo apt install rtaudio rtaudio-devel -y
 sudo apt install alsa-lib-devel -y
-
+sudo apt install librtaudio-dev -y
 
 
 pip install numpy
