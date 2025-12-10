@@ -10,7 +10,7 @@
 #include <sstream>
 #include <string>
 #include "Reverb.h"
-#include <RtAudio.h>       // RtAudio v6+
+#include <rtaudio/RtAudio.h>       // RtAudio v6+
 using namespace rt::audio; // namespace for RtAudio v6+
 
 float norm(float x, float in_min, float in_max, float out_min, float out_max) {
