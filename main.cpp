@@ -345,7 +345,14 @@ void editTone(){
 //                        MAIN
 // ======================================================
 int main() {
-    if(!initSerial()) return 1;
+    if(!initSerial()){
+        try{
+            initSerial("/dev/ttyACM0");
+        }catch(...){
+            std::cerr<<"Failed to open serial port\n";
+            return 1;
+        }
+    };
 
     reverb.mode = ReverbType::SCHROEDER;
     reverb.setDryWet(1.0f,0.0f);
@@ -413,3 +420,99 @@ int main() {
 
     return 0;
 }
+
+
+
+// ======================================
+//            Example ADSR Draw
+// ======================================
+
+// void drawADSR(U8G2 &u8g2)
+// {
+//     float sustainVisTime = 0.2f; // purely visual
+
+//     float totalTime = attack + decay + sustainVisTime + release;
+
+//     for(int x = 0; x < 128; x++)
+//     {
+//         float t = (float)x / 128.0f * totalTime;
+
+//         bool noteHeld = (t < attack + decay + sustainVisTime);
+
+//         float env = ADSR(attack, decay, sustain, release,
+//                          noteHeld,
+//                          t,
+//                          1.0f);
+
+//         // scale ADSR output (0–1) to screen height (0–63)
+//         int y = 63 - int(env * 63.0f);
+
+//         u8g2.drawPixel(x, y);
+//     }
+// }
+
+
+// ======================================
+//          Example Voice Draw
+// ======================================
+
+// void drawVoice(u8g2_t &u8g2)
+// {
+//     u8g2.clearBuffer();
+
+//     const int width  = 128;
+//     const int height = 64;
+
+//     int lastY = -1;
+
+//     for (int x = 0; x < width; x++)
+//     {
+//         float phase = (float)x / (float)(width - 1);
+//         float v = osc(phase);   // -1 to +1
+
+//         int y = (int)((1.0f - v) * 0.5f * (height - 1));
+
+//         if (x > 0)
+//             u8g2.drawLine(x - 1, lastY, x, y);
+
+//         lastY = y;
+//     }
+
+//     u8g2.sendBuffer();
+// }
+
+// ======================================
+//          Example Output Draw
+// ======================================
+
+// void drawOutput(u8g2_t &u8g2, float sample) {
+//     static int x = 0;
+
+//     const int width  = 128;
+//     const int height = 64;
+
+//     // Map sample (-1..+1) to Y coordinate (0..63)
+//     int y = (int)((1.0f - sample) * 0.5f * (height - 1));
+
+//     // --- erase only this column ---
+//     for (int i = 0; i < height; i++) {
+//         u8g2.setDrawColor(0);      // draw "black"
+//         u8g2.drawPixel(x, i);      // clear old pixels
+//     }
+
+//     // --- draw new waveform column ---
+//     u8g2.setDrawColor(1);          // draw "white"
+
+//     // draw a vertical line from the middle to the point
+//     int mid = height / 2;
+//     if (y > mid)
+//         u8g2.drawLine(x, mid, x, y);
+//     else
+//         u8g2.drawLine(x, y, x, mid);
+
+//     // advance x
+//     x++;
+//     if (x >= width) x = 0;
+
+//     u8g2.sendBuffer();
+// }
