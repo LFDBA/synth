@@ -4,168 +4,198 @@
 #include <unistd.h>
 #include <vector>
 #include <cstdint>
+#include <signal.h>
 
-#define SPI_CHANNEL 0        // CE0
-#define SPI_SPEED 8000000    // 8 MHz
-#define PIN_DC 25            // Data/Command pin
-#define PIN_RES 24           // Reset pin
+#define SPI_CHANNEL 0
+#define SPI_SPEED 8000000
+#define PIN_DC 25
+#define PIN_RES 24
 
 const int WIDTH = 128;
 const int HEIGHT = 64;
 
-uint8_t buffer[WIDTH * (HEIGHT / 8)]; // 128 x 64 / 8
+int spiHandle = -1;
+uint8_t buffer[WIDTH * (HEIGHT / 8)];
 
-// Send command byte
-void sendCommand(int spi, uint8_t cmd) {
-    gpioWrite(PIN_DC, 0); // Command mode
-    spiWrite(spi, (char*)&cmd, 1);
+//
+// ==== SSD1306 COMMAND HELPERS ====
+//
+void sendCommand(uint8_t cmd) {
+    gpioWrite(PIN_DC, 0);
+    spiWrite(spiHandle, (char*)&cmd, 1);
 }
 
-// Send data bytes
-void sendData(int spi, const uint8_t* data, size_t len) {
-    gpioWrite(PIN_DC, 1); // Data mode
-    spiWrite(spi, (char*)data, len);
+void sendData(const uint8_t* data, size_t len) {
+    gpioWrite(PIN_DC, 1);
+    spiWrite(spiHandle, (char*)data, len);
 }
 
-// Initialize SH1106
-void initDisplay(int spi) {
+//
+// ==== CLEAR SCREEN (REAL SSD1306 CLEAR) ====
+//
+void clearSSD1306() {
+    uint8_t zeros[128];
+    memset(zeros, 0x00, 128);
+
+    for(int page = 0; page < 8; page++) {
+        sendCommand(0xB0 | page);
+        sendCommand(0x00);
+        sendCommand(0x10);
+        sendData(zeros, 128);
+    }
+}
+
+//
+// ==== SIGINT HANDLER (Ctrl+C) ====
+//
+void handleExit(int sig) {
+    std::cout << "\nCtrl+C detected, clearing display...\n";
+
+    // HARD RESET
     gpioWrite(PIN_RES, 0);
-    usleep(100000); // 100ms
+    usleep(80000);
+    gpioWrite(PIN_RES, 1);
+    usleep(80000);
+
+    // INIT MINIMUM SO CLEAR WORKS
+    sendCommand(0xAE);    // display off
+    sendCommand(0x20);    // Memory mode
+    sendCommand(0x00);    // horizontal
+    clearSSD1306();
+    sendCommand(0xAF);    // display on (blank)
+
+    if (spiHandle >= 0) spiClose(spiHandle);
+    gpioTerminate();
+    exit(0);
+}
+
+//
+// ==== INITIALIZE SSD1306 (SPI) ====
+//
+void initDisplay() {
+    gpioWrite(PIN_RES, 0);
+    usleep(100000);
     gpioWrite(PIN_RES, 1);
     usleep(100000);
 
-    sendCommand(spi, 0xAE); // Display off
-    sendCommand(spi, 0xD5); // Set display clock divide
-    sendCommand(spi, 0x80);
-    sendCommand(spi, 0xA8); // Set multiplex
-    sendCommand(spi, 0x3F);
-    sendCommand(spi, 0xD3); // Set display offset
-    sendCommand(spi, 0x00);
-    sendCommand(spi, 0x40); // Set start line
-    sendCommand(spi, 0xAD); // DC-DC on
-    sendCommand(spi, 0x8B);
-    sendCommand(spi, 0xA1); // Seg remap
-    sendCommand(spi, 0xC8); // COM scan dec
-    sendCommand(spi, 0xDA); // COM pins
-    sendCommand(spi, 0x12);
-    sendCommand(spi, 0x81); // Contrast
-    sendCommand(spi, 0xCF);
-    sendCommand(spi, 0xD9); // Precharge
-    sendCommand(spi, 0xF1);
-    sendCommand(spi, 0xDB); // Vcomh
-    sendCommand(spi, 0x40);
-    sendCommand(spi, 0xA4); // Entire display on
-    sendCommand(spi, 0xA6); // Normal display
-    sendCommand(spi, 0xAF); // Display on
+    sendCommand(0xAE); // display off
+    sendCommand(0xD5); sendCommand(0x80);
+    sendCommand(0xA8); sendCommand(0x3F);
+    sendCommand(0xD3); sendCommand(0x00);
+    sendCommand(0x40);
+    sendCommand(0x8D); sendCommand(0x14);
+    sendCommand(0x20); sendCommand(0x00);
+    sendCommand(0xA1);
+    sendCommand(0xC8);
+    sendCommand(0xDA); sendCommand(0x12);
+    sendCommand(0x81); sendCommand(0x7F);
+    sendCommand(0xD9); sendCommand(0xF1);
+    sendCommand(0xDB); sendCommand(0x40);
+    sendCommand(0xA4);
+    sendCommand(0xA6);
+    sendCommand(0xAF); // display on
 }
 
-// Clear buffer
+
+//
+// ==== BUFFER HELPERS ====
+//
 void clearBuffer() {
-    std::fill(buffer, buffer + sizeof(buffer), 0);
+    memset(buffer, 0x00, sizeof(buffer));
 }
 
-// Draw pixel in buffer
 void drawPixel(int x, int y) {
-    if(x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
     buffer[x + (y / 8) * WIDTH] |= (1 << (y % 8));
 }
 
-// Draw line (Bresenham)
 void drawLine(int x0, int y0, int x1, int y1) {
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
-    while(true) {
+    while (true) {
         drawPixel(x0, y0);
-        if(x0 == x1 && y0 == y1) break;
+        if (x0 == x1 && y0 == y1) break;
         int e2 = 2 * err;
-        if(e2 >= dy) { err += dy; x0 += sx; }
-        if(e2 <= dx) { err += dx; y0 += sy; }
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
     }
 }
 
-// Send buffer to display
-void updateDisplay(int spi) {
-    for(int page = 0; page < HEIGHT/8; page++) {
-        sendCommand(spi, 0xB0 + page); // Set page
-        sendCommand(spi, 0x00);        // Set lower column
-        sendCommand(spi, 0x10);        // Set higher column
-        sendData(spi, &buffer[page * WIDTH], WIDTH);
+void updateDisplay() {
+    for (int page = 0; page < HEIGHT/8; page++) {
+        sendCommand(0xB0 | page);
+        sendCommand(0x00);
+        sendCommand(0x10);
+        sendData(&buffer[page * WIDTH], WIDTH);
     }
 }
 
-// ADSR function
+//
+// ==== ADSR ====
+//
 float ADSR(float attack,float decay,float sustain,float release,bool trig,float t,float lvl){
-    float curvature=3.0;
+    float c = 3.0;
     if(trig){
-        if(t<attack) return powf(t/attack,curvature)*lvl;
-        else if(t<attack+decay) return (1.0 - powf((t-attack)/decay,1.0/curvature)*(1.0-sustain))*lvl;
-        else return sustain*lvl;
+        if(t < attack) return powf(t/attack,c)*lvl;
+        if(t < attack + decay) return (1 - powf((t-attack)/decay,1.0/c)*(1-sustain))*lvl;
+        return sustain*lvl;
     } else {
-        if(t<release) return (1.0 - powf(t/release,1.0/curvature))*(sustain*lvl);
-        else return 0.0f;
+        if(t < release) return (1 - powf(t/release,1.0/c))*(sustain*lvl);
+        return 0;
     }
 }
 
-// Draw ADSR envelope into buffer
 void drawADSR() {
     clearBuffer();
-    float sustainVisTime = 0.2;
+    float sustainVis = 0.2;
     float attack = 0.5, decay = 0.2, sustain = 0.8, release = 0.8;
-    float totalTime = attack + decay + sustainVisTime + release;
+    float total = attack + decay + sustainVis + release;
 
     int lastY = -1;
     for(int x = 0; x < WIDTH; x++) {
-        float t = (float)x / WIDTH * totalTime;
+        float t = (float)x / WIDTH * total;
         float env;
-        if(t < attack + decay + sustainVisTime) {
-            env = ADSR(attack, decay, sustain, release, true, t, 1.0);
-        } else {
-            float tRelease = t - (attack + decay + sustainVisTime);
-            env = ADSR(attack, decay, sustain, release, false, tRelease, 1.0);
-        }
-        int y = HEIGHT - 1 - int(env * (HEIGHT-1));
+
+        if(t < attack + decay + sustainVis)
+            env = ADSR(attack, decay, sustain, release, true, t, 1);
+        else
+            env = ADSR(attack, decay, sustain, release, false, t - (attack+decay+sustainVis), 1);
+
+        int y = HEIGHT - 1 - int(env * (HEIGHT - 1));
         if(lastY >= 0) drawLine(x-1, lastY, x, y);
         lastY = y;
     }
 }
 
+
+//
+// ==== MAIN ====
+//
 int main() {
+    signal(SIGINT, handleExit);   // catch Ctrl+C
+
     if(gpioInitialise() < 0) {
-        std::cerr << "Pigpio init failed!" << std::endl;
+        std::cerr << "Pigpio init failed!\n";
         return 1;
     }
+
     gpioSetMode(PIN_DC, PI_OUTPUT);
     gpioSetMode(PIN_RES, PI_OUTPUT);
 
-    int spi = spiOpen(SPI_CHANNEL, SPI_SPEED, 0);
-    if(spi < 0) {
-        std::cerr << "SPI open failed!" << std::endl;
+    spiHandle = spiOpen(SPI_CHANNEL, SPI_SPEED, 0);
+    if(spiHandle < 0) {
+        std::cerr << "SPI open failed!\n";
         return 1;
     }
 
-    initDisplay(spi);
+    initDisplay();
 
     while(true) {
         drawADSR();
-        updateDisplay(spi);
-        usleep(50000); // 50ms refresh
+        updateDisplay();
+        usleep(50000);
     }
 
-    // Clear display before exit
-    uint8_t blank[128];
-    memset(blank, 0x00, 128);
-
-    for (int page = 0; page < 8; page++) {
-        cmd(spi, 0xB0 | page); // page address
-        cmd(spi, 0x00);        // lower column
-        cmd(spi, 0x10);        // upper column
-        data_bytes(spi, blank, 128);
-    }
-
-    cmd(spi, 0xAF); // Display ON
-
-    spiClose(spi);
-    gpioTerminate();
-    return 0;
+    return 0; // never reached
 }
