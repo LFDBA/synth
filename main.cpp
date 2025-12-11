@@ -292,6 +292,16 @@ float ADSR(float attack,float decay,float sustain,float release,bool trig,float 
     }
 }
 
+int drawRefresh = 0;
+int lastMix = 0;
+void drawOutput(int mix) {
+    clearBuffer();
+    drawLine(drawRefresh-1, HEIGHT/2 - lastMix,
+             drawRefresh, HEIGHT/2 - mix);
+    drawRefresh++;
+    if(drawRefresh>=WIDTH) drawRefresh=0;
+    lastMix = mix;
+}
 
 // ======================================================
 //                  Audio Callback
@@ -579,16 +589,7 @@ void drawWave() {
     }
 }
 
-int drawRefresh = 0;
-int lastMix = 0;
-void drawOutput(int mix) {
-    clearBuffer();
-    drawLine(drawRefresh-1, HEIGHT/2 - lastMix,
-             drawRefresh, HEIGHT/2 - mix);
-    drawRefresh++;
-    if(drawRefresh>=WIDTH) drawRefresh=0;
-    lastMix = mix;
-}
+
 
 
 
