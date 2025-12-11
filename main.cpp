@@ -292,16 +292,56 @@ float ADSR(float attack,float decay,float sustain,float release,bool trig,float 
     }
 }
 
-int drawRefresh = 0;
-int lastMix = 0;
-void drawOutput(int mix) {
-    clearBuffer();
-    drawLine(drawRefresh-1, HEIGHT/2 - lastMix,
-             drawRefresh, HEIGHT/2 - mix);
-    drawRefresh++;
-    if(drawRefresh>=WIDTH) drawRefresh=0;
-    lastMix = mix;
+
+// ======================================
+//         Output Waveform Draw
+// ======================================
+
+const int DRAW_WIDTH = WIDTH;       // OLED width
+const int BUF_LEN = 512;            // Number of samples to keep for display
+float sampleBuffer[BUF_LEN];        // circular buffer
+int bufIndex = 0;                   // current write position
+
+// Push new sample into circular buffer
+void pushSample(float s) {
+    sampleBuffer[bufIndex++] = s;
+    if(bufIndex >= BUF_LEN) bufIndex = 0;
 }
+
+// Draw waveform to OLED
+void drawOutput() {
+    clearBuffer();
+
+    // Find max absolute value for normalization
+    float maxVal = 0.0001f; // avoid division by zero
+    for(int i=0;i<BUF_LEN;i++)
+        if(fabs(sampleBuffer[i]) > maxVal) maxVal = fabs(sampleBuffer[i]);
+
+    // Draw line across width
+    for(int x=0;x<DRAW_WIDTH;x++){
+        // Map x to buffer index
+        int idx = (bufIndex + iMap(x,0,DRAW_WIDTH,0,BUF_LEN)) % BUF_LEN;
+        // Normalize to -1..1
+        float normSample = sampleBuffer[idx] / maxVal;
+        // Map to pixel
+        int y = HEIGHT/2 - int(normSample * (HEIGHT/2 - 1));
+
+        // Draw line from previous point
+        if(x>0){
+            int prevIdx = (bufIndex + iMap(x-1,0,DRAW_WIDTH,0,BUF_LEN)) % BUF_LEN;
+            float prevSample = sampleBuffer[prevIdx] / maxVal;
+            int y0 = HEIGHT/2 - int(prevSample * (HEIGHT/2 - 1));
+            drawLine(x-1, y0, x, y);
+        }
+    }
+}
+
+// Helper for mapping integers
+inline int iMap(int val,int inMin,int inMax,int outMin,int outMax){
+    return (val - inMin)*(outMax - outMin)/(inMax - inMin) + outMin;
+}
+
+
 
 // ======================================================
 //                  Audio Callback
@@ -374,7 +414,8 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
 
-        if(menu == TONE_MENU) drawOutput(mix*640);
+        pushSample(mix);
+        
 
         output[2*i]     = mix*(1.0f-pan);
         output[2*i + 1] = mix*(pan+1.0f);
@@ -665,7 +706,10 @@ int main() {
 
         // menu edits
         
-        if(menu==TONE_MENU && edit) editTone();
+        if(menu==TONE_MENU) {
+            if(edit) editTone();
+            drawOutput();
+        }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
             drawWave();
@@ -687,6 +731,7 @@ int main() {
                 case '1': menu=WAVE_MENU; break;
                 case '2': menu=ADSR_MENU; break;
                 case '3': menu=REVERB_MENU; break;
+                case '4': menu=TONE_MENU; break;
                 case 'z': case 'x': case 'c': case 'v': {
                     int v = (key=='z')?0:(key=='x')?1:(key=='c')?2:3;
                     Voice &voice = voices[v];
