@@ -298,7 +298,7 @@ float ADSR(float attack,float decay,float sustain,float release,bool trig,float 
 // ======================================
 
 const int DRAW_WIDTH = WIDTH;       // OLED width
-const int BUF_LEN = 512;            // Number of samples to keep for display
+const int BUF_LEN = 10;            // Number of samples to keep for display
 float sampleBuffer[BUF_LEN];        // circular buffer
 int bufIndex = 0;                   // current write position
 
@@ -344,8 +344,7 @@ void drawOutput() {
 
 
 
-int pushDivider = 1;   // higher = slower scroll
-int pushCount = 0;
+
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -417,10 +416,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
 
-        if(++pushCount >= pushDivider) {
-            pushSample(mix);
-            pushCount = 0;
-        }
+        pushSample(mix);
         
 
         output[2*i]     = mix*(1.0f-pan);
