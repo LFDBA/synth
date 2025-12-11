@@ -13,6 +13,8 @@
 #include "screen.h"
 #include "Reverb.h"
 #include <ncurses.h>  // For proper non-blocking keyboard input
+#include <pigpio.h>
+
 
 // ======================================================
 //                        Utils
