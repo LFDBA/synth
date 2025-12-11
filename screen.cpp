@@ -152,6 +152,8 @@ int main() {
         usleep(50000); // 50ms refresh
     }
 
+    clearBuffer();
+    updateDisplay(spi);
     spiClose(spi);
     gpioTerminate();
     return 0;

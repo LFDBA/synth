@@ -1,0 +1,7 @@
+#!/bin/bash
+g++ -o adsr_display screen.cpp -lpigpio -lrt -lpthread -std=c++11
+sudo ./adsr_display
+
+
+
+
