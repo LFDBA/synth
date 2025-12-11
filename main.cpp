@@ -412,9 +412,25 @@ int main() {
     std::cout << "Polyphonic Synth Ready.\n";
     std::cout << "Press keys z,x,c,v to trigger voices, 1–3 for menus.\n";
 
+
+    if (gpioInitialise() < 0) return 1;
+
+    // Open SPI channel 0, 8 MHz, no flags
+    int spi = spiOpen(0, 8000000, 0);
+    if(spi < 0) {
+        std::cerr << "Failed to open SPI\n";
+        return 1;
+    }
+
+    initDisplay(spi);  // initialize OLED
+
+    
+
     while(true){
         getInp(); // microcontroller input
-        drawADSR(attack,decay,sustain,release);
+        // Use this handle whenever you call OLED functions
+        drawADSR(attack, decay, sustain, release, spi);
+        updateDisplay(spi);
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
 
         // menu edits
@@ -464,7 +480,8 @@ int main() {
     try{ dac.stopStream(); } catch(RtAudioError &e){}
     if(dac.isStreamOpen()) dac.closeStream();
     closeKeyboard();
-
+    spiClose(spi);
+    gpioTerminate();
     return 0;
 }
 
