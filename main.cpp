@@ -411,7 +411,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         }
 
         // Normalize
-        if(normVoices && activeVoices>0) mix /= activeVoices;
+        if(normVoices && activeVoices>0) mix /= (activeVoices*0.5f);
 
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
