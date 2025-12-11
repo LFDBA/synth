@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <cstring>
 #include <signal.h>
-
+#include <atomic> 
 
 
 
@@ -297,18 +297,29 @@ float ADSR(float attack,float decay,float sustain,float release,bool trig,float 
 //         Output Waveform Draw
 // ======================================
 
-const int DRAW_WIDTH = WIDTH;       // OLED width
-int BUF_LEN = 512;            // Number of samples to keep for display
-float sampleBuffer[BUF_LEN];        // circular buffer
-int bufIndex = 0;                   // current write position
+constexpr int MAX_BUF_LEN = 4096;   // upper limit (power-of-two not required)
+std::atomic<int> BUF_LEN{512};     // logical buffer length (adjustable at runtime)
+float sampleBuffer[MAX_BUF_LEN];   // physical storage (preallocated)
+std::atomic<int> bufIndex{0};      // next write position (atomic)
+const int DRAW_WIDTH = WIDTH;                   // current write position
 
 // Push new sample into circular buffer
-void pushSample(float s) {
-    sampleBuffer[bufIndex++] = s;
-    if(bufIndex >= BUF_LEN) bufIndex = 0;
+// Push new sample into circular buffer (safe from audio thread)
+inline void pushSample(float s) {
+    // fetch and increment index atomically
+    int idx = bufIndex.fetch_add(1, std::memory_order_relaxed);
+    int len = BUF_LEN.load(std::memory_order_acquire);
+    if (len <= 0) len = 1; // safety
+    idx = idx % len; // wrap within current logical length
+    sampleBuffer[idx] = s;
+    // keep bufIndex bounded to avoid wrap integer overflow over long runs
+    if (idx == len - 1) {
+        // reset atomic counter occasionally (not strict realtime-critical)
+        bufIndex.store(0, std::memory_order_relaxed);
+    }
 }
 
-// Helper for mapping integers
+// Helper for mapping integers (keeps your existing behavior)
 inline int iMap(int val,int inMin,int inMax,int outMin,int outMax){
     return (val - inMin)*(outMax - outMin)/(inMax - inMin) + outMin;
 }
@@ -317,29 +328,55 @@ inline int iMap(int val,int inMin,int inMax,int outMin,int outMax){
 void drawOutput() {
     clearBuffer();
 
-    // Find max absolute value for normalization
-    float maxVal = 0.0001f; // avoid division by zero
-    for(int i=0;i<BUF_LEN;i++)
-        if(fabs(sampleBuffer[i]) > maxVal) maxVal = fabs(sampleBuffer[i]);
+    int len = BUF_LEN.load(std::memory_order_acquire);
+    if (len <= 0) len = 1;
+    if (len > MAX_BUF_LEN) len = MAX_BUF_LEN;
 
-    // Draw line across width
-    for(int x=0;x<DRAW_WIDTH;x++){
-        // Map x to buffer index
-        int idx = (bufIndex + iMap(x,0,DRAW_WIDTH,0,BUF_LEN)) % BUF_LEN;
-        // Normalize to -1..1
-        float normSample = sampleBuffer[idx] / maxVal;
-        // Map to pixel
+    // Read a snapshot of write index to compute continuous ordering
+    int writePos = bufIndex.load(std::memory_order_acquire);
+    // If writePos points to next write position, oldest sample is writePos % len
+    int start = (writePos) % len; // oldest
+
+    // Find max absolute value for normalization (scan logical length)
+    float maxVal = 1e-6f;
+    for (int i = 0; i < len; ++i) {
+        float v = sampleBuffer[(start + i) % len];
+        float av = fabsf(v);
+        if (av > maxVal) maxVal = av;
+    }
+
+    // Draw line across screen mapping DISPLAY X -> buffer samples
+    for (int x = 0; x < DRAW_WIDTH; ++x) {
+        // Map x to a sample index within len: newest should appear at right
+        // We map x in 0..DRAW_WIDTH-1 to buffer positions from oldest -> newest
+        int bufPos = iMap(x, 0, DRAW_WIDTH - 1, 0, len - 1);
+        int idx = (start + bufPos) % len;
+        float sample = sampleBuffer[idx];
+        float normSample = sample / maxVal; // -1..1
+
+        // clip to [-1,1] just in case
+        if (normSample > 1.0f) normSample = 1.0f;
+        if (normSample < -1.0f) normSample = -1.0f;
+
         int y = HEIGHT/2 - int(normSample * (HEIGHT/2 - 1));
 
-        // Draw line from previous point
-        if(x>0){
-            int prevIdx = (bufIndex + iMap(x-1,0,DRAW_WIDTH,0,BUF_LEN)) % BUF_LEN;
-            float prevSample = sampleBuffer[prevIdx] / maxVal;
-            int y0 = HEIGHT/2 - int(prevSample * (HEIGHT/2 - 1));
-            drawLine(x-1, y0, x, y);
+        if (x > 0) {
+            // previous sample
+            int prevBufPos = iMap(x - 1, 0, DRAW_WIDTH - 1, 0, len - 1);
+            int prevIdx = (start + prevBufPos) % len;
+            float prevSample = sampleBuffer[prevIdx];
+            float prevNorm = prevSample / maxVal;
+            if (prevNorm > 1.0f) prevNorm = 1.0f;
+            if (prevNorm < -1.0f) prevNorm = -1.0f;
+            int y0 = HEIGHT/2 - int(prevNorm * (HEIGHT/2 - 1));
+            drawLine(x - 1, y0, x, y);
+        } else {
+            // first column: put a small dot
+            drawPixel(0, y);
         }
     }
 }
+
 
 
 
@@ -551,8 +588,23 @@ void editReverb() {
 void editTone(){
     if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.1f);
     if(abs(p2-lastP2)>1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
-    if(abs(p3-lastP3)>1) BUF_LEN = norm(p3,0.0f,1023.0f,256.0f,2048.0f);
+
+    if(abs(p3-lastP3)>1) {
+        // compute the desired length, clamp to allowed range
+        int newLen = iMap(p3, 0, 1023, 256, 2048);
+        if (newLen < 32) newLen = 32;
+        if (newLen > MAX_BUF_LEN) newLen = MAX_BUF_LEN;
+
+        int oldLen = BUF_LEN.load(std::memory_order_acquire);
+        if (newLen != oldLen) {
+            // Adjust bufIndex so it still points to a valid slot
+            int currentPos = bufIndex.load(std::memory_order_acquire) % newLen;
+            bufIndex.store(currentPos, std::memory_order_release);
+            BUF_LEN.store(newLen, std::memory_order_release);
+        }
+    }
 }
+
 
 
 
