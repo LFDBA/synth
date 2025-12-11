@@ -6,6 +6,7 @@ g++ \
   TwoStageFFTConvolver.cpp \
   Utilities.cpp \
   AudioFFT.cpp \
+  screen.cpp \
   -o main \
   -O3 -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses
