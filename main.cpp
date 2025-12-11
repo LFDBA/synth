@@ -364,6 +364,8 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
 
+        if(menu == TONE_MENU) drawOutput(mix*64);
+
         output[2*i]     = mix*(1.0f-pan);
         output[2*i + 1] = mix*(pan+1.0f);
     }
@@ -527,7 +529,7 @@ void drawADSR() {
 
 
 
-void drawVoice() {
+void drawWave() {
     clearBuffer();
 
     const int width  = WIDTH;
@@ -576,6 +578,18 @@ void drawVoice() {
         lastY = y;
     }
 }
+
+int drawRefresh = 0;
+int lastMix = 0;
+void drawOutput(int mix) {
+    clearBuffer();
+    drawLine(drawRefresh-1, HEIGHT/2 - lastMix,
+             drawRefresh, HEIGHT/2 - mix);
+    drawRefresh++;
+    if(drawRefresh>=WIDTH) drawRefresh=0;
+    lastMix = mix;
+}
+
 
 
 
@@ -644,7 +658,6 @@ int main() {
     while(true){
         getInp(); // microcontroller input
 
-        drawVoice();
         updateDisplay(global_spi_handle);
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
@@ -652,8 +665,15 @@ int main() {
         // menu edits
         if(edit){
             if(menu==TONE_MENU) editTone();
-            if(menu==WAVE_MENU) editWave();
-            if(menu==ADSR_MENU) editADSR();
+            if(menu==WAVE_MENU) {
+                editWave();
+                drawWave();
+            }
+
+            if(menu==ADSR_MENU) {
+                editADSR();
+                drawADSR();
+            }
             if(menu==REVERB_MENU) editReverb();
         }
         
@@ -703,38 +723,3 @@ int main() {
 
 
 
-// ======================================
-//          Example Output Draw
-// ======================================
-
-// void drawOutput(u8g2_t &u8g2, float sample) {
-//     static int x = 0;
-
-//     const int width  = 128;
-//     const int height = 64;
-
-//     // Map sample (-1..+1) to Y coordinate (0..63)
-//     int y = (int)((1.0f - sample) * 0.5f * (height - 1));
-
-//     // --- erase only this column ---
-//     for (int i = 0; i < height; i++) {
-//         u8g2.setDrawColor(0);      // draw "black"
-//         u8g2.drawPixel(x, i);      // clear old pixels
-//     }
-
-//     // --- draw new waveform column ---
-//     u8g2.setDrawColor(1);          // draw "white"
-
-//     // draw a vertical line from the middle to the point
-//     int mid = height / 2;
-//     if (y > mid)
-//         u8g2.drawLine(x, mid, x, y);
-//     else
-//         u8g2.drawLine(x, y, x, mid);
-
-//     // advance x
-//     x++;
-//     if (x >= width) x = 0;
-
-//     u8g2.sendBuffer();
-// }
