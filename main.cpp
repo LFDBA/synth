@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <linux/input.h>
 #include <rtaudio/RtAudio.h>
+#include "screen.h"
 #include "Reverb.h"
 #include <ncurses.h>  // For proper non-blocking keyboard input
 
@@ -413,7 +414,7 @@ int main() {
 
     while(true){
         getInp(); // microcontroller input
-
+        drawADSR(attack,decay,sustain,release);
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
 
         // menu edits

@@ -124,13 +124,9 @@ float ADSR(float attack,float decay,float sustain,float release,
 // --------------------------------------
 //  Draw ADSR Curve
 // --------------------------------------
-void drawADSR() {
+void drawADSR(float attack, float decay, float sustain, float release) {
     clearBuffer();
 
-    float attack = 0.5;
-    float decay = 0.2;
-    float sustain = 0.8;
-    float release = 0.8;
     float sustainView = 0.2;
     float totalTime = attack + decay + sustainView + release;
 
@@ -150,6 +146,7 @@ void drawADSR() {
         if (lastY >= 0) drawLine(x-1, lastY, x, y);
         lastY = y;
     }
+    updateDisplay(global_spi_handle);
 }
 
 // --------------------------------------
@@ -190,11 +187,8 @@ int main() {
 
     initDisplay(global_spi_handle);
 
-    while (true) {
-        drawADSR();
-        updateDisplay(global_spi_handle);
-        usleep(50000); // 20 fps
-    }
+
+    
 
     return 0;
 }
