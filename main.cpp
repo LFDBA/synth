@@ -344,7 +344,8 @@ void drawOutput() {
 
 
 
-
+int pushDivider = 4;   // higher = slower scroll
+int pushCount = 0;
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -416,7 +417,10 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
 
-        pushSample(mix);
+        if(++pushCount >= pushDivider) {
+            pushSample(mix);
+            pushCount = 0;
+        }
         
 
         output[2*i]     = mix*(1.0f-pan);
