@@ -124,7 +124,7 @@ float ADSR(float attack,float decay,float sustain,float release,
 // --------------------------------------
 //  Draw ADSR Curve
 // --------------------------------------
-void drawADSR(float attack, float decay, float sustain, float release) {
+extern void drawADSR(float attack, float decay, float sustain, float release) {
     clearBuffer();
 
     float sustainView = 0.2;
