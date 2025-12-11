@@ -298,7 +298,7 @@ float ADSR(float attack,float decay,float sustain,float release,bool trig,float 
 // ======================================
 
 const int DRAW_WIDTH = WIDTH;       // OLED width
-const int BUF_LEN = 512;            // Number of samples to keep for display
+int BUF_LEN = 512;            // Number of samples to keep for display
 float sampleBuffer[BUF_LEN];        // circular buffer
 int bufIndex = 0;                   // current write position
 
@@ -551,6 +551,7 @@ void editReverb() {
 void editTone(){
     if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.1f);
     if(abs(p2-lastP2)>1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
+    if(abs(p3-lastP3)>1) BUF_LEN = norm(p3,0.0f,1023.0f,256.0f,2048.0f);
 }
 
 
