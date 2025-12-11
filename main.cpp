@@ -525,11 +525,17 @@ void drawADSR() {
     }
 }
 
+
+
 void drawVoice() {
     clearBuffer();
 
     const int width  = WIDTH;
     const int height = HEIGHT;
+
+    // First pass: compute samples
+    std::vector<float> samples(width);
+    float maxAbs = 0.0f;
 
     for (int x = 0; x < width; x++) {
         float oscSample;
@@ -542,7 +548,7 @@ void drawVoice() {
             float seg = knobPosition * 4.0f;
             int idx = int(seg);
             float blend = seg - idx;
-            float phase = float(x) / (width - 1); // scaled 0..1
+            float phase = float(x) / (width - 1); // 0..1
             float w1, w2;
 
             switch(idx){
@@ -556,10 +562,21 @@ void drawVoice() {
             oscSample = (1.0f - blend) * w1 + blend * w2;
         }
 
-        int y = height/2 - int(oscSample * (height/2 - 1));
-        drawPixel(x, y);
+        samples[x] = oscSample;
+        if(fabs(oscSample) > maxAbs) maxAbs = fabs(oscSample);
+    }
+
+    if(maxAbs < 1e-6f) maxAbs = 1.0f; // avoid divide by zero
+
+    // Second pass: draw lines
+    int lastY = height / 2 - int(samples[0] / maxAbs * (height/2 - 1));
+    for(int x = 1; x < width; x++) {
+        int y = height / 2 - int(samples[x] / maxAbs * (height/2 - 1));
+        drawLine(x-1, lastY, x, y);
+        lastY = y;
     }
 }
+
 
 
 
