@@ -308,6 +308,11 @@ void pushSample(float s) {
     if(bufIndex >= BUF_LEN) bufIndex = 0;
 }
 
+// Helper for mapping integers
+inline int iMap(int val,int inMin,int inMax,int outMin,int outMax){
+    return (val - inMin)*(outMax - outMin)/(inMax - inMin) + outMin;
+}
+
 // Draw waveform to OLED
 void drawOutput() {
     clearBuffer();
@@ -336,10 +341,7 @@ void drawOutput() {
     }
 }
 
-// Helper for mapping integers
-inline int iMap(int val,int inMin,int inMax,int outMin,int outMax){
-    return (val - inMin)*(outMax - outMin)/(inMax - inMin) + outMin;
-}
+
 
 
 
