@@ -5,6 +5,8 @@
 #include <vector>
 #include <cstdint>
 #include <signal.h>
+#include <cstring>   // <-- REQUIRED for memset()
+
 
 #define SPI_CHANNEL 0
 #define SPI_SPEED 8000000
