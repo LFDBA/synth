@@ -298,7 +298,7 @@ float ADSR(float attack,float decay,float sustain,float release,bool trig,float 
 // ======================================
 
 const int DRAW_WIDTH = WIDTH;       // OLED width
-const int BUF_LEN = 256;            // Number of samples to keep for display
+const int BUF_LEN = 128;            // Number of samples to keep for display
 float sampleBuffer[BUF_LEN];        // circular buffer
 int bufIndex = 0;                   // current write position
 
