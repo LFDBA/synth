@@ -528,36 +528,39 @@ void drawADSR() {
 void drawVoice() {
     clearBuffer();
 
-    const int width  = 128;
-    const int height = 64;
+    const int width  = WIDTH;
+    const int height = HEIGHT;
 
-    int lastY = -1;
-
-    for (int x = 0; x < width; x++)
-    {
+    for (int x = 0; x < width; x++) {
         float oscSample;
-        if(custom){
-            int idx=int(x*TABLE_SIZE);
-            if(idx>=TABLE_SIZE) idx=TABLE_SIZE-1;
-            oscSample = customTable[idx];
-        }else{
-            float seg=knobPosition*4.0f;
-            int idx=int(seg);
-            float blend=seg-idx;
-            float w1,w2;
-            switch(idx){
-                case 0: w1=sineWave(x); w2=squareWave(x); break;
-                case 1: w1=squareWave(x); w2=sawWave(x); break;
-                case 2: w1=sawWave(x); w2=triangleWave(x); break;
-                case 3: w1=triangleWave(x); w2=sineWave(x); break;
-                default: w1=w2=0.0f;
-            }
-            oscSample = ((1.0f-blend)*w1 + blend*w2);
-        }
-        drawPixel(x, height/2 - int(oscSample * (height/2 - 1)));
-    }
 
+        if(custom){
+            int idx = int((float)x / (width - 1) * (TABLE_SIZE - 1));
+            if(idx >= TABLE_SIZE) idx = TABLE_SIZE - 1;
+            oscSample = customTable[idx];
+        } else {
+            float seg = knobPosition * 4.0f;
+            int idx = int(seg);
+            float blend = seg - idx;
+            float phase = float(x) / (width - 1); // scaled 0..1
+            float w1, w2;
+
+            switch(idx){
+                case 0: w1 = sineWave(phase); w2 = squareWave(phase); break;
+                case 1: w1 = squareWave(phase); w2 = sawWave(phase); break;
+                case 2: w1 = sawWave(phase); w2 = triangleWave(phase); break;
+                case 3: w1 = triangleWave(phase); w2 = sineWave(phase); break;
+                default: w1 = w2 = 0.0f;
+            }
+
+            oscSample = (1.0f - blend) * w1 + blend * w2;
+        }
+
+        int y = height/2 - int(oscSample * (height/2 - 1));
+        drawPixel(x, y);
+    }
 }
+
 
 
 // ======================================================
