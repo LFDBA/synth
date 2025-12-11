@@ -152,8 +152,19 @@ int main() {
         usleep(50000); // 50ms refresh
     }
 
-    clearBuffer();
-    updateDisplay(spi);
+    // Clear display before exit
+    uint8_t blank[128];
+    memset(blank, 0x00, 128);
+
+    for (int page = 0; page < 8; page++) {
+        cmd(spi, 0xB0 | page); // page address
+        cmd(spi, 0x00);        // lower column
+        cmd(spi, 0x10);        // upper column
+        data_bytes(spi, blank, 128);
+    }
+
+    cmd(spi, 0xAF); // Display ON
+
     spiClose(spi);
     gpioTerminate();
     return 0;
