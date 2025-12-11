@@ -374,7 +374,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
 
-        if(menu == TONE_MENU) drawOutput(mix*64);
+        if(menu == TONE_MENU) drawOutput(mix*640);
 
         output[2*i]     = mix*(1.0f-pan);
         output[2*i + 1] = mix*(pan+1.0f);
