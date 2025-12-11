@@ -7,7 +7,7 @@ g++ \
   Utilities.cpp \
   AudioFFT.cpp \
   -o main \
-  -O3 -std=c++17 \
+  -O3 -std=c++11 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lgpiod -lrt
 
 ./main
