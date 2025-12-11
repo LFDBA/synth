@@ -591,7 +591,7 @@ void editTone(){
 
     if(abs(p3-lastP3)>1) {
         // compute the desired length, clamp to allowed range
-        int newLen = iMap(p3, 0, 1023, 256, 2048);
+        int newLen = iMap(p3, 0, 1023, 1, 2048);
         if (newLen < 32) newLen = 32;
         if (newLen > MAX_BUF_LEN) newLen = MAX_BUF_LEN;
 
