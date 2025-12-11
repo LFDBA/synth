@@ -344,7 +344,7 @@ void drawOutput() {
 
 
 
-int pushDivider = 8;   // higher = slower scroll
+int pushDivider = 1;   // higher = slower scroll
 int pushCount = 0;
 // ======================================================
 //                  Audio Callback
