@@ -504,6 +504,7 @@ void editTone(){
 void drawADSR() {
     clearBuffer();
 
+    float sustainView = 0.2;
     float totalTime = attack + decay + sustainView + release;
 
     int lastY = -1;
