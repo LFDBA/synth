@@ -1,29 +1,23 @@
+#include "screen.h"
 #include <pigpio.h>
 #include <iostream>
 #include <cmath>
 #include <unistd.h>
-#include <vector>
-#include <cstdint>
 #include <cstring>
-#include <signal.h>
 
-#define SPI_CHANNEL 0          // CE0
-#define SPI_SPEED 8000000      // 8 MHz
-#define PIN_DC 25              // Data/Command pin
-#define PIN_RES 24             // Reset pin
+#define SPI_CHANNEL 0
+#define SPI_SPEED   8000000
+#define PIN_DC      25
+#define PIN_RES     24
 
 const int WIDTH = 128;
 const int HEIGHT = 64;
 
 uint8_t buffer[WIDTH * (HEIGHT / 8)];
-int global_spi_handle = -1;   // Needed for safe exit
-
-void clearBuffer();
-void updateDisplay(int spi);
-void gracefulExit(int signum);
+int global_spi_handle = -1;
 
 // --------------------------------------
-//  SPI Send Helpers
+//  SPI Helpers
 // --------------------------------------
 void sendCommand(int spi, uint8_t cmd) {
     gpioWrite(PIN_DC, 0);
@@ -36,7 +30,7 @@ void sendData(int spi, const uint8_t* data, size_t len) {
 }
 
 // --------------------------------------
-//  SH1106 Init
+//  Display Init
 // --------------------------------------
 void initDisplay(int spi) {
     gpioWrite(PIN_RES, 0);
@@ -73,7 +67,6 @@ void drawPixel(int x, int y) {
     buffer[x + (y/8)*WIDTH] |= (1 << (y % 8));
 }
 
-// Bresenham Line
 void drawLine(int x0, int y0, int x1, int y1) {
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
@@ -88,7 +81,6 @@ void drawLine(int x0, int y0, int x1, int y1) {
     }
 }
 
-// Send buffer to OLED
 void updateDisplay(int spi) {
     for (int page = 0; page < HEIGHT/8; page++) {
         sendCommand(spi, 0xB0 + page);
@@ -99,11 +91,10 @@ void updateDisplay(int spi) {
 }
 
 // --------------------------------------
-//  ADSR Envelope Function
+//  ADSR Envelope
 // --------------------------------------
 float ADSR(float attack,float decay,float sustain,float release,
            bool trig,float t,float lvl) {
-
     float curve = 3.0f;
 
     if (trig) {
@@ -121,9 +112,6 @@ float ADSR(float attack,float decay,float sustain,float release,
     }
 }
 
-// --------------------------------------
-//  Draw ADSR Curve
-// --------------------------------------
 void drawADSR(float attack, float decay, float sustain, float release) {
     clearBuffer();
 
@@ -139,8 +127,7 @@ void drawADSR(float attack, float decay, float sustain, float release) {
             env = ADSR(attack, decay, sustain, release, true, t, 1.0);
         else
             env = ADSR(attack, decay, sustain, release, false,
-                       t - (attack + decay + sustainView),
-                       1.0);
+                       t - (attack + decay + sustainView), 1.0);
 
         int y = HEIGHT - 1 - int(env * (HEIGHT - 1));
         if (lastY >= 0) drawLine(x-1, lastY, x, y);
@@ -150,11 +137,10 @@ void drawADSR(float attack, float decay, float sustain, float release) {
 }
 
 // --------------------------------------
-//  Ctrl-C Cleanup
+//  Graceful Exit
 // --------------------------------------
 void gracefulExit(int signum) {
     std::cout << "\nClearing OLED before exit...\n";
-
     clearBuffer();
     updateDisplay(global_spi_handle);
 
@@ -165,30 +151,7 @@ void gracefulExit(int signum) {
     exit(0);
 }
 
-// --------------------------------------
-//  Main
-// --------------------------------------
-int main() {
-    if (gpioInitialise() < 0) {
-        std::cerr << "pigpio init failed\n";
-        return 1;
-    }
-
-    signal(SIGINT, gracefulExit);
-
-    gpioSetMode(PIN_DC, PI_OUTPUT);
-    gpioSetMode(PIN_RES, PI_OUTPUT);
-
-    global_spi_handle = spiOpen(SPI_CHANNEL, SPI_SPEED, 0);
-    if (global_spi_handle < 0) {
-        std::cerr << "SPI failed\n";
-        return 1;
-    }
-
-    initDisplay(global_spi_handle);
-
-
-    
-
-    return 0;
+void clearSSD1306(int spi) {
+    clearBuffer();
+    updateDisplay(spi);
 }
