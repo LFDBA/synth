@@ -316,7 +316,7 @@ inline int iMap(int val,int inMin,int inMax,int outMin,int outMax){
 // Draw waveform to OLED
 void drawOutput() {
     clearBuffer();
-
+    float vis = 0.5f
     // Find max absolute value for normalization
     float maxVal = 0.0001f; // avoid division by zero
     for(int i=0;i<BUF_LEN;i++)
@@ -330,7 +330,8 @@ void drawOutput() {
         float normSample = sampleBuffer[idx] / maxVal;
         // Map to pixel
         int y = HEIGHT/2 - int(normSample * (HEIGHT/2 - 1));
-
+        vis = vis + (y - vis) * 0.1f;
+        y = int(vis);
         // Draw line from previous point
         if(x>0){
             int prevIdx = (bufIndex + iMap(x-1,0,DRAW_WIDTH,0,BUF_LEN)) % BUF_LEN;
