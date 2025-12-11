@@ -664,19 +664,19 @@ int main() {
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
 
         // menu edits
-        if(edit){
-            if(menu==TONE_MENU) editTone();
-            if(menu==WAVE_MENU) {
-                editWave();
-                drawWave();
-            }
-
-            if(menu==ADSR_MENU) {
-                editADSR();
-                drawADSR();
-            }
-            if(menu==REVERB_MENU) editReverb();
+        
+        if(menu==TONE_MENU && edit) editTone();
+        if(menu==WAVE_MENU) {
+            if(edit) editWave();
+            drawWave();
         }
+
+        if(menu==ADSR_MENU) {
+            if(edit) editADSR();
+            drawADSR();
+        }
+        if(menu==REVERB_MENU && edit) editReverb();
+    
         
 
         // Keyboard triggering
