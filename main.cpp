@@ -457,7 +457,7 @@ void editWave(){
     if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
     knobPosition = norm(p4,0.0f,1023.0f,0.0f,0.9f);
     if(abs(p4-lastP4)>2) custom=false;
-    if(abs(p1-lastP1)>2 || abs(p2-lastP2)>2 || abs(p3-lastP3)>2) custom=true;
+    if(abs(p1-lastP1)>3 || abs(p2-lastP2)>3 || abs(p3-lastP3)>3) custom=true;
     updateWave();
 }
 
