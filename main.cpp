@@ -364,7 +364,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
                     voice.phase = 0.0f;
                 }
             }
-
+ 
             mix += sample;
         }
 
