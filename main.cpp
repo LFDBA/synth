@@ -525,7 +525,39 @@ void drawADSR() {
     }
 }
 
+void drawVoice() {
+    clearBuffer();
 
+    const int width  = 128;
+    const int height = 64;
+
+    int lastY = -1;
+
+    for (int x = 0; x < width; x++)
+    {
+        float oscSample;
+        if(custom){
+            int idx=int(x*TABLE_SIZE);
+            if(idx>=TABLE_SIZE) idx=TABLE_SIZE-1;
+            oscSample = customTable[idx];
+        }else{
+            float seg=knobPosition*4.0f;
+            int idx=int(seg);
+            float blend=seg-idx;
+            float w1,w2;
+            switch(idx){
+                case 0: w1=sineWave(x); w2=squareWave(x); break;
+                case 1: w1=squareWave(x); w2=sawWave(x); break;
+                case 2: w1=sawWave(x); w2=triangleWave(x); break;
+                case 3: w1=triangleWave(x); w2=sineWave(x); break;
+                default: w1=w2=0.0f;
+            }
+            oscSample = ((1.0f-blend)*w1 + blend*w2);
+        }
+        drawPixel(x, height/2 - int(oscSample * (height/2 - 1)));
+    }
+
+}
 
 
 // ======================================================
@@ -592,7 +624,7 @@ int main() {
     while(true){
         getInp(); // microcontroller input
 
-        drawADSR();
+        drawVoice();
         updateDisplay(global_spi_handle);
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
@@ -650,65 +682,6 @@ int main() {
 
 
 
-
-
-// ======================================
-//            Example ADSR Draw
-// ======================================
-
-// void drawADSR(U8G2 &u8g2)
-// {
-//     float sustainVisTime = 0.2f; // purely visual
-
-//     float totalTime = attack + decay + sustainVisTime + release;
-
-//     for(int x = 0; x < 128; x++)
-//     {
-//         float t = (float)x / 128.0f * totalTime;
-
-//         bool noteHeld = (t < attack + decay + sustainVisTime);
-
-//         float env = ADSR(attack, decay, sustain, release,
-//                          noteHeld,
-//                          t,
-//                          1.0f);
-
-//         // scale ADSR output (0–1) to screen height (0–63)
-//         int y = 63 - int(env * 63.0f);
-
-//         u8g2.drawPixel(x, y);
-//     }
-// }
-
-
-// ======================================
-//          Example Voice Draw
-// ======================================
-
-// void drawVoice(u8g2_t &u8g2)
-// {
-//     u8g2.clearBuffer();
-
-//     const int width  = 128;
-//     const int height = 64;
-
-//     int lastY = -1;
-
-//     for (int x = 0; x < width; x++)
-//     {
-//         float phase = (float)x / (float)(width - 1);
-//         float v = osc(phase);   // -1 to +1
-
-//         int y = (int)((1.0f - v) * 0.5f * (height - 1));
-
-//         if (x > 0)
-//             u8g2.drawLine(x - 1, lastY, x, y);
-
-//         lastY = y;
-//     }
-
-//     u8g2.sendBuffer();
-// }
 
 // ======================================
 //          Example Output Draw

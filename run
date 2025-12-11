@@ -10,4 +10,4 @@ g++ \
   -O3 -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
 
-./main
+sudo ./main
