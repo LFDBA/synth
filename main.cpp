@@ -953,7 +953,7 @@ int main() {
                 }
             }
         }
-
+    }
 
     try{ dac.stopStream(); } catch(RtAudioError &e){}
     if(dac.isStreamOpen()) dac.closeStream();
