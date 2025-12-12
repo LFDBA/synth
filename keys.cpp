@@ -40,6 +40,7 @@ int main() {
             if(inIdx == 1) continue;
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 1 << std::endl;
+            }
         }
         // for (size_t outIdx = 0; outIdx < outputPins.size(); ++outIdx) {
         //     int outPin = outputPins[outIdx];
