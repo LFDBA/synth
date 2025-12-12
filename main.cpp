@@ -29,7 +29,7 @@
 #define PIN_DC 25              // Data/Command pin
 #define PIN_RES 24             // Reset pin
 
-const int WIDTH = 128;
+const int WIDTH = 127;
 const int HEIGHT = 64;
 
 uint8_t buffer[WIDTH * (HEIGHT / 8)];
@@ -751,6 +751,11 @@ int main() {
 
     std::cout << "Polyphonic Synth Ready.\n";
     std::cout << "Press keys z,x,c,v to trigger voices, 1–3 for menus.\n";
+
+    initDisplay(global_spi_handle);
+    clearBuffer();
+    updateDisplay(global_spi_handle);
+
 
     while(true){
         getInp(); // microcontroller input
