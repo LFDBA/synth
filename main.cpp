@@ -140,52 +140,40 @@ void drawRect(int x, int y, int w, int h) {
     drawLine(x + w - 1, y, x + w - 1, y + h - 1); // right
 }
 
-// Draw a single block (filled) vertical bar (thin filled rectangle)
-void drawVBar(int x, int y, int w, int h) {
-    for (int xx = 0; xx < w; ++xx) drawLine(x + xx, y, x + xx, y + h - 1);
+extern const uint8_t font5x7[128][5];
+
+// Draw a single character at (x, y)
+void drawChar(int x, int y, char c) {
+    const uint8_t* glyph = font5x7[(uint8_t)c];
+
+    for (int col = 0; col < 5; col++) {
+        uint8_t bits = glyph[col];
+
+        for (int row = 0; row < 7; row++) {
+            if (bits & (1 << row)) {
+                drawPixel(x + col, y + row);
+            }
+        }
+    }
 }
 
-// Draw the word "TONE" at (x0,y0) with integer scale (>=1)
-void drawTONE(int x0, int y0, int scale) {
-    if (scale < 1) scale = 1;
+// Draw a full text string at (x, y)
+void drawText(int x, int y, const char* text) {
+    int cursorX = x;
+    int cursorY = y;
 
-    // Base letter sizes (you can tweak these)
-    int w = 6 * scale;   // typical letter width
-    int h = 10 * scale;  // typical letter height
-    int gap = 2 * scale; // space between letters
+    while (*text) {
+        char c = *text++;
 
-    int x = x0;
+        if (c == '\n') {
+            cursorX = x;
+            cursorY += 8;   // line spacing
+            continue;
+        }
 
-    // --- T ---
-    // top bar
-    drawLine(x, y0, x + w - 1, y0);
-    // vertical stem centered
-    int cx = x + w / 2;
-    drawLine(cx, y0, cx, y0 + h - 1);
-    x += w + gap;
-
-    // --- O ---
-    // Draw an outlined O (rectangle)
-    drawRect(x, y0, w, h);
-    x += w + gap;
-
-    // --- N ---
-    // left vertical
-    drawLine(x, y0, x, y0 + h - 1);
-    // right vertical
-    drawLine(x + w - 1, y0, x + w - 1, y0 + h - 1);
-    // diagonal from top-left to bottom-right
-    drawLine(x, y0, x + w - 1, y0 + h - 1);
-    x += w + gap;
-
-    // --- E ---
-    // left vertical stroke (thick-ish to look solid)
-    drawVBar(x, y0, scale*1 + 1, h); // width ~1*scale
-    // horizontals: top, middle, bottom
-    drawLine(x, y0, x + w - 1, y0);                 // top
-    drawLine(x, y0 + h/2, x + w - 1, y0 + h/2);     // middle
-    drawLine(x, y0 + h - 1, x + w - 1, y0 + h - 1); // bottom
-    // done
+        drawChar(cursorX, cursorY, c);
+        cursorX += 6;      // 5px glyph + 1px spacing
+    }
 }
 
 
@@ -904,7 +892,7 @@ int main() {
         
         if(menu==TONE_MENU) {
             if(edit) editTone();
-            drawTONE(50, 50, 1);
+            drawText(50, 50, "Yoza");
         }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
