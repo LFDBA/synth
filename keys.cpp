@@ -8,11 +8,18 @@
 // GPIO pins (BCM numbering)
 std::vector<int> pins = {2, 3, 4, 17, 27, 22, 0, 5, 6, 13, 19, 26, 21};
 
-// Simple debounce threshold (number of consecutive reads)
+// Debounce threshold
 const int DEBOUNCE_THRESHOLD = 3;
 
-// Key map: (outPin, inPin) -> key number
-std::map<std::pair<int,int>, int> keyMap;
+// Key map: only actual keyboard connections (output pin, input pin) -> key number
+std::map<std::pair<int,int>, int> keyMap = {
+    // Example: replace with your real keyboard wiring
+    {{2,3}, 1},  {{2,5}, 2},  {{2,7}, 3},   // Output 2 + various inputs
+    {{3,4}, 4},  {{3,6}, 5},  {{3,8}, 6},   // Output 3 + inputs
+    {{4,5}, 7},  {{4,7}, 8},  {{4,9}, 9},
+    {{17,10},10},{{17,11},11},{{17,12},12},
+    // ... continue until all 36 keys are mapped
+};
 
 // Track stable key states
 std::map<int,bool> keyStates;
@@ -32,35 +39,33 @@ int main() {
         gpioSetPullUpDown(p, PI_PUD_DOWN);
     }
 
-    // Build key map using output intervals of 4, input intervals of 1
-    int keyNum = 1;
-    for (size_t outIdx = 0; outIdx < pins.size(); ++outIdx) {
-        for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
-            if (inIdx == outIdx) continue; // skip same pin
-            keyMap[{pins[outIdx], pins[inIdx]}] = keyNum;
-            keyStates[keyNum] = false;
-            keyCounters[keyNum] = 0;
-            keyNum++;
-        }
+    // Initialize key states and counters
+    for (auto const& kv : keyMap) {
+        keyStates[kv.second] = false;
+        keyCounters[kv.second] = 0;
     }
 
     std::cout << "Starting keyboard scan..." << std::endl;
 
     while (true) {
+        // Scan each output pin
         for (auto outPin : pins) {
             // Set output high
             gpioSetMode(outPin, PI_OUTPUT);
             gpioWrite(outPin, 1);
 
-            // Give line some time to stabilize
+            // Small delay to stabilize line
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
 
-            // Scan all other pins
-            for (auto inPin : pins) {
-                if (inPin == outPin) continue;
+            // Check only input pins that are mapped with this output
+            for (auto const& kv : keyMap) {
+                int mappedOut = kv.first.first;
+                int mappedIn  = kv.first.second;
+                int keyNum    = kv.second;
 
-                int keyNum = keyMap[{outPin, inPin}];
-                bool pressed = gpioRead(inPin);
+                if (mappedOut != outPin) continue; // skip keys not using this output
+
+                bool pressed = gpioRead(mappedIn);
 
                 if (pressed) {
                     keyCounters[keyNum]++;
@@ -82,7 +87,7 @@ int main() {
             gpioSetMode(outPin, PI_INPUT);
             gpioSetPullUpDown(outPin, PI_PUD_DOWN);
 
-            // Small delay to reduce ghosting
+            // Small delay per pin
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
