@@ -21,7 +21,6 @@ int main() {
     while (true) {
         for (size_t outIdx = 0; outIdx < pins.size(); ++outIdx) {
             int outPin = pins[outIdx];
-            gpioSetMode(outPin, PI_OUTPUT);
             gpioWrite(outPin, 1);
 
             for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
@@ -35,8 +34,6 @@ int main() {
             }
 
             gpioWrite(outPin, 0);
-            gpioSetMode(outPin, PI_INPUT);
-            gpioSetPullUpDown(outPin, PI_PUD_DOWN);
         }
     }
 
