@@ -169,11 +169,20 @@ void gracefulExit(int signum) {
 
 
 
+
 // ======================================================
 //                        Utils
 // ======================================================
 float norm(float x, float in_min, float in_max, float out_min, float out_max) {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+int mapKeyNumber(int k) {
+    int base = 6;
+    int col = (k - base) / 12;
+    int row = k - base - (col * 12);
+    int index = row * 5 + col + 1;
+    return index-1; // zero-based
 }
 
 // ======================================================
@@ -408,7 +417,7 @@ void drawOutput() {
 
 
 
-
+int actNum = 0;
 
 
 // ======================================================
@@ -530,12 +539,13 @@ int readKeyBoard() {
                 keyStates[keyNum].count++;
                 if(keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed){
                     keyStates[keyNum].pressed = true;
+                    return mapKeyNumber(keyNum);
                 }
             } else {
                 keyStates[keyNum].count = 0;
                 if(keyStates[keyNum].pressed){
                     keyStates[keyNum].pressed = false;
-                    return keyNum;
+                    return -mapKeyNumber(keyNum)-1;
                 }
             }
 
@@ -544,7 +554,7 @@ int readKeyBoard() {
 
         gpioWrite(pins[i], 0);
     }
-    return -1;
+    return -1111;
 }
 
 
@@ -880,6 +890,30 @@ int main() {
                     break;
                 }
 
+            }
+        }
+        int noteKey = readKeyBoard();
+        if(noteKey != -1111){
+            if(noteKey >= 0){
+                Voice &voice = voices[actNum];
+                voice.active = true;
+                voice.releasing = false;
+                voice.envTime = 0.0f;
+                voice.phase = 0.0f;
+                voice.frequency = noteToHz(noteKey);
+                actNum += 1;
+            }else{
+                
+                for(int i = 0; i < actNum){
+                    if(voices[i].frequency = noteToHz((-noteKey)-1)){
+                        Voice &voice = voices[i];
+                        voice.active = false;
+                        voice.releasing = true;
+                        voice.envTime = 0.0f; // release phase timer
+                    }
+                }
+                
+                actNum -= 1;
             }
         }
 

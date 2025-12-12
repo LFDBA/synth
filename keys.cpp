@@ -22,7 +22,7 @@ int mapKeyNumber(int k) {
     int col = (k - base) / 12;
     int row = k - base - (col * 12);
     int index = row * 5 + col + 1;
-    return index;
+    return index-1; // zero-based
 }
 
 
