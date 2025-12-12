@@ -18,11 +18,11 @@ struct KeyState {
 std::map<int, KeyState> keyStates;
 
 int mapKeyNumber(int k) {
-    // k is 1–36
-    int idx = k - 1;     // convert to 0-based
-    int col = idx % 6;   // which “group”
-    int row = idx / 6;   // which position within the group
-    return (((6 + col + row * 12)+13)/24)-1;
+    int base = 6;
+    int col = (rawKey - base) / 12;
+    int row = rawKey - base - (col * 12);
+    int index = row * 5 + col + 1;
+    return index;
 }
 
 
