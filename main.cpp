@@ -955,10 +955,6 @@ int main() {
         }
 
 
-        usleep(1000);
-        lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
-    }
-
     try{ dac.stopStream(); } catch(RtAudioError &e){}
     if(dac.isStreamOpen()) dac.closeStream();
     closeKeyboard();
