@@ -33,9 +33,9 @@ int main() {
     }
 
     std::cout << "Starting keyboard scan..." << std::endl;
-    size_t i = 0;
+
     while (true) {
-        for(i = 0; i < pins.size(); ++i)
+        for(size_t i = 0; i < pins.size(); ++i){
             gpioWrite(pins[i], 1); // Reset all to low
         
             for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
