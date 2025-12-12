@@ -132,6 +132,62 @@ void drawLine(int x0, int y0, int x1, int y1) {
         if (e2 <= dx) { err += dx; y0 += sy; }
     }
 }
+// Helper: draw a rectangle outline using your drawLine
+void drawRect(int x, int y, int w, int h) {
+    drawLine(x,     y,     x + w - 1, y);         // top
+    drawLine(x,     y + h - 1, x + w - 1, y + h - 1); // bottom
+    drawLine(x,     y,     x,         y + h - 1); // left
+    drawLine(x + w - 1, y, x + w - 1, y + h - 1); // right
+}
+
+// Draw a single block (filled) vertical bar (thin filled rectangle)
+void drawVBar(int x, int y, int w, int h) {
+    for (int xx = 0; xx < w; ++xx) drawLine(x + xx, y, x + xx, y + h - 1);
+}
+
+// Draw the word "TONE" at (x0,y0) with integer scale (>=1)
+void drawTONE(int x0, int y0, int scale) {
+    if (scale < 1) scale = 1;
+
+    // Base letter sizes (you can tweak these)
+    int w = 6 * scale;   // typical letter width
+    int h = 10 * scale;  // typical letter height
+    int gap = 2 * scale; // space between letters
+
+    int x = x0;
+
+    // --- T ---
+    // top bar
+    drawLine(x, y0, x + w - 1, y0);
+    // vertical stem centered
+    int cx = x + w / 2;
+    drawLine(cx, y0, cx, y0 + h - 1);
+    x += w + gap;
+
+    // --- O ---
+    // Draw an outlined O (rectangle)
+    drawRect(x, y0, w, h);
+    x += w + gap;
+
+    // --- N ---
+    // left vertical
+    drawLine(x, y0, x, y0 + h - 1);
+    // right vertical
+    drawLine(x + w - 1, y0, x + w - 1, y0 + h - 1);
+    // diagonal from top-left to bottom-right
+    drawLine(x, y0, x + w - 1, y0 + h - 1);
+    x += w + gap;
+
+    // --- E ---
+    // left vertical stroke (thick-ish to look solid)
+    drawVBar(x, y0, scale*1 + 1, h); // width ~1*scale
+    // horizontals: top, middle, bottom
+    drawLine(x, y0, x + w - 1, y0);                 // top
+    drawLine(x, y0 + h/2, x + w - 1, y0 + h/2);     // middle
+    drawLine(x, y0 + h - 1, x + w - 1, y0 + h - 1); // bottom
+    // done
+}
+
 
 // Send buffer to OLED
 void updateDisplay(int spi) {
@@ -848,7 +904,7 @@ int main() {
         
         if(menu==TONE_MENU) {
             if(edit) editTone();
-            drawOutput();
+            drawTONE();
         }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
