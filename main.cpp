@@ -905,7 +905,7 @@ int main() {
             }else{
                 
                 for(int i = 0; i < actNum; i++){
-                    if(voices[i].frequency = noteToHz((-noteKey)-1)){
+                    if(voices[i].frequency == noteToHz((-noteKey)-1)){
                         Voice &voice = voices[i];
                         voice.active = false;
                         voice.releasing = true;
