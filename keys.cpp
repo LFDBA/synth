@@ -62,15 +62,6 @@ int main() {
             std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(4, 0);
-        gpioWrite(17, 1);
-        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 3 || inIdx == 4) continue;
-            if(gpioRead(pins[inIdx]) == 1){
-                std::cout << "Key pressed: " << inIdx + 37 << std::endl;
-            }
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
-        }
-        gpioWrite(17, 0);
         
         
         
