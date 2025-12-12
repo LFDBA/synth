@@ -189,6 +189,7 @@ static const uint8_t font5x7[128][5] = {
 };
 
 
+static const int FONT_WIDTH = 6;   // 5 pixels + 1 pixel spacing
 
 void drawChar(int x, int y, char c) {
     const uint8_t* glyph = font5x7[(uint8_t)c];
