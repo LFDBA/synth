@@ -35,19 +35,51 @@ int main() {
     std::cout << "Starting keyboard scan..." << std::endl;
 
     while (true) {
-        for(size_t i = 0; i < pins.size(); ++i){
-            gpioWrite(pins[i], 1); // Reset all to low
-        
-            for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-                
-                if(gpioRead(pins[inIdx]) == 1 && i != inIdx){
-                    std::cout << "Key pressed: " << inIdx + 1 << std::endl;
-                }
+        gpioWrite(2, 1); // Dummy write to ensure proper timing
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 0) continue;
+            if(gpioRead(pins[inIdx]) == 1){
+                std::cout << "Key pressed: " << inIdx + 1 << std::endl;
             }
-            gpioWrite(pins[i], 0); // Set back to input
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-        
+        // for (size_t outIdx = 0; outIdx < outputPins.size(); ++outIdx) {
+        //     int outPin = outputPins[outIdx];
+
+        //     // Drive current output high
+        //     gpioSetMode(outPin, PI_OUTPUT);
+        //     gpioWrite(outPin, 1);
+
+        //     // Scan all input pins (rows)
+        //     for (size_t inIdx = 0; inIdx < inputPins.size(); ++inIdx) {
+        //         int inPin = inputPins[inIdx];
+        //         bool high = gpioRead(inPin);
+
+        //         int keyNum = inIdx * outputPins.size() + outIdx + 1;
+
+        //         KeyState &ks = keyStates[keyNum];
+
+        //         if (high) {
+        //             ks.count++;
+        //             if (!ks.pressed && ks.count >= debounceScans) {
+        //                 ks.pressed = true;
+        //                 std::cout << "Key pressed: " << keyNum << std::endl;
+        //             }
+        //         } else {
+        //             ks.count = 0;
+        //             if (ks.pressed) {
+        //                 ks.pressed = false;
+        //                 std::cout << "Key released: " << keyNum << std::endl;
+        //             }
+        //         }
+        //     }
+
+        //     // Reset output to input
+        //     gpioWrite(outPin, 0);
+        //     gpioSetMode(outPin, PI_INPUT);
+        //     gpioSetPullUpDown(outPin, PI_PUD_DOWN);
+
+        //     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // }
     }
 
     gpioTerminate();
