@@ -894,28 +894,41 @@ int main() {
         }
         int noteKey = readKeyBoard();
         if(noteKey != -1111){
-            if(noteKey >= 0){
-                Voice &voice = voices[actNum];
-                voice.active = true;
-                voice.releasing = false;
-                voice.envTime = 0.0f;
-                voice.phase = 0.0f;
-                voice.frequency = noteToHz(noteKey);
-                actNum += 1;
-            }else{
-                
-                for(int i = 0; i < actNum; i++){
-                    if(voices[i].frequency == noteToHz((-noteKey)-1)){
-                        Voice &voice = voices[i];
-                        voice.active = false;
-                        voice.releasing = true;
-                        voice.envTime = 0.0f; // release phase timer
+            if(noteKey >= 0){ // Key press
+                Voice* voice = nullptr;
+
+                if(actNum < 4){
+                    // There's room: take next free voice
+                    voice = &voices[actNum];
+                    actNum++;
+                } else {
+                    // Voice limit reached: steal the oldest active voice
+                    // We'll just steal voice[0] and shift others down
+                    voice = &voices[0];
+                    for(int i=1; i<actNum; i++){
+                        voices[i-1] = voices[i];
+                    }
+                    voices[actNum-1] = *voice; // last slot is now free
+                }
+
+                voice->active = true;
+                voice->releasing = false;
+                voice->envTime = 0.0f;
+                voice->phase = 0.0f;
+                voice->frequency = noteToHz(noteKey);
+                voice->keyID = noteKey; // store key id
+            } else { // Key release
+                int releasedKey = (-noteKey)-1;
+                for(int i=0; i<actNum; i++){
+                    if(voices[i].keyID == releasedKey){
+                        voices[i].active = false;
+                        voices[i].releasing = true;
+                        voices[i].envTime = 0.0f;
                     }
                 }
-                
-                actNum -= 1;
             }
         }
+
 
         usleep(1000);
         lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
