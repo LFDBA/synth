@@ -41,6 +41,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 1 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(2, 0);
         gpioWrite(3, 1);
@@ -49,6 +50,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 13 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(3, 0);
         gpioWrite(4, 1);
@@ -57,6 +59,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 25 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(4, 0);
         gpioWrite(17, 1);
@@ -65,6 +68,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 37 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(17, 0);
         gpioWrite(27, 1);
@@ -73,6 +77,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 49 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(27, 0);
         gpioWrite(22, 1);
@@ -81,6 +86,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){ 
                 std::cout << "Key pressed: " << inIdx + 61 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(22, 0);
         gpioWrite(0, 1);
@@ -89,6 +95,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 73 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(0, 0);
         gpioWrite(5, 1);
@@ -97,6 +104,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 85 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(5, 0);
         gpioWrite(6, 1);
@@ -105,6 +113,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 97 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(6, 0);
         gpioWrite(13, 1);
@@ -113,6 +122,7 @@ int main() {
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 109 << std::endl;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(13, 0);
     }
