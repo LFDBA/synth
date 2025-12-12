@@ -1,5 +1,5 @@
 #include <stdint.h>
-
+#include "font5x7.h"
 const uint8_t font5x7[128][5] = {
 
     // ASCII 0–31 (control chars — empty)
