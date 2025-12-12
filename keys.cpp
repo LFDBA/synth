@@ -27,50 +27,57 @@ int main() {
         gpioSetPullUpDown(p, PI_PUD_DOWN);
     }
 
+    // Generate unique key IDs for every (outPin, inPin) pair
+    std::vector<std::pair<int,int>> keyPairs;
+    for (size_t outIdx = 0; outIdx < pins.size(); ++outIdx) {
+        for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
+            if (inIdx == outIdx) continue;
+            keyPairs.push_back({pins[outIdx], pins[inIdx]});
+            int keyId = keyPairs.size(); // 1,2,3,... total keys
+            keyStates[keyId] = false;
+            keyCounters[keyId] = 0;
+        }
+    }
+
     std::cout << "Starting keyboard scan..." << std::endl;
 
     while (true) {
-        for (size_t outIdx = 0; outIdx < pins.size(); ++outIdx) {
-            int outPin = pins[outIdx];
+        size_t keyId = 0;
+        for (auto& kp : keyPairs) {
+            keyId++; // increment key number
 
-            // Drive this pin high
+            int outPin = kp.first;
+            int inPin  = kp.second;
+
+            // Drive output high
             gpioSetMode(outPin, PI_OUTPUT);
             gpioWrite(outPin, 1);
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
 
-            // Small delay for stabilization
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            bool pressed = gpioRead(inPin);
 
-            for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
-                if (inIdx == outIdx) continue; // skip the pin currently driven
-
-                int inPin = pins[inIdx];
-
-                // Create a unique key number for this combination
-                int keyNum = outIdx * 100 + inIdx; // or any formula that guarantees uniqueness
-
-                bool pressed = gpioRead(inPin);
-
-                if (pressed) {
-                    keyCounters[keyNum]++;
-                    if (keyCounters[keyNum] >= DEBOUNCE_THRESHOLD && !keyStates[keyNum]) {
-                        keyStates[keyNum] = true;
-                        std::cout << "Key pressed: " << keyNum << std::endl;
-                    }
-                } else {
-                    keyCounters[keyNum] = 0;
-                    if (keyStates[keyNum]) {
-                        keyStates[keyNum] = false;
-                        std::cout << "Key released: " << keyNum << std::endl;
-                    }
+            // Debounce logic
+            if (pressed) {
+                keyCounters[keyId]++;
+                if (keyCounters[keyId] >= DEBOUNCE_THRESHOLD && !keyStates[keyId]) {
+                    keyStates[keyId] = true;
+                    std::cout << "Key pressed: " << keyId << std::endl;
+                }
+            } else {
+                keyCounters[keyId] = 0;
+                if (keyStates[keyId]) {
+                    keyStates[keyId] = false;
+                    std::cout << "Key released: " << keyId << std::endl;
                 }
             }
 
-            // Reset output pin to input with pull-down
+            // Reset output pin
             gpioWrite(outPin, 0);
             gpioSetMode(outPin, PI_INPUT);
             gpioSetPullUpDown(outPin, PI_PUD_DOWN);
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // tiny delay to reduce ghosting
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
     }
 
