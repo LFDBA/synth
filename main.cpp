@@ -145,6 +145,7 @@ int main(){
 
     while(true){
         drawMenu(menuItems, selected);
+        std::count << "out";
         selected = (selected + 1) % menuItems.size();
         gpioDelay(500000); // half second delay for demo
     }
