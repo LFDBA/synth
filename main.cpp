@@ -203,11 +203,17 @@ void drawChar(int x, int y, char c) {
 
 
 
-void drawText(int x,int y,const std::string &s){
-    for(size_t i=0;i<s.size();i++){
-        drawChar(x + i*6, y, s[i]);
+void drawText(int x, int y, const std::string &text)
+{
+    int cursorX = x;
+
+    for(char c : text)
+    {
+        drawChar(cursorX, y, c);   // draw *one* character
+        cursorX += FONT_WIDTH;     // move right by glyph width
     }
 }
+
 
 // Send buffer to OLED
 void updateDisplay(int spi) {
