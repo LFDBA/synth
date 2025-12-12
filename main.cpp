@@ -145,51 +145,48 @@ void drawRect(int x, int y, int w, int h, bool fill=false) {
 
 
 static const uint8_t font5x7[128][5] = {
-    // unused 0–31
+
+    // 0–31 unused
     {0},{0},{0},{0},{0},{0},{0},{0},
     {0},{0},{0},{0},{0},{0},{0},{0},
     {0},{0},{0},{0},{0},{0},{0},{0},
     {0},{0},{0},{0},{0},{0},{0},{0},
 
     // SPACE (0x20)
-    [0x20] = {0,0,0,0,0},
+    {0,0,0,0,0},
 
-    // ----- CAPITAL LETTERS -----
+    // 0x21–0x40 unused
+    {0},{0},{0},{0},{0},{0},{0},{0},
+    {0},{0},{0},{0},{0},{0},{0},{0},
+    {0},{0},{0},{0},{0},{0},{0},{0},
+    {0},{0},{0},{0},{0},{0},{0},{0},
 
-    // 'A' (0x41)
-    [0x41] = {0x7E,0x11,0x11,0x11,0x7E},
+    // 'A' (0x41 = 65)
+    {0x7C,0x12,0x11,0x12,0x7C}, // A
+    {0x7F,0x49,0x49,0x49,0x36}, // B
+    {0},{0},{0,0,0,0,0},        // C unused placeholder
+    {0x7F,0x41,0x41,0x22,0x1C}, // D
+    {0x7F,0x49,0x49,0x49,0x41}, // E
+    {0},{0},                    // F,G unused
+    {0},{0},{0},{0},{0},{0},    // H–M unused
 
-    // 'B'
-    [0x42] = {0x7F,0x49,0x49,0x49,0x36},
+    {0x7F,0x04,0x08,0x10,0x7F}, // N
+    {0x3E,0x41,0x41,0x41,0x3E}, // O
+    {0},{0},                    // P,Q unused
+    {0x7F,0x09,0x19,0x29,0x46}, // R
+    {0x46,0x49,0x49,0x49,0x31}, // S
+    {0x01,0x01,0x7F,0x01,0x01}, // T
+    {0},{0,0,0,0,0},            // U unused
+    {0x07,0x18,0x60,0x18,0x07}, // V
+    {0x7F,0x20,0x18,0x20,0x7F}, // W
+    {0},{0},{0},                // X,Y,Z unused
 
-    // 'D'
-    [0x44] = {0x7F,0x41,0x41,0x22,0x1C},
-
-    // 'E'
-    [0x45] = {0x7F,0x49,0x49,0x49,0x41},
-
-    // 'N'
-    [0x4E] = {0x7F,0x04,0x08,0x10,0x7F},
-
-    // 'O'
-    [0x4F] = {0x3E,0x41,0x41,0x41,0x3E},
-
-    // 'R'
-    [0x52] = {0x7F,0x09,0x19,0x29,0x46},
-
-    // 'S'
-    [0x53] = {0x46,0x49,0x49,0x49,0x31},
-
-    // 'T'
-    [0x54] = {0x01,0x01,0x7F,0x01,0x01},
-
-    // 'V'
-    [0x56] = {0x07,0x18,0x60,0x18,0x07},
-
-    // 'W'
-    [0x57] = {0x7F,0x20,0x18,0x20,0x7F},
+    // rest 91–127 unused
+    {0},{0},{0},{0},{0},{0},{0},{0},
+    {0},{0},{0},{0},{0},{0},{0},{0},
+    {0},{0},{0},{0},{0},{0},{0},{0},
+    {0},{0},{0},{0},{0},{0},{0},{0},
 };
-
 
 
 
@@ -842,16 +839,22 @@ void drawWave() {
 
 
 void drawMenu(const std::vector<std::string> &items, int selected){
+    // clearBuffer();
+    // int boxHeight = HEIGHT / items.size();
+
+    // for(size_t i=0;i<items.size();i++){
+    //     int y = i*boxHeight;
+    //     bool highlight = (i==selected);
+    //     drawRect(2, y+2, WIDTH-4, boxHeight-4, highlight);
+    //     drawText(6, y + boxHeight/2 - 3, items[i]);
+    // }
+
+    // updateDisplay(global_spi_handle);
     clearBuffer();
-    int boxHeight = HEIGHT / items.size();
-
-    for(size_t i=0;i<items.size();i++){
-        int y = i*boxHeight;
-        bool highlight = (i==selected);
-        drawRect(2, y+2, WIDTH-4, boxHeight-4, highlight);
-        drawText(6, y + boxHeight/2 - 3, items[i]);
-    }
-
+    drawText(20, 5,  "TONE");
+    drawText(20, 20, "VOICE");
+    drawText(20, 35, "ADSR");
+    drawText(20, 50, "REVERB");
     updateDisplay(global_spi_handle);
 }
 
