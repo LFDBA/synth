@@ -865,55 +865,55 @@ int main() {
 
         // Keyboard triggering
         int noteKey = readKeyBoard();
-        if(noteKey != -1111){
-            if(noteKey >= 0){
-                // Key press
-                Voice* voice = nullptr;
+    if(noteKey != -1111){
+        if(noteKey >= 0){
+            // Key press
+            Voice* voice = nullptr;
 
-                // 1. Find an inactive or finished voice
+            // 1. Find an inactive or finished voice
+            for(int i = 0; i < numVoices; i++){
+                if(!voices[i].active && !voices[i].releasing){
+                    voice = &voices[i];
+                    break;
+                }
+            }
+
+            // 2. If none available, steal the oldest active voice
+            if(!voice){
+                int oldestIdx = -1;
+                float oldestTime = -1.0f;
                 for(int i = 0; i < numVoices; i++){
-                    if(!voices[i].active && !voices[i].releasing){
-                        voice = &voices[i];
-                        break;
+                    if(voices[i].active && voices[i].envTime > oldestTime){
+                        oldestTime = voices[i].envTime;
+                        oldestIdx = i;
                     }
                 }
+                voice = &voices[oldestIdx];
+            }
 
-                // 2. If none available, steal the oldest active voice
-                if(!voice){
-                    int oldestIdx = -1;
-                    float oldestTime = -1.0f;
-                    for(int i = 0; i < numVoices; i++){
-                        if(voices[i].active && voices[i].envTime > oldestTime){
-                            oldestTime = voices[i].envTime;
-                            oldestIdx = i;
-                        }
-                    }
-                    voice = &voices[oldestIdx];
-                }
+            // Assign the new note
+            voice->active = true;
+            voice->releasing = false;
+            voice->envTime = 0.0f;
+            voice->phase = 0.0f;
+            voice->frequency = noteToHz(noteKey);
+            voice->keyID = noteKey;
 
-                // Assign the new note
-                voice->active = true;
-                voice->releasing = false;
-                voice->envTime = 0.0f;
-                voice->phase = 0.0f;
-                voice->frequency = noteToHz(noteKey);
-                voice->keyID = noteKey;
-
-            } else {
-                // Key release
-                int releasedKey = (-noteKey) - 1;
-                for(int i = 0; i < numVoices; i++){
-                    if(voices[i].keyID == releasedKey){
-                        voices[i].active = false;
-                        voices[i].releasing = true;
-                        voices[i].envTime = 0.0f;
-                        break; // release only this voice
-                    }
+        } else {
+            // Key release
+            int releasedKey = (-noteKey) - 1;
+            for(int i = 0; i < numVoices; i++){
+                if(voices[i].keyID == releasedKey){
+                    voices[i].active = false;
+                    voices[i].releasing = true;
+                    voices[i].envTime = 0.0f;
+                    break; // release only this voice
                 }
             }
         }
+    }
 
-        
+
     try{ dac.stopStream(); } catch(RtAudioError &e){}
     if(dac.isStreamOpen()) dac.closeStream();
     closeKeyboard();
