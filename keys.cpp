@@ -52,7 +52,8 @@ int main() {
                 if (inPin == outPin) continue;
 
                 bool pressed = gpioRead(inPin);
-                int keyNum = inPin;
+                int keyNum = keyMap[{outPin, inPin}];
+
 
                 // Debounce: only change if state persists
                 static std::map<int,int> counters; // counts consecutive reads
