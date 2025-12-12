@@ -419,7 +419,6 @@ void drawOutput() {
 
 
 
-int actNum = 0;
 
 
 // ======================================================
@@ -894,54 +893,62 @@ int main() {
 
             }
         }
-        int noteKey = readKeyBoard();
-        if(noteKey != -1111){
-            if(noteKey >= 0){
-                // Key press
-                Voice* voice = nullptr;
 
-                // Look for a free voice
-                for(int i = 0; i < numVoices; i++){
-                    if(!voices[i].active && !voices[i].releasing){
-                        voice = &voices[i];
+        // Track which note each voice is currently assigned to
+        int voiceNotes[numVoices]; // -1 means free
+        for(int i = 0; i < numVoices; i++) voiceNotes[i] = -1;
+
+        int noteKey = readKeyBoard();
+        if(noteKey != -1111) {
+
+            if(noteKey >= 0) { // key pressed
+                // Try to find a free voice
+                int freeVoice = -1;
+                for(int i = 0; i < numVoices; i++) {
+                    if(!voices[i].active && !voices[i].releasing) {
+                        freeVoice = i;
                         break;
                     }
                 }
 
-                // If no free voice, steal the oldest active voice
-                if(!voice){
-                    float oldestTime = -1.0f;
-                    int oldestIndex = 0;
-                    for(int i=0; i<numVoices; i++){
-                        if(voices[i].envTime > oldestTime){
+                // If none free, steal the oldest active/releasing voice
+                if(freeVoice == -1) {
+                    float oldestTime = voices[0].envTime;
+                    freeVoice = 0;
+                    for(int i = 1; i < numVoices; i++) {
+                        if(voices[i].envTime > oldestTime) {
+                            freeVoice = i;
                             oldestTime = voices[i].envTime;
-                            oldestIndex = i;
                         }
                     }
-                    voice = &voices[oldestIndex];
                 }
 
-                // Assign note to the selected voice
-                voice->active = true;
-                voice->releasing = false;
-                voice->envTime = 0.0f;
-                voice->phase = 0.0f;
-                voice->frequency = noteToHz(noteKey);
-                voice->keyID = noteKey;
+                // Assign the note to the chosen voice
+                Voice &voice = voices[freeVoice];
+                voice.active = true;
+                voice.releasing = false;
+                voice.envTime = 0.0f;
+                voice.phase = 0.0f;
+                voice.frequency = noteToHz(noteKey);
+                voiceNotes[freeVoice] = noteKey;
 
-            } else {
-                // Key release
-                int releasedKey = (-noteKey) - 1;
-                for(int i = 0; i < numVoices; i++){
-                    if(voices[i].keyID == releasedKey){
-                        voices[i].active = false;
-                        voices[i].releasing = true;
-                        voices[i].envTime = 0.0f; // start release
-                        break; // only release one voice per key
+            } else { // key released
+                int releasedNote = (-noteKey) - 1;
+
+                // Find the voice assigned to this note
+                for(int i = 0; i < numVoices; i++) {
+                    if(voiceNotes[i] == releasedNote) {
+                        Voice &voice = voices[i];
+                        voice.active = false;
+                        voice.releasing = true;
+                        voice.envTime = 0.0f;
+                        voiceNotes[i] = -1; // mark as free
+                        break; // only release one voice
                     }
                 }
             }
         }
+
 
     }
 
