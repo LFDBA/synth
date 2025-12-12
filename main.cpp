@@ -771,7 +771,7 @@ int main() {
     while(true){
         getInp(); // microcontroller input
 
-        updateDisplay(global_spi_handle);
+        
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
 
@@ -792,7 +792,7 @@ int main() {
         }
         if(menu==REVERB_MENU && edit) editReverb();
     
-        
+        updateDisplay(global_spi_handle);
 
         // Keyboard triggering
         int key = getKeyPress();
