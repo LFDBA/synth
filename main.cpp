@@ -335,7 +335,7 @@ enum Mode {
     ADSR_MENU,
     REVERB_MENU
 };
-Mode menu = TONE_MENU;
+Mode menu = WAVE_MENU;
 
 // Input device variables
 int p1, p2, p3, p4;
