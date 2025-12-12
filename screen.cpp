@@ -189,12 +189,14 @@ int main() {
     }
 
     initDisplay(global_spi_handle);
+    clearBuffer();
+    updateDisplay(global_spi_handle);
 
-    while (true) {
-        drawADSR();
-        updateDisplay(global_spi_handle);
-        usleep(50000); // 20 fps
-    }
+    // while (true) {
+    //     drawADSR();
+    //     updateDisplay(global_spi_handle);
+    //     usleep(50000); // 20 fps
+    // }
 
     return 0;
 }
