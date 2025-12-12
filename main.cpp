@@ -141,7 +141,6 @@ void drawRect(int x, int y, int w, int h) {
     drawLine(x + w - 1, y, x + w - 1, y + h - 1); // right
 }
 
-extern const uint8_t font5x7[128][5];
 
 // Draw a single character at (x, y)
 void drawChar(int x, int y, char c) {
