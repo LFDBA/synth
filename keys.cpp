@@ -16,19 +16,23 @@ int main() {
     while (true) {
         for (size_t outIdx = 0; outIdx < 4; ++outIdx) {
             int outPin = pins[outIdx];
-            gpioWrite(outPin, 1);
+
+            gpioWrite(outPin, 1); // Drive output high
 
             for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
-                // Skip previous and current output pins
-                if (inIdx == outIdx || inIdx == outIdx + 1) continue;
+                // Skip the current and previous output pin
+                if (inIdx == outIdx || inIdx == outIdx - 1) continue;
+
                 if (gpioRead(pins[inIdx]) == 1) {
-                    int keyNumber = inIdx + outIdx * 12 + 1; // adjust as needed
+                    // Calculate key number exactly like in your repeated code
+                    int keyNumber = inIdx + outIdx * 12 + 1;
                     std::cout << "Key pressed: " << keyNumber << std::endl;
                 }
+
                 std::this_thread::sleep_for(std::chrono::microseconds(50));
             }
 
-            gpioWrite(outPin, 0);
+            gpioWrite(outPin, 0); // Reset output
         }
     }
 
