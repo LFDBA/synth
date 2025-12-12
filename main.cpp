@@ -233,7 +233,9 @@ struct Voice {
     bool releasing = false;     // is in release phase
     float envTime = 0.0f;       // time since note-on or release start
     float oscVolume = 1.0f;
+    int keyID = -1;             // store which key triggered this voice
 };
+
 
 
 Voice voices[numVoices];
@@ -894,29 +896,64 @@ int main() {
         }
         int noteKey = readKeyBoard();
         if(noteKey != -1111){
-            if(noteKey >= 0 && actNum < numVoices){
-                Voice &voice = voices[actNum];
-                voice.active = true;
-                voice.releasing = false;
-                voice.envTime = 0.0f;
-                voice.phase = 0.0f;
-                voice.frequency = noteToHz(noteKey);
-                actNum += 1;
-            }else{
-                
-                for(int i = 0; i < actNum; i++){
-                    if(voices[i].frequency == noteToHz((-noteKey)-1)){
-                        Voice &voice = voices[i];
-                        voice.active = false;
-                        voice.releasing = true;
-                        voice.envTime = 0.0f; // release phase timer
-                        actNum -= 1;
+            if(noteKey >= 0){
+                // Key press
+                Voice* voice = nullptr;
+
+                // Find an inactive or released voice first
+                for(int i = 0; i < numVoices; i++){
+                    if(!voices[i].active && !voices[i].releasing){
+                        voice = &voices[i];
+                        break;
                     }
                 }
-                
-                
+
+                // If none available, steal the oldest active voice (voice[0])
+                if(!voice){
+                    voice = &voices[0];
+
+                    // Shift all other voices forward
+                    for(int i=1; i<actNum; i++){
+                        voices[i-1] = voices[i];
+                    }
+                    voices[actNum-1] = *voice; // last slot free for new note
+                }
+
+                // Assign note to voice
+                voice->active = true;
+                voice->releasing = false;
+                voice->envTime = 0.0f;
+                voice->phase = 0.0f;
+                voice->frequency = noteToHz(noteKey);
+                voice->keyID = noteKey;
+
+                // Recompute actNum
+                actNum = 0;
+                for(int i=0; i<numVoices; i++){
+                    if(voices[i].active || voices[i].releasing) actNum++;
+                }
+
+            } else {
+                // Key release
+                int releasedKey = (-noteKey) - 1;
+
+                for(int i = 0; i < numVoices; i++){
+                    if(voices[i].keyID == releasedKey){
+                        voices[i].active = false;
+                        voices[i].releasing = true;
+                        voices[i].envTime = 0.0f; // start release
+                        break; // release only the matching voice
+                    }
+                }
+
+                // Recompute actNum
+                actNum = 0;
+                for(int i=0; i<numVoices; i++){
+                    if(voices[i].active || voices[i].releasing) actNum++;
+                }
             }
         }
+
 
         usleep(1000);
         lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
