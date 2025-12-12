@@ -131,16 +131,6 @@ int main() {
             }
         }
         gpioWrite(26, 0);
-        gpioWrite(21, 1);
-        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 12 || inIdx == 0) continue;
-            if(gpioRead(pins[inIdx]) == 1){
-                std::cout << "Key pressed: " << inIdx + 1 << std::endl;
-            }
-        }
-        gpioWrite(21, 0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        
     }
 
     gpioTerminate();
