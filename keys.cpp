@@ -115,22 +115,6 @@ int main() {
             }
         }
         gpioWrite(13, 0);
-        gpioWrite(19, 1);
-        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 10 || inIdx == 11) continue;
-            if(gpioRead(pins[inIdx]) == 1){
-                std::cout << "Key pressed: " << inIdx + 121 << std::endl;
-            }
-        }
-        gpioWrite(19, 0);
-        gpioWrite(26, 1);
-        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 11 || inIdx == 12) continue;
-            if(gpioRead(pins[inIdx]) == 1){
-                std::cout << "Key pressed: " << inIdx + 133 << std::endl;
-            }
-        }
-        gpioWrite(26, 0);
     }
 
     gpioTerminate();
