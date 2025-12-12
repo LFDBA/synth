@@ -5,15 +5,18 @@
 #include <chrono>
 #include <map>
 
-// GPIO pins (BCM)
+// GPIO pins (BCM numbering)
 std::vector<int> pins = {2, 3, 4, 17, 27, 22, 0, 5, 6, 13, 19, 26, 21};
 
-// Debounce threshold
-const int DEBOUNCE_THRESHOLD = 3;
+// Debounce in consecutive scans
+const int debounceScans = 3;
 
-// Track previous key states and counters
-std::map<int,bool> keyStates;
-std::map<int,int> keyCounters;
+// Key state tracking
+struct KeyState {
+    int count = 0;    // consecutive scans pressed
+    bool pressed = false;
+};
+std::map<int, KeyState> keyStates;
 
 int main() {
     if (gpioInitialise() < 0) {
@@ -21,63 +24,56 @@ int main() {
         return 1;
     }
 
-    // Set all pins as input with pull-down initially
+    // Initialize all pins as inputs with pull-down
     for (auto p : pins) {
         gpioSetMode(p, PI_INPUT);
         gpioSetPullUpDown(p, PI_PUD_DOWN);
     }
 
-    // Generate unique key IDs for every (outPin, inPin) pair
-    std::vector<std::pair<int,int>> keyPairs;
-    for (size_t outIdx = 0; outIdx < pins.size(); ++outIdx) {
-        for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
-            if (inIdx == outIdx) continue;
-            keyPairs.push_back({pins[outIdx], pins[inIdx]});
-            int keyId = keyPairs.size(); // 1,2,3,... total keys
-            keyStates[keyId] = false;
-            keyCounters[keyId] = 0;
-        }
-    }
-
     std::cout << "Starting keyboard scan..." << std::endl;
 
     while (true) {
-        size_t keyId = 0;
-        for (auto& kp : keyPairs) {
-            keyId++; // increment key number
+        for (size_t outIdx = 0; outIdx < pins.size(); ++outIdx) {
+            int outPin = pins[outIdx];
 
-            int outPin = kp.first;
-            int inPin  = kp.second;
-
-            // Drive output high
+            // Drive this pin high
             gpioSetMode(outPin, PI_OUTPUT);
             gpioWrite(outPin, 1);
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
 
-            bool pressed = gpioRead(inPin);
+            // Scan all other pins
+            for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
+                if (inIdx == outIdx) continue; // skip the output pin
 
-            // Debounce logic
-            if (pressed) {
-                keyCounters[keyId]++;
-                if (keyCounters[keyId] >= DEBOUNCE_THRESHOLD && !keyStates[keyId]) {
-                    keyStates[keyId] = true;
-                    std::cout << "Key pressed: " << keyId << std::endl;
-                }
-            } else {
-                keyCounters[keyId] = 0;
-                if (keyStates[keyId]) {
-                    keyStates[keyId] = false;
-                    std::cout << "Key released: " << keyId << std::endl;
+                int inPin = pins[inIdx];
+                bool isHigh = gpioRead(inPin);
+
+                // Compute unique key number
+                int keyNum = outIdx * 4 + inIdx + 1; // adjust +1 if needed
+
+                // Debounce logic
+                KeyState &ks = keyStates[keyNum];
+                if (isHigh) {
+                    ks.count++;
+                    if (!ks.pressed && ks.count >= debounceScans) {
+                        ks.pressed = true;
+                        std::cout << "Key pressed: " << keyNum << std::endl;
+                    }
+                } else {
+                    ks.count = 0;
+                    if (ks.pressed) {
+                        ks.pressed = false;
+                        std::cout << "Key released: " << keyNum << std::endl;
+                    }
                 }
             }
 
-            // Reset output pin
+            // Reset the output pin to input with pull-down
             gpioWrite(outPin, 0);
             gpioSetMode(outPin, PI_INPUT);
             gpioSetPullUpDown(outPin, PI_PUD_DOWN);
 
-            // tiny delay to reduce ghosting
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
+            // Small delay to avoid ghosting
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 
