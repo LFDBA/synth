@@ -35,12 +35,27 @@ int main() {
     std::cout << "Starting keyboard scan..." << std::endl;
 
     while (true) {
-        gpioWrite(2, 1); // Dummy write to ensure proper timing
-        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 0) continue;
-            if(gpioRead(pins[inIdx]) == 1){
-                std::cout << "Key pressed: " << inIdx + 1 << std::endl;
+        for(size_t outIdx = 0; outIdx < pins.size(); ++outIdx){
+            int outPin = pins[outIdx];
+
+            // Drive current output high
+            gpioSetMode(outPin, PI_OUTPUT);
+            gpioWrite(outPin, 1);
+
+            // Scan all input pins (rows)
+            for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+                if(inIdx == outIdx) continue;
+                if(gpioRead(pins[inIdx]) == 1){
+                    std::cout << "Key pressed: " << (inIdx * pins.size() + outIdx + 1) << std::endl;
+                }
             }
+
+            // Reset output to input
+            gpioWrite(outPin, 0);
+            gpioSetMode(outPin, PI_INPUT);
+            gpioSetPullUpDown(outPin, PI_PUD_DOWN);
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         // for (size_t outIdx = 0; outIdx < outputPins.size(); ++outIdx) {
         //     int outPin = outputPins[outIdx];
