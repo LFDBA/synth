@@ -21,7 +21,7 @@ int main() {
 
             for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
                 // Skip the current and previous output pin
-                if (inIdx == outIdx || inIdx == outIdx - 1) continue;
+                if (inIdx == outIdx || inIdx == outIdx + 1) continue;
 
                 if (gpioRead(pins[inIdx]) == 1) {
                     // Calculate key number exactly like in your repeated code
