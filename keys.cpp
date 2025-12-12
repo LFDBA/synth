@@ -1,74 +1,76 @@
-#include <iostream>
-#include <pigpio.h>
+#include <ncurses.h>
 #include <vector>
-#include <thread>
-#include <chrono>
-#include <map>
-
-std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
-
-// Debounce in consecutive scans
-const int debounceScans = 3;
-
-// Key state tracking
-struct KeyState {
-    int count = 0;
-    bool pressed = false;
-};
-std::map<int, KeyState> keyStates;
-
-int mapKeyNumber(int k) {
-    int base = 6;
-    int col = (k - base) / 12;
-    int row = k - base - (col * 12);
-    int index = row * 5 + col + 1;
-    return index-1; // zero-based
-}
-
+#include <string>
 
 int main() {
-    if (gpioInitialise() < 0) return 1;
+    // Initialize ncurses
+    initscr();
+    noecho();
+    cbreak();
+    keypad(stdscr, TRUE);
+    curs_set(0); // hide cursor
 
-    // Initialize all pins as input with pull-down
-    for (auto p : pins) {
-        gpioSetMode(p, PI_INPUT);
-        gpioSetPullUpDown(p, PI_PUD_DOWN);
+    // Colors
+    if (has_colors()) {
+        start_color();
+        init_pair(1, COLOR_BLACK, COLOR_CYAN);   // Highlighted option
+        init_pair(2, COLOR_WHITE, COLOR_BLACK);  // Normal option
     }
 
-    std::cout << "Starting keyboard scan..." << std::endl;
+    std::vector<std::string> menuItems = {"TONE", "VOICE", "ADSR", "REVERB"};
+    int choice = 0;
+    int key;
 
     while (true) {
-        for(size_t i = 0; i < 5; ++i){  // drive outputs (your exact original range)
-            gpioWrite(pins[i], 1);
+        clear();
+        int row, col;
+        getmaxyx(stdscr, row, col);
 
-            for(size_t j = 0; j < pins.size(); ++j){
-                if(j == i || j == i - 1) continue;
+        int menuWidth = 20;
+        int startY = (row - menuItems.size()*3) / 2; // center vertically
+        int startX = (col - menuWidth) / 2;          // center horizontally
 
-                int keyNum = j + 1 + (i * 12);  // keep your original numbering
-                bool isHigh = gpioRead(pins[j]) == 1;
+        for (size_t i = 0; i < menuItems.size(); i++) {
+            int y = startY + i*3;
 
-                // Debounce + press/release tracking
-                if(isHigh){
-                    keyStates[keyNum].count++;
-                    if(keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed){
-                        keyStates[keyNum].pressed = true;
-                        std::cout << "Key pressed: " << mapKeyNumber(keyNum) << std::endl;
-                    }
-                } else {
-                    keyStates[keyNum].count = 0;
-                    if(keyStates[keyNum].pressed){
-                        keyStates[keyNum].pressed = false;
-                        std::cout << "Key released: " << mapKeyNumber(keyNum) << std::endl;
-                    }
-                }
-
-                std::this_thread::sleep_for(std::chrono::microseconds(50));
+            // Draw a "box" around the option
+            for (int bx = 0; bx < menuWidth; bx++) {
+                mvprintw(y, startX + bx, "-");
+                mvprintw(y + 2, startX + bx, "-");
             }
+            mvprintw(y + 1, startX, "|");
+            mvprintw(y + 1, startX + menuWidth - 1, "|");
 
-            gpioWrite(pins[i], 0);
+            // Highlight selected option
+            if (i == choice)
+                attron(COLOR_PAIR(1) | A_BOLD);
+            else
+                attron(COLOR_PAIR(2));
+
+            mvprintw(y + 1, startX + 2, "%s", menuItems[i].c_str());
+
+            attroff(COLOR_PAIR(1) | COLOR_PAIR(2) | A_BOLD);
+        }
+
+        refresh();
+
+        key = getch();
+        if (key == KEY_UP) {
+            if (choice > 0) choice--;
+        } else if (key == KEY_DOWN) {
+            if (choice < menuItems.size() - 1) choice++;
+        } else if (key == '\n') {
+            // Enter pressed
+            break;
         }
     }
 
-    gpioTerminate();
+    // Clear and print selection
+    clear();
+    mvprintw(LINES / 2, (COLS - 20)/2, "Selected: %s", menuItems[choice].c_str());
+    refresh();
+    getch();
+
+    endwin(); // end ncurses
     return 0;
 }
