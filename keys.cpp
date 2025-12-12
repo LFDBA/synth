@@ -22,7 +22,7 @@ int mapKeyNumber(int k) {
     int idx = k - 1;     // convert to 0-based
     int col = idx % 6;   // which “group”
     int row = idx / 6;   // which position within the group
-    return 6 + col + row * 12;
+    return (((6 + col + row * 12)+13)/24)-1;
 }
 
 
