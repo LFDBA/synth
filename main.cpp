@@ -204,7 +204,7 @@ void drawMenuItem(int x, int y, int w, int h, const char* text, bool selected=fa
         // Invert text on filled background
         for (int i = 0; i < textLen; i++) {
             char c = text[i];
-            const uint8_t* glyph = font5x7_caps[c - 'A']; // capitals only
+            const uint8_t* glyph = font5x7[c - 'A']; // capitals only
             for (int col = 0; col < 5; col++) {
                 uint8_t bits = glyph[col];
                 for (int row = 0; row < 7; row++) {
