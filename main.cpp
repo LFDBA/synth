@@ -144,7 +144,8 @@ void drawRect(int x, int y, int w, int h) {
 
 // Draw a single character at (x, y)
 void drawChar(int x, int y, char c) {
-    const uint8_t* glyph = font5x7[(uint8_t)c];
+    if (c < 32 || c > 126) return; // only printable
+    const uint8_t* glyph = font5x7[(uint8_t)c - 32]; // <-- subtract 32
 
     for (int col = 0; col < 5; col++) {
         uint8_t bits = glyph[col];
@@ -156,6 +157,7 @@ void drawChar(int x, int y, char c) {
         }
     }
 }
+
 
 // Draw a full text string at (x, y)
 void drawText(int x, int y, const char* text) {
