@@ -11,6 +11,7 @@
 #include <linux/input.h>
 #include <rtaudio/RtAudio.h>
 #include "Reverb.h"
+#include "font5x7.h"
 #include <ncurses.h>  // For proper non-blocking keyboard input
 #include <pigpio.h>
 #include <cstdint>

@@ -2,6 +2,7 @@
 g++ \
   main.cpp \
   Reverb.cpp \
+  font5x7.cpp \
   FFTConvolver.cpp \
   TwoStageFFTConvolver.cpp \
   Utilities.cpp \
