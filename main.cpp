@@ -132,89 +132,6 @@ void drawLine(int x0, int y0, int x1, int y1) {
         if (e2 <= dx) { err += dx; y0 += sy; }
     }
 }
-void drawRect(int x, int y, int w, int h, bool fill=false) {
-    if(fill){
-        for(int i=0;i<w;i++)
-            for(int j=0;j<h;j++)
-                drawPixel(x+i, y+j);
-    }else{
-        for(int i=0;i<w;i++){ drawPixel(x+i,y); drawPixel(x+i,y+h-1); }
-        for(int j=0;j<h;j++){ drawPixel(x,y+j); drawPixel(x+w-1,y+j); }
-    }
-}
-
-
-static const uint8_t font5x7[128][5] = {
-
-    // 0–31 unused
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-
-    // SPACE (0x20)
-    {0,0,0,0,0},
-
-    // 0x21–0x40 unused
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-
-    // 'A' (0x41 = 65)
-    {0x7C,0x12,0x11,0x12,0x7C}, // A
-    {0x7F,0x49,0x49,0x49,0x36}, // B
-    {0},{0},{0,0,0,0,0},        // C unused placeholder
-    {0x7F,0x41,0x41,0x22,0x1C}, // D
-    {0x7F,0x49,0x49,0x49,0x41}, // E
-    {0},{0},                    // F,G unused
-    {0},{0},{0},{0},{0},{0},    // H–M unused
-
-    {0x7F,0x04,0x08,0x10,0x7F}, // N
-    {0x3E,0x41,0x41,0x41,0x3E}, // O
-    {0},{0},                    // P,Q unused
-    {0x7F,0x09,0x19,0x29,0x46}, // R
-    {0x46,0x49,0x49,0x49,0x31}, // S
-    {0x01,0x01,0x7F,0x01,0x01}, // T
-    {0},{0,0,0,0,0},            // U unused
-    {0x07,0x18,0x60,0x18,0x07}, // V
-    {0x7F,0x20,0x18,0x20,0x7F}, // W
-    {0},{0},{0},                // X,Y,Z unused
-
-    // rest 91–127 unused
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-    {0},{0},{0},{0},{0},{0},{0},{0},
-};
-
-
-static const int FONT_WIDTH = 6;   // 5 pixels + 1 pixel spacing
-
-void drawChar(int x, int y, char c) {
-    const uint8_t* glyph = font5x7[(uint8_t)c];
-    for(int col=0; col<5; col++){
-        uint8_t bits = glyph[col];
-        for(int row=0; row<7; row++){
-            if(bits & (1 << row))
-                drawPixel(x + col, y + row);
-        }
-    }
-}
-
-
-
-void drawText(int x, int y, const std::string &text)
-{
-    int cursorX = x;
-
-    for(char c : text)
-    {
-        drawChar(cursorX, y, c);   // draw *one* character
-        cursorX += FONT_WIDTH;     // move right by glyph width
-    }
-}
-
 
 // Send buffer to OLED
 void updateDisplay(int spi) {
@@ -845,25 +762,7 @@ void drawWave() {
 
 
 
-void drawMenu(const std::vector<std::string> &items, int selected){
-    // clearBuffer();
-    // int boxHeight = HEIGHT / items.size();
 
-    // for(size_t i=0;i<items.size();i++){
-    //     int y = i*boxHeight;
-    //     bool highlight = (i==selected);
-    //     drawRect(2, y+2, WIDTH-4, boxHeight-4, highlight);
-    //     drawText(6, y + boxHeight/2 - 3, items[i]);
-    // }
-
-    // updateDisplay(global_spi_handle);
-    clearBuffer();
-    drawText(20, 5,  "TONE");
-    drawText(20, 20, "VOICE");
-    drawText(20, 35, "ADSR");
-    drawText(20, 50, "REVERB");
-    updateDisplay(global_spi_handle);
-}
 
 
 
@@ -935,11 +834,7 @@ int main() {
 
     std::cout << "Polyphonic Synth Ready.\n";
     std::cout << "Press keys z,x,c,v to trigger voices, 1–3 for menus.\n";
-
-
-    std::vector<std::string> menuItems = {"TONE", "VOICE", "ADSR", "REVERB"};
-    int selected = 0;
-
+    
     
 
 
@@ -953,7 +848,7 @@ int main() {
         
         if(menu==TONE_MENU) {
             if(edit) editTone();
-            drawMenu(menuItems, selected);
+            drawOutput();
         }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
