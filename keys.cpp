@@ -37,7 +37,8 @@ int main() {
     while (true) {
         gpioWrite(2, 1); // Dummy write to ensure proper timing
         for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(gpioRead(pins[inIdx]) == 1 && pins[inIdx] != 2){
+            if(inIdx == 0) break;
+            if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 1 << std::endl;
             }
         }
