@@ -17,8 +17,22 @@
 #include <cstring>
 #include <signal.h>
 #include <atomic> 
+#include <thread>
+#include <chrono>
+#include <map>
 
 
+std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
+
+// Debounce in consecutive scans
+const int debounceScans = 3;
+
+// Key state tracking
+struct KeyState {
+    int count = 0;
+    bool pressed = false;
+};
+std::map<int, KeyState> keyStates;
 
 
 // ======================================================
@@ -500,6 +514,41 @@ int getKeyPress() {
     return -1;
 }
 
+
+int readKeyBoard() {
+    for(size_t i = 0; i < 5; ++i){  // drive outputs (your exact original range)
+        gpioWrite(pins[i], 1);
+
+        for(size_t j = 0; j < pins.size(); ++j){
+            if(j == i || j == i - 1) continue;
+
+            int keyNum = j + 1 + (i * 12);  // keep your original numbering
+            bool isHigh = gpioRead(pins[j]) == 1;
+
+            // Debounce + press/release tracking
+            if(isHigh){
+                keyStates[keyNum].count++;
+                if(keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed){
+                    keyStates[keyNum].pressed = true;
+                    std::cout << "Key pressed: " << keyNum << std::endl;
+                }
+            } else {
+                keyStates[keyNum].count = 0;
+                if(keyStates[keyNum].pressed){
+                    keyStates[keyNum].pressed = false;
+                    return keyNum;
+                }
+            }
+
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
+        }
+
+        gpioWrite(pins[i], 0);
+    }
+    return -1;
+}
+
+
 // ======================================================
 //               Read Input Device
 // ======================================================
@@ -737,6 +786,12 @@ int main() {
 
     gpioSetMode(PIN_DC, PI_OUTPUT);
     gpioSetMode(PIN_RES, PI_OUTPUT);
+
+    // Initialize all pins as input with pull-down
+    for (auto p : pins) {
+        gpioSetMode(p, PI_INPUT);
+        gpioSetPullUpDown(p, PI_PUD_DOWN);
+    }
 
     global_spi_handle = spiOpen(SPI_CHANNEL, SPI_SPEED, 0);
     if (global_spi_handle < 0) {
