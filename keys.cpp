@@ -52,23 +52,23 @@ int main() {
                 if (inPin == outPin) continue;
 
                 bool pressed = gpioRead(inPin);
-                if (pressed){ std::cout << "Read pin " << inPin << " high while driving " << outPin << std::endl; }
+                int keyNum = inPin;
 
                 // Debounce: only change if state persists
-                // static std::map<int,int> counters; // counts consecutive reads
-                // if (pressed) {
-                //     counters[keyNum]++;
-                //     if (counters[keyNum] >= debounceMs && !keyStates[keyNum]) {
-                //         keyStates[keyNum] = true;
-                //         std::cout << "Key pressed: " << keyNum << std::endl;
-                //     }
-                // } else {
-                //     counters[keyNum] = 0;
-                //     if (keyStates[keyNum]) {
-                //         keyStates[keyNum] = false;
-                //         std::cout << "Key released: " << keyNum << std::endl;
-                //     }
-                // }
+                static std::map<int,int> counters; // counts consecutive reads
+                if (pressed) {
+                    counters[keyNum]++;
+                    if (counters[keyNum] >= debounceMs && !keyStates[keyNum]) {
+                        keyStates[keyNum] = true;
+                        std::cout << "Key pressed: " << keyNum << std::endl;
+                    }
+                } else {
+                    counters[keyNum] = 0;
+                    if (keyStates[keyNum]) {
+                        keyStates[keyNum] = false;
+                        std::cout << "Key released: " << keyNum << std::endl;
+                    }
+                }
             }
 
             // Reset output to input with pull-down before next iteration
