@@ -1,0 +1,4 @@
+#!/bin/bash
+g++ keys.cpp -o keysTest -O3 -std=c++17 -lpigpio -lrt
+chmod +x keysTest
+sudo ./keysTest
