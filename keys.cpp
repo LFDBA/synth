@@ -82,9 +82,9 @@ int main() {
         // gpioWrite(27, 0);
         
         
-        for(size_t i = 0; i < 5; ++i)
+        for(size_t i = 0; i < 5; ++i){
             gpioWrite(pins[i], 1);
-            for(size_t j = 0; j < pins.size(); ++j)
+            for(size_t j = 0; j < pins.size(); ++j){
                 if(j == i || j == i - 1) continue;
                 if(gpioRead(pins[j]) == 1){
                     std::cout << "Key pressed: " << j + (i * 12) + 1 << std::endl;
