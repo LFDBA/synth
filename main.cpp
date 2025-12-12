@@ -181,7 +181,7 @@ void drawRectFilled(int x, int y, int w, int h) {
         drawLine(x + i, y, x + i, y + h - 1);
 }
 
-// Draw a menu item with optional selection highlight
+// Draw a menu item with selection highlight
 void drawMenuItem(int x, int y, int w, int h, const char* text, bool selected=false) {
     // Draw border
     drawLine(x, y, x + w - 1, y);         // top
@@ -199,22 +199,40 @@ void drawMenuItem(int x, int y, int w, int h, const char* text, bool selected=fa
     int textWidth = charWidth * textLen;
     int textX = x + (w - textWidth)/2;
     int textY = y + (h - 7)/2; // 7px font height
-    drawText(textX, textY, text);
+
+    if (selected) {
+        // Invert text on filled background
+        for (int i = 0; i < textLen; i++) {
+            char c = text[i];
+            const uint8_t* glyph = font5x7_caps[c - 'A']; // capitals only
+            for (int col = 0; col < 5; col++) {
+                uint8_t bits = glyph[col];
+                for (int row = 0; row < 7; row++) {
+                    // Only draw where glyph pixel is 0 (empty) to "invert"
+                    if (!(bits & (1 << row)))
+                        drawPixel(textX + i*6 + col, textY + row);
+                }
+            }
+        }
+    } else {
+        drawText(textX, textY, text);
+    }
 }
 
-// Draw full menu
+// Draw the full menu
 void drawMenu() {
     int menuX = 10;
-    int menuY = 10;
-    int menuW = 80;
-    int menuH = 12; // height of one item
+    int menuY = 5;
+    int menuW = 108;  // leave 10px margin on each side (128-108=20)
+    int menuH = 14;   // enough for 7px font + padding
     int gap = 4;
 
-    drawMenuItem(menuX, menuY, menuW, menuH, "TONE", true);
+    drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
     drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
     drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
     drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
 }
+
 
 
 // Send buffer to OLED
