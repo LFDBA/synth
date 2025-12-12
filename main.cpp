@@ -881,7 +881,7 @@ int main() {
     
     
 
-
+    const char* yoza = "YOZA";
     while(true){
         getInp(); // microcontroller input
 
@@ -892,7 +892,7 @@ int main() {
         
         if(menu==TONE_MENU) {
             if(edit) editTone();
-            drawText(50, 50, "Yoza");
+            drawText(50, 50, yoza);
         }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
