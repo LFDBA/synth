@@ -35,6 +35,16 @@ struct KeyState {
 };
 std::map<int, KeyState> keyStates;
 
+enum Mode {
+    MODE_NONE,
+    VOICE_TONE_MENU,
+    TONE_MENU,
+    WAVE_MENU,
+    ADSR_MENU,
+    REVERB_MENU
+};
+Mode menu = WAVE_MENU;
+
 
 // ======================================================
 //                     Screen Setup
@@ -327,15 +337,6 @@ bool edit = false;
 Reverb reverb(sampleRate);
 
 // Menus
-enum Mode {
-    MODE_NONE,
-    VOICE_TONE_MENU,
-    TONE_MENU,
-    WAVE_MENU,
-    ADSR_MENU,
-    REVERB_MENU
-};
-Mode menu = WAVE_MENU;
 
 // Input device variables
 int p1, p2, p3, p4;
