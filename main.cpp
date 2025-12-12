@@ -229,13 +229,33 @@ void drawMenu() {
     int menuX = 10;
     int menuY = 5;
     int menuW = 108;  // leave 10px margin on each side (128-108=20)
-    int menuH = 16;   // enough for 7px font + padding
+    int menuH = 12;   // enough for 7px font + padding
     int gap = 4;
 
-    drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
-    drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-    drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-    drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+    if(menu == TONE_MENU) {
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+    }
+    else if(menu == WAVE_MENU){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+    }
+    else if(menu == ADSR_MENU){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+    }
+    else if(menu == REVERB_MENU){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB", true);
+    }
 }
 
 
