@@ -209,7 +209,7 @@ void drawMenuItem(int x, int y, int w, int h, const char* text, bool selected=fa
     if (selected) {
         for (int i = 0; i < textLen; i++) {
             char c = text[i];
-            const uint8_t* glyph = font5x7_caps[c - 'A'];
+            const uint8_t* glyph = font5x7[c - 'A'];
             for (int col = 0; col < 5; col++) {
                 uint8_t bits = glyph[col];
                 for (int row = 0; row < 7; row++) {
