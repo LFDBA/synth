@@ -20,7 +20,7 @@ int main() {
 
             for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
                 // Skip previous and current output pins
-                if (inIdx == outIdx || inIdx == outIdx - 1) continue;
+                if (inIdx == outIdx || inIdx == outIdx + 1) continue;
                 if (gpioRead(pins[inIdx]) == 1) {
                     int keyNumber = inIdx + outIdx * 12 + 1; // adjust as needed
                     std::cout << "Key pressed: " << keyNumber << std::endl;
