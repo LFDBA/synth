@@ -45,9 +45,9 @@ int main() {
         gpioWrite(2, 0);
         gpioWrite(3, 1);
         for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 1 || inIdx == 0) continue;
+            if(inIdx == 1 || inIdx == 2) continue;
             if(gpioRead(pins[inIdx]) == 1){
-                std::cout << "Key pressed: " << inIdx + 1 << std::endl;
+                std::cout << "Key pressed: " << inIdx + 13 << std::endl;
             }
         }
         gpioWrite(3, 0);
