@@ -83,6 +83,18 @@ void initDisplay(int spi) {
 // --------------------------------------
 void clearBuffer() {
     memset(buffer, 0x00, sizeof(buffer));
+
+
+    // Clear the OLED's internal memory (all 8 pages)
+    uint8_t empty[132];      // SH1106 has 132 columns internally
+    memset(empty, 0x00, sizeof(empty));
+
+    for(int page = 0; page < 8; page++) {
+        sendCommand(global_spi_handle, 0xB0 + page); // select page
+        sendCommand(global_spi_handle, 0x00);        // lower column
+        sendCommand(global_spi_handle, 0x10);        // upper column
+        sendData(global_spi_handle, empty, 132);     // write zeros to all columns
+    }
 }
 
 void drawPixel(int x, int y) {
