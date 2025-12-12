@@ -51,44 +51,62 @@ int main() {
             }
         }
         gpioWrite(3, 0);
-        // for (size_t outIdx = 0; outIdx < outputPins.size(); ++outIdx) {
-        //     int outPin = outputPins[outIdx];
-
-        //     // Drive current output high
-        //     gpioSetMode(outPin, PI_OUTPUT);
-        //     gpioWrite(outPin, 1);
-
-        //     // Scan all input pins (rows)
-        //     for (size_t inIdx = 0; inIdx < inputPins.size(); ++inIdx) {
-        //         int inPin = inputPins[inIdx];
-        //         bool high = gpioRead(inPin);
-
-        //         int keyNum = inIdx * outputPins.size() + outIdx + 1;
-
-        //         KeyState &ks = keyStates[keyNum];
-
-        //         if (high) {
-        //             ks.count++;
-        //             if (!ks.pressed && ks.count >= debounceScans) {
-        //                 ks.pressed = true;
-        //                 std::cout << "Key pressed: " << keyNum << std::endl;
-        //             }
-        //         } else {
-        //             ks.count = 0;
-        //             if (ks.pressed) {
-        //                 ks.pressed = false;
-        //                 std::cout << "Key released: " << keyNum << std::endl;
-        //             }
-        //         }
-        //     }
-
-        //     // Reset output to input
-        //     gpioWrite(outPin, 0);
-        //     gpioSetMode(outPin, PI_INPUT);
-        //     gpioSetPullUpDown(outPin, PI_PUD_DOWN);
-
-        //     std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        // }
+        gpioWrite(4, 1);
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 2 || inIdx == 3) continue;
+            if(gpioRead(pins[inIdx]) == 1){
+                std::cout << "Key pressed: " << inIdx + 25 << std::endl;
+            }
+        }
+        gpioWrite(4, 0);
+        gpioWrite(17, 1);
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 3 || inIdx == 0) continue;
+            if(gpioRead(pins[inIdx]) == 1){
+                std::cout << "Key pressed: " << inIdx + 37 << std::endl;
+            }
+        }
+        gpioWrite(17, 0);
+        gpioWrite(27, 1);
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 0 || inIdx == 1) continue;
+            if(gpioRead(pins[inIdx]) == 1){
+                std::cout << "Key pressed: " << inIdx + 49 << std::endl;
+            }
+        }
+        gpioWrite(27, 0);
+        gpioWrite(22, 1);
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 1 || inIdx == 2) continue;
+            if(gpioRead(pins[inIdx]) == 1){ 
+                std::cout << "Key pressed: " << inIdx + 61 << std::endl;
+            }
+        }
+        gpioWrite(22, 0);
+        gpioWrite(0, 1);
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 2 || inIdx == 3) continue;
+            if(gpioRead(pins[inIdx]) == 1){
+                std::cout << "Key pressed: " << inIdx + 73 << std::endl;
+            }
+        }
+        gpioWrite(0, 0);
+        gpioWrite(5, 1);
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 3 || inIdx == 0) continue;
+            if(gpioRead(pins[inIdx]) == 1){
+                std::cout << "Key pressed: " << inIdx + 85 << std::endl;
+            }
+        }
+        gpioWrite(5, 0);
+        gpioWrite(6, 1);
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 0 || inIdx == 1) continue;
+            if(gpioRead(pins[inIdx]) == 1){
+                std::cout << "Key pressed: " << inIdx + 97 << std::endl;
+            }
+        }
+        gpioWrite(6, 0);
     }
 
     gpioTerminate();
