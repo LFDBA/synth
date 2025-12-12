@@ -42,6 +42,15 @@ int main() {
                 std::cout << "Key pressed: " << inIdx + 1 << std::endl;
             }
         }
+        gpioWrite(2, 0);
+        gpioWrite(3, 1);
+        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
+            if(inIdx == 1 || inIdx == 0) continue;
+            if(gpioRead(pins[inIdx]) == 1){
+                std::cout << "Key pressed: " << inIdx + 1 << std::endl;
+            }
+        }
+        gpioWrite(3, 0);
         // for (size_t outIdx = 0; outIdx < outputPins.size(); ++outIdx) {
         //     int outPin = outputPins[outIdx];
 
