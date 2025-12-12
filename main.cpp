@@ -142,6 +142,37 @@ void drawRect(int x, int y, int w, int h, bool fill=false) {
         for(int j=0;j<h;j++){ drawPixel(x,y+j); drawPixel(x+w-1,y+j); }
     }
 }
+void drawChar(int x, int y, char c) {
+    // Minimal font example: only uppercase letters and space
+    static const uint8_t font[][5] = {
+        {0x00,0x00,0x00,0x00,0x00}, // space
+        {0x7C,0x12,0x11,0x12,0x7C}, // A
+        {0x7F,0x49,0x49,0x49,0x36}, // B
+        {0x3E,0x41,0x41,0x41,0x22}, // C
+        {0x7F,0x41,0x41,0x22,0x1C}, // D
+        {0x7F,0x49,0x49,0x49,0x41}, // E
+        {0x7F,0x09,0x09,0x09,0x01}, // F
+        {0x3E,0x41,0x49,0x49,0x7A}, // G
+        // ... add more letters as needed
+    };
+
+    int idx = 0;
+    if(c == ' ') idx=0;
+    else if(c >= 'A' && c <= 'G') idx = c-'A'+1; // only A-G for demo
+
+    for(int i=0;i<5;i++){
+        uint8_t col = font[idx][i];
+        for(int j=0;j<7;j++){
+            if(col & (1<<j)) drawPixel(x+i, y+j);
+        }
+    }
+}
+
+void drawText(int x,int y,const std::string &s){
+    for(size_t i=0;i<s.size();i++){
+        drawChar(x + i*6, y, s[i]);
+    }
+}
 
 // Send buffer to OLED
 void updateDisplay(int spi) {
