@@ -12,14 +12,9 @@ int main() {
         return 1;
     }
 
-    // Set all pins as input with pull-down initially
-    for (auto p : pins) {
-        gpioSetMode(p, PI_INPUT);
-        gpioSetPullUpDown(p, PI_PUD_DOWN);
-    }
 
     while (true) {
-        for (size_t outIdx = 0; outIdx < pins.size(); ++outIdx) {
+        for (size_t outIdx = 0; outIdx < 4; ++outIdx) {
             int outPin = pins[outIdx];
             gpioWrite(outPin, 1);
 
