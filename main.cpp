@@ -175,6 +175,12 @@ void drawText(int x, int y, const char* text) {
     }
 }
 
+void drawPixelInverse(int x, int y) {
+    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+    buffer[x + (y/8)*WIDTH] ^= (1 << (y % 8)); // XOR inverts pixel
+}
+
+
 // Draw a filled rectangle
 void drawRectFilled(int x, int y, int w, int h) {
     for (int i = 0; i < w; ++i)
@@ -201,22 +207,21 @@ void drawMenuItem(int x, int y, int w, int h, const char* text, bool selected=fa
     int textY = y + (h - 7)/2; // 7px font height
 
     if (selected) {
-        // Invert text on filled background
         for (int i = 0; i < textLen; i++) {
             char c = text[i];
-            const uint8_t* glyph = font5x7[c - 'A']; // capitals only
+            const uint8_t* glyph = font5x7_caps[c - 'A'];
             for (int col = 0; col < 5; col++) {
                 uint8_t bits = glyph[col];
                 for (int row = 0; row < 7; row++) {
-                    // Only draw where glyph pixel is 0 (empty) to "invert"
-                    if (!(bits & (1 << row)))
-                        drawPixel(textX + i*6 + col, textY + row);
+                    if (bits & (1 << row))
+                        drawPixelInverse(textX + i*6 + col, textY + row);
                 }
             }
         }
     } else {
         drawText(textX, textY, text);
     }
+
 }
 
 // Draw the full menu
@@ -224,7 +229,7 @@ void drawMenu() {
     int menuX = 10;
     int menuY = 5;
     int menuW = 108;  // leave 10px margin on each side (128-108=20)
-    int menuH = 14;   // enough for 7px font + padding
+    int menuH = 16;   // enough for 7px font + padding
     int gap = 4;
 
     drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
