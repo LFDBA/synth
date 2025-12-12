@@ -12,7 +12,7 @@
 #define PIN_DC 25              // Data/Command pin
 #define PIN_RES 24             // Reset pin
 
-const int WIDTH = 128;
+const int WIDTH = 129;
 const int HEIGHT = 64;
 
 uint8_t buffer[WIDTH * (HEIGHT / 8)];

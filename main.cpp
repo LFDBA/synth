@@ -730,7 +730,8 @@ int main() {
     }
 
     initDisplay(global_spi_handle);
-
+    clearBuffer();
+    updateDisplay(global_spi_handle);
 
 
     // RtAudio setup
@@ -752,9 +753,7 @@ int main() {
     std::cout << "Polyphonic Synth Ready.\n";
     std::cout << "Press keys z,x,c,v to trigger voices, 1–3 for menus.\n";
 
-    initDisplay(global_spi_handle);
-    clearBuffer();
-    updateDisplay(global_spi_handle);
+    
 
 
     while(true){
