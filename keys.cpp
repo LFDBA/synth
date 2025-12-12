@@ -5,26 +5,28 @@
 #include <chrono>
 #include <map>
 
-// GPIO pins (BCM numbering)
-std::vector<int> pins = {2, 3, 4, 17, 27, 22, 0, 5, 6, 13, 19, 26, 21};
+std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
 
 // Debounce in consecutive scans
 const int debounceScans = 3;
 
 // Key state tracking
 struct KeyState {
-    int count = 0;    // consecutive scans pressed
+    int count = 0;
     bool pressed = false;
 };
 std::map<int, KeyState> keyStates;
 
 int main() {
-    if (gpioInitialise() < 0) {
-        std::cerr << "pigpio init failed" << std::endl;
-        return 1;
-    }
+    if (gpioInitialise() < 0) return 1;
 
-    // Initialize all pins as inputs with pull-down
+    // INPUT pins (groups of 4 keys)
+    std::vector<int> inputPins = pins;
+
+    // OUTPUT pins (intervals of 1 key)
+    std::vector<int> outputPins = pins;
+
+    // Initialize all pins as input with pull-down
     for (auto p : pins) {
         gpioSetMode(p, PI_INPUT);
         gpioSetPullUpDown(p, PI_PUD_DOWN);
@@ -33,26 +35,23 @@ int main() {
     std::cout << "Starting keyboard scan..." << std::endl;
 
     while (true) {
-        for (size_t outIdx = 0; outIdx < pins.size(); ++outIdx) {
-            int outPin = pins[outIdx];
+        for (size_t outIdx = 0; outIdx < outputPins.size(); ++outIdx) {
+            int outPin = outputPins[outIdx];
 
-            // Drive this pin high
+            // Drive current output high
             gpioSetMode(outPin, PI_OUTPUT);
             gpioWrite(outPin, 1);
 
-            // Scan all other pins
-            for (size_t inIdx = 0; inIdx < pins.size(); ++inIdx) {
-                if (inIdx == outIdx) continue; // skip the output pin
+            // Scan all input pins (rows)
+            for (size_t inIdx = 0; inIdx < inputPins.size(); ++inIdx) {
+                int inPin = inputPins[inIdx];
+                bool high = gpioRead(inPin);
 
-                int inPin = pins[inIdx];
-                bool isHigh = gpioRead(inPin);
+                int keyNum = inIdx * outputPins.size() + outIdx + 1;
 
-                // Compute unique key number
-                int keyNum = outIdx * 4 + inIdx + 1; // adjust +1 if needed
-
-                // Debounce logic
                 KeyState &ks = keyStates[keyNum];
-                if (isHigh) {
+
+                if (high) {
                     ks.count++;
                     if (!ks.pressed && ks.count >= debounceScans) {
                         ks.pressed = true;
@@ -67,12 +66,11 @@ int main() {
                 }
             }
 
-            // Reset the output pin to input with pull-down
+            // Reset output to input
             gpioWrite(outPin, 0);
             gpioSetMode(outPin, PI_INPUT);
             gpioSetPullUpDown(outPin, PI_PUD_DOWN);
 
-            // Small delay to avoid ghosting
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
