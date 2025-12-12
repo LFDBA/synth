@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "font5x7.h"
 
-const uint8_t font5x7[26][5] = {
+const uint8_t font5x7_caps[26][5] = {
     // A
     {0x7E,0x11,0x11,0x11,0x7E},
     // B

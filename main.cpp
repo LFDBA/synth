@@ -145,7 +145,7 @@ void drawRect(int x, int y, int w, int h) {
 // Draw a single character at (x, y)
 void drawChar(int x, int y, char c) {
     if (c < 'A' || c > 'Z') return; // ignore non-capitals
-    const uint8_t* glyph = font5x7[c - 'A'];
+    const uint8_t* glyph = font5x7_caps[c - 'A'];
 
     for (int col = 0; col < 5; col++) {
         uint8_t bits = glyph[col];
