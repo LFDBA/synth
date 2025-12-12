@@ -107,24 +107,7 @@ int main() {
             std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         gpioWrite(5, 0);
-        gpioWrite(6, 1);
-        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 8 || inIdx == 9) continue;
-            if(gpioRead(pins[inIdx]) == 1){
-                std::cout << "Key pressed: " << inIdx + 97 << std::endl;
-            }
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
-        }
-        gpioWrite(6, 0);
-        gpioWrite(13, 1);
-        for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 9 || inIdx == 10) continue;
-            if(gpioRead(pins[inIdx]) == 1){
-                std::cout << "Key pressed: " << inIdx + 109 << std::endl;
-            }
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
-        }
-        gpioWrite(13, 0);
+        
     }
 
     gpioTerminate();
