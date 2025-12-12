@@ -976,11 +976,11 @@ int main() {
         
         if(menu==TONE_MENU) {
             if(edit) editTone();
-            drawMenu();
+            drawOutput();
         }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
-            drawWave();
+            drawMenu();
         }
 
         if(menu==ADSR_MENU) {
