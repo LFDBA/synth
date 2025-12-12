@@ -239,7 +239,7 @@ void drawMenu() {
     int menuX = 10;
     int menuY = 5;
     int menuW = 108;  // leave 10px margin on each side (128-108=20)
-    int menuH = 12;   // enough for 7px font + padding
+    int menuH = 11;   // enough for 7px font + padding
     int gap = 4;
 
     if(menu == TONE_MENU) {
