@@ -530,7 +530,6 @@ int readKeyBoard() {
                 keyStates[keyNum].count++;
                 if(keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed){
                     keyStates[keyNum].pressed = true;
-                    std::cout << "Key pressed: " << keyNum << std::endl;
                 }
             } else {
                 keyStates[keyNum].count = 0;
@@ -833,7 +832,6 @@ int main() {
         
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
-        std::cout << readKeyBoard() << std::endl;
         // menu edits
         
         if(menu==TONE_MENU) {

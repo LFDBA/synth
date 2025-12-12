@@ -17,6 +17,15 @@ struct KeyState {
 };
 std::map<int, KeyState> keyStates;
 
+int mapKeyNumber(int k) {
+    // k is 1–36
+    int idx = k - 1;     // convert to 0-based
+    int col = idx % 6;   // which “group”
+    int row = idx / 6;   // which position within the group
+    return 6 + col + row * 12;
+}
+
+
 int main() {
     if (gpioInitialise() < 0) return 1;
 
@@ -43,13 +52,13 @@ int main() {
                     keyStates[keyNum].count++;
                     if(keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed){
                         keyStates[keyNum].pressed = true;
-                        std::cout << "Key pressed: " << keyNum << std::endl;
+                        std::cout << "Key pressed: " << mapKeyNumber(keyNum) << std::endl;
                     }
                 } else {
                     keyStates[keyNum].count = 0;
                     if(keyStates[keyNum].pressed){
                         keyStates[keyNum].pressed = false;
-                        std::cout << "Key released: " << keyNum << std::endl;
+                        std::cout << "Key released: " << mapKeyNumber(keyNum) << std::endl;
                     }
                 }
 
