@@ -864,55 +864,86 @@ int main() {
         updateDisplay(global_spi_handle);
 
         // Keyboard triggering
-        int noteKey = readKeyBoard();
-    if(noteKey != -1111){
-        if(noteKey >= 0){
-            // Key press
-            Voice* voice = nullptr;
+        int key = getKeyPress();
+        if(key != -1){
+            switch(key){
+                case '0': edit = !edit; break;
+                case '1': menu=WAVE_MENU; break;
+                case '2': menu=ADSR_MENU; break;
+                case '3': menu=REVERB_MENU; break;
+                case '4': menu=TONE_MENU; break;
+                case 'z': case 'x': case 'c': case 'v': {
+                    int v = (key=='z')?0:(key=='x')?1:(key=='c')?2:3;
+                    Voice &voice = voices[v];
 
-            // 1. Find an inactive or finished voice
-            for(int i = 0; i < numVoices; i++){
-                if(!voices[i].active && !voices[i].releasing){
-                    voice = &voices[i];
+                    if(voice.active){
+                        // Start release
+                        voice.active = false;
+                        voice.releasing = true;
+                        voice.envTime = 0.0f; // release phase timer
+                    } else {
+                        // Start note
+                        voice.active = true;
+                        voice.releasing = false;
+                        voice.envTime = 0.0f;
+                        voice.phase = 0.0f;
+                        voice.frequency = noteToHz(noteMapping[v]);
+                    }
                     break;
                 }
-            }
 
-            // 2. If none available, steal the oldest active voice
-            if(!voice){
-                int oldestIdx = -1;
-                float oldestTime = -1.0f;
+            }
+        }
+        int noteKey = readKeyBoard();
+        if(noteKey != -1111){
+            if(noteKey >= 0){
+                // Key press
+                Voice* voice = nullptr;
+
+                // Look for a free voice
                 for(int i = 0; i < numVoices; i++){
-                    if(voices[i].active && voices[i].envTime > oldestTime){
-                        oldestTime = voices[i].envTime;
-                        oldestIdx = i;
+                    if(!voices[i].active && !voices[i].releasing){
+                        voice = &voices[i];
+                        break;
                     }
                 }
-                voice = &voices[oldestIdx];
-            }
 
-            // Assign the new note
-            voice->active = true;
-            voice->releasing = false;
-            voice->envTime = 0.0f;
-            voice->phase = 0.0f;
-            voice->frequency = noteToHz(noteKey);
-            voice->keyID = noteKey;
+                // If no free voice, steal the oldest active voice
+                if(!voice){
+                    float oldestTime = -1.0f;
+                    int oldestIndex = 0;
+                    for(int i=0; i<numVoices; i++){
+                        if(voices[i].envTime > oldestTime){
+                            oldestTime = voices[i].envTime;
+                            oldestIndex = i;
+                        }
+                    }
+                    voice = &voices[oldestIndex];
+                }
 
-        } else {
-            // Key release
-            int releasedKey = (-noteKey) - 1;
-            for(int i = 0; i < numVoices; i++){
-                if(voices[i].keyID == releasedKey){
-                    voices[i].active = false;
-                    voices[i].releasing = true;
-                    voices[i].envTime = 0.0f;
-                    break; // release only this voice
+                // Assign note to the selected voice
+                voice->active = true;
+                voice->releasing = false;
+                voice->envTime = 0.0f;
+                voice->phase = 0.0f;
+                voice->frequency = noteToHz(noteKey);
+                voice->keyID = noteKey;
+
+            } else {
+                // Key release
+                int releasedKey = (-noteKey) - 1;
+                for(int i = 0; i < numVoices; i++){
+                    if(voices[i].keyID == releasedKey){
+                        voices[i].active = false;
+                        voices[i].releasing = true;
+                        voices[i].envTime = 0.0f; // start release
+                        break; // only release one voice per key
+                    }
                 }
             }
         }
-    }
 
+    }
 
     try{ dac.stopStream(); } catch(RtAudioError &e){}
     if(dac.isStreamOpen()) dac.closeStream();
