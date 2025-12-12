@@ -864,43 +864,13 @@ int main() {
         updateDisplay(global_spi_handle);
 
         // Keyboard triggering
-        int key = getKeyPress();
-        if(key != -1){
-            switch(key){
-                case '0': edit = !edit; break;
-                case '1': menu=WAVE_MENU; break;
-                case '2': menu=ADSR_MENU; break;
-                case '3': menu=REVERB_MENU; break;
-                case '4': menu=TONE_MENU; break;
-                case 'z': case 'x': case 'c': case 'v': {
-                    int v = (key=='z')?0:(key=='x')?1:(key=='c')?2:3;
-                    Voice &voice = voices[v];
-
-                    if(voice.active){
-                        // Start release
-                        voice.active = false;
-                        voice.releasing = true;
-                        voice.envTime = 0.0f; // release phase timer
-                    } else {
-                        // Start note
-                        voice.active = true;
-                        voice.releasing = false;
-                        voice.envTime = 0.0f;
-                        voice.phase = 0.0f;
-                        voice.frequency = noteToHz(noteMapping[v]);
-                    }
-                    break;
-                }
-
-            }
-        }
         int noteKey = readKeyBoard();
         if(noteKey != -1111){
             if(noteKey >= 0){
                 // Key press
                 Voice* voice = nullptr;
 
-                // Look for a free voice
+                // 1. Find an inactive or finished voice
                 for(int i = 0; i < numVoices; i++){
                     if(!voices[i].active && !voices[i].releasing){
                         voice = &voices[i];
@@ -908,20 +878,20 @@ int main() {
                     }
                 }
 
-                // If no free voice, steal the oldest active voice
+                // 2. If none available, steal the oldest active voice
                 if(!voice){
+                    int oldestIdx = -1;
                     float oldestTime = -1.0f;
-                    int oldestIndex = 0;
-                    for(int i=0; i<numVoices; i++){
-                        if(voices[i].envTime > oldestTime){
+                    for(int i = 0; i < numVoices; i++){
+                        if(voices[i].active && voices[i].envTime > oldestTime){
                             oldestTime = voices[i].envTime;
-                            oldestIndex = i;
+                            oldestIdx = i;
                         }
                     }
-                    voice = &voices[oldestIndex];
+                    voice = &voices[oldestIdx];
                 }
 
-                // Assign note to the selected voice
+                // Assign the new note
                 voice->active = true;
                 voice->releasing = false;
                 voice->envTime = 0.0f;
@@ -936,15 +906,14 @@ int main() {
                     if(voices[i].keyID == releasedKey){
                         voices[i].active = false;
                         voices[i].releasing = true;
-                        voices[i].envTime = 0.0f; // start release
-                        break; // only release one voice per key
+                        voices[i].envTime = 0.0f;
+                        break; // release only this voice
                     }
                 }
             }
         }
 
-    }
-
+        
     try{ dac.stopStream(); } catch(RtAudioError &e){}
     if(dac.isStreamOpen()) dac.closeStream();
     closeKeyboard();
