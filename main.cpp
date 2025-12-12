@@ -175,6 +175,47 @@ void drawText(int x, int y, const char* text) {
     }
 }
 
+// Draw a filled rectangle
+void drawRectFilled(int x, int y, int w, int h) {
+    for (int i = 0; i < w; ++i)
+        drawLine(x + i, y, x + i, y + h - 1);
+}
+
+// Draw a menu item with optional selection highlight
+void drawMenuItem(int x, int y, int w, int h, const char* text, bool selected=false) {
+    // Draw border
+    drawLine(x, y, x + w - 1, y);         // top
+    drawLine(x, y + h - 1, x + w - 1, y + h - 1); // bottom
+    drawLine(x, y, x, y + h - 1);         // left
+    drawLine(x + w - 1, y, x + w - 1, y + h - 1); // right
+
+    // Fill if selected
+    if (selected) drawRectFilled(x+1, y+1, w-2, h-2);
+
+    // Draw text centered
+    int textLen = 0;
+    while (text[textLen]) textLen++;
+    int charWidth = 6; // 5px + 1 spacing
+    int textWidth = charWidth * textLen;
+    int textX = x + (w - textWidth)/2;
+    int textY = y + (h - 7)/2; // 7px font height
+    drawText(textX, textY, text);
+}
+
+// Draw full menu
+void drawMenu() {
+    int menuX = 10;
+    int menuY = 10;
+    int menuW = 80;
+    int menuH = 12; // height of one item
+    int gap = 4;
+
+    drawMenuItem(menuX, menuY, menuW, menuH, "TONE", true);
+    drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+    drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+    drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+}
+
 
 // Send buffer to OLED
 void updateDisplay(int spi) {
@@ -891,7 +932,7 @@ int main() {
         
         if(menu==TONE_MENU) {
             if(edit) editTone();
-            drawText(50, 50, yoza);
+            drawMenu();
         }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
