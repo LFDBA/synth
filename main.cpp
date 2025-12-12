@@ -833,7 +833,7 @@ int main() {
         
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
-
+        std::cout << getKeyPress() << std::endl;
         // menu edits
         
         if(menu==TONE_MENU) {
