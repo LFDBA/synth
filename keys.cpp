@@ -29,16 +29,16 @@ int main() {
     std::cout << "Starting keyboard scan..." << std::endl;
 
     while (true) {
-        for(size_t i = 0; i < 12; ++i){  // drive outputs (your exact range)
-            gpioSetMode(pins[i], PI_OUTPUT);
+        for(size_t i = 0; i < 5; ++i){  // drive outputs (your exact original range)
             gpioWrite(pins[i], 1);
 
             for(size_t j = 0; j < pins.size(); ++j){
                 if(j == i || j == i - 1) continue;
 
-                int keyNum = j + (i * 12) + 1;
+                int keyNum = j + 1 + (i * 12);  // keep your original numbering
                 bool isHigh = gpioRead(pins[j]) == 1;
 
+                // Debounce + press/release tracking
                 if(isHigh){
                     keyStates[keyNum].count++;
                     if(keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed){
@@ -57,8 +57,6 @@ int main() {
             }
 
             gpioWrite(pins[i], 0);
-            gpioSetMode(pins[i], PI_INPUT);
-            gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
         }
     }
 
