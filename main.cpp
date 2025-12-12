@@ -84,7 +84,9 @@ void initDisplay(int spi) {
 void clearBuffer() {
     memset(buffer, 0x00, sizeof(buffer));
 
+}
 
+void clearScreen() {
     // Clear the OLED's internal memory (all 8 pages)
     uint8_t empty[132];      // SH1106 has 132 columns internally
     memset(empty, 0x00, sizeof(empty));
@@ -135,6 +137,7 @@ void gracefulExit(int signum) {
     std::cout << "\nClearing OLED before exit...\n";
 
     clearBuffer();
+    clearScreen();
     updateDisplay(global_spi_handle);
 
     spiClose(global_spi_handle);
@@ -743,6 +746,7 @@ int main() {
 
     initDisplay(global_spi_handle);
     clearBuffer();
+    clearScreen();
     updateDisplay(global_spi_handle);
 
 
