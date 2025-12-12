@@ -61,7 +61,7 @@ int main() {
         gpioWrite(4, 0);
         gpioWrite(17, 1);
         for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 3 || inIdx == 0) continue;
+            if(inIdx == 3 || inIdx == 4) continue;
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 37 << std::endl;
             }
@@ -69,7 +69,7 @@ int main() {
         gpioWrite(17, 0);
         gpioWrite(27, 1);
         for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 0 || inIdx == 1) continue;
+            if(inIdx == 4 || inIdx == 5) continue;
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 49 << std::endl;
             }
@@ -77,7 +77,7 @@ int main() {
         gpioWrite(27, 0);
         gpioWrite(22, 1);
         for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 1 || inIdx == 2) continue;
+            if(inIdx == 5 || inIdx == 6) continue;
             if(gpioRead(pins[inIdx]) == 1){ 
                 std::cout << "Key pressed: " << inIdx + 61 << std::endl;
             }
@@ -85,7 +85,7 @@ int main() {
         gpioWrite(22, 0);
         gpioWrite(0, 1);
         for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 2 || inIdx == 3) continue;
+            if(inIdx == 6 || inIdx == 7) continue;
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 73 << std::endl;
             }
@@ -93,7 +93,7 @@ int main() {
         gpioWrite(0, 0);
         gpioWrite(5, 1);
         for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 3 || inIdx == 0) continue;
+            if(inIdx == 7 || inIdx == 8) continue;
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 85 << std::endl;
             }
@@ -101,7 +101,7 @@ int main() {
         gpioWrite(5, 0);
         gpioWrite(6, 1);
         for(size_t inIdx = 0; inIdx < pins.size(); ++inIdx){
-            if(inIdx == 0 || inIdx == 1) continue;
+            if(inIdx == 8 || inIdx == 9) continue;
             if(gpioRead(pins[inIdx]) == 1){
                 std::cout << "Key pressed: " << inIdx + 97 << std::endl;
             }
