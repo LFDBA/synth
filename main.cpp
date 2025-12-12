@@ -904,7 +904,7 @@ int main() {
         
         if(menu==TONE_MENU) {
             if(edit) editTone();
-            drawTONE();
+            drawTONE(50, 50);
         }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
