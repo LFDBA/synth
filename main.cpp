@@ -132,6 +132,16 @@ void drawLine(int x0, int y0, int x1, int y1) {
         if (e2 <= dx) { err += dx; y0 += sy; }
     }
 }
+void drawRect(int x, int y, int w, int h, bool fill=false) {
+    if(fill){
+        for(int i=0;i<w;i++)
+            for(int j=0;j<h;j++)
+                drawPixel(x+i, y+j);
+    }else{
+        for(int i=0;i<w;i++){ drawPixel(x+i,y); drawPixel(x+i,y+h-1); }
+        for(int j=0;j<h;j++){ drawPixel(x,y+j); drawPixel(x+w-1,y+j); }
+    }
+}
 
 // Send buffer to OLED
 void updateDisplay(int spi) {
