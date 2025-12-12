@@ -144,6 +144,7 @@ int main(){
     int selected = 0;
 
     while(true){
+        std::cout << "huh";
         drawMenu(menuItems, selected);
         std::cout << "out";
         selected = (selected + 1) % menuItems.size();
