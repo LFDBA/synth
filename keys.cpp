@@ -19,8 +19,8 @@ std::map<int, KeyState> keyStates;
 
 int mapKeyNumber(int k) {
     int base = 6;
-    int col = (rawKey - base) / 12;
-    int row = rawKey - base - (col * 12);
+    int col = (k - base) / 12;
+    int row = k - base - (col * 12);
     int index = row * 5 + col + 1;
     return index;
 }
