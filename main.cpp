@@ -749,19 +749,19 @@ void getInp() {
 // ======================================================
 void editWave(){
     editIndex = static_cast<int>(norm(p1,0.0f,1023.0f,0.0f,WAVE_RES-1));
-    if(abs(p2-lastP2)>1){
+    if(abs(p2-lastP2)>=1){
         wavePoints[editIndex] = norm(p2,0.0f,1023.0f,-2.0f,2.0f);
         waveNeedsRebuild=true;
     }
-    if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
+    if(abs(p3-lastP3)>=1) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
     knobPosition = norm(p4,0.0f,1023.0f,0.0f,0.9f);
     
-    if(abs(p4-lastP4)>1) {
+    if(abs(p4-lastP4)>=1) {
         custom=false;
         std::cout << "false \n";
     }
 
-    if(abs(p1-lastP1)>1) custom=true;
+    if(abs(p1-lastP1)>=1) custom=true;
     
     updateWave();
 }
@@ -770,26 +770,26 @@ void editWave(){
 //                     ADSR Edit
 // ======================================================
 void editADSR(){
-    if(abs(p1-lastP1)>1) attack = norm(p1,0.0f,1023.0f,0.0f,5.0f);
-    if(abs(p2-lastP2)>1) decay = norm(p2,0.0f,1023.0f,0.0f,5.0f);
-    if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
-    if(abs(p4-lastP4)>1) release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
+    if(abs(p1-lastP1)>=1) attack = norm(p1,0.0f,1023.0f,0.0f,5.0f);
+    if(abs(p2-lastP2)>=1) decay = norm(p2,0.0f,1023.0f,0.0f,5.0f);
+    if(abs(p3-lastP3)>=1) sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
+    if(abs(p4-lastP4)>=1) release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
 }
 
 // ======================================================
 //                   Reverb Edit
 // ======================================================
 void editReverb() {
-    if(abs(p1-lastP1)>1){
+    if(abs(p1-lastP1)>=1){
         float dry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
         float wet = 1.0f - dry;
         reverb.setDryWet(wet,dry);
     }
-    if(abs(p2-lastP2)>1){
+    if(abs(p2-lastP2)>=1){
         float size = norm(p2,0.0f,1023.0f,0.1f,1.5f);
         reverb.setRoomSize(size);
     }
-    if(abs(p3-lastP3)>1){
+    if(abs(p3-lastP3)>=1){
         float decay = norm(p3,0.0f,1023.0f,0.1f,1.0f);
         reverb.setDecay(decay);
     }
@@ -799,10 +799,10 @@ void editReverb() {
 //                     Tone Edit
 // ======================================================
 void editTone(){
-    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.1f);
-    if(abs(p2-lastP2)>1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
+    if(abs(p1-lastP1)>=1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.1f);
+    if(abs(p2-lastP2)>=1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
 
-    if(abs(p3-lastP3)>1) {
+    if(abs(p3-lastP3)>=1) {
         // compute the desired length, clamp to allowed range
         int newLen = iMap(p3, 0, 1023, 1, 2048);
         if (newLen < 32) newLen = 32;
