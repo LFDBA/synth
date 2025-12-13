@@ -43,7 +43,7 @@ enum Mode {
     ADSR_MENU,
     REVERB_MENU
 };
-Mode menu = ADSR_MENU;
+Mode menu = WAVE_MENU;
 
 
 // ======================================================
@@ -751,6 +751,9 @@ void editWave(){
     }
     if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
     knobPosition = norm(p4,0.0f,1023.0f,0.0f,0.9f);
+    std::cout << p4;
+    std::cout << p4-lastP4 << '\n';
+    std::cout << custom << '\n'
     if(abs(p4-lastP4)>2) custom=false;
     if(abs(p1-lastP1)>3 || abs(p2-lastP2)>3 || abs(p3-lastP3)>3) custom=true;
     updateWave();
@@ -965,7 +968,6 @@ int main() {
     
     
 
-    const char* yoza = "YOZA";
     while(true){
         getInp(); // microcontroller input
 
