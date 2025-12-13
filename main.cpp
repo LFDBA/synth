@@ -43,7 +43,7 @@ enum Mode {
     ADSR_MENU,
     REVERB_MENU
 };
-Mode menu = WAVE_MENU;
+Mode menu = ADSR_MENU;
 
 
 // ======================================================
