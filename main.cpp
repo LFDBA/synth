@@ -916,7 +916,6 @@ int main() {
     reverb.setDecay(0.9f);
 
     initWavePoints();
-    initKeyboard();
 
 
     if (gpioInitialise() < 0) {
@@ -1046,7 +1045,6 @@ int main() {
     }
     try{ dac.stopStream(); } catch(RtAudioError &e){}
     if(dac.isStreamOpen()) dac.closeStream();
-    closeKeyboard();
 
     return 0;
 }
