@@ -332,7 +332,7 @@ bool normVoices = true; // Normalize by active voices
 float pan = 0.0f;
 int fd;
 int editIndex = 0;
-bool edit = false;
+bool edit = true;
 
 Reverb reverb(sampleRate);
 
@@ -980,7 +980,7 @@ int main() {
         }
         if(menu==WAVE_MENU) {
             if(edit) editWave();
-            drawMenu();
+            drawWave();
         }
 
         if(menu==ADSR_MENU) {
