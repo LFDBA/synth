@@ -745,17 +745,17 @@ void getInp() {
 // ======================================================
 void editWave(){
     editIndex = static_cast<int>(norm(p1,0.0f,1023.0f,0.0f,WAVE_RES-1));
-    if(abs(p2-lastP2)>1){
+    if(abs(p2-lastP2)>2){
         wavePoints[editIndex] = norm(p2,0.0f,1023.0f,-2.0f,2.0f);
         waveNeedsRebuild=true;
     }
-    if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
+    if(abs(p3-lastP3)>2) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
     knobPosition = norm(p4,0.0f,1023.0f,0.0f,0.9f);
     std::cout << p4;
     std::cout << p4-lastP4 << '\n';
     std::cout << custom << '\n';
     if(abs(p4-lastP4)>2) custom=false;
-    if(abs(p1-lastP1)>3 || abs(p2-lastP2)>3 || abs(p3-lastP3)>3) custom=true;
+    if(abs(p1-lastP1)>4 || abs(p2-lastP2)>4 || abs(p3-lastP3)>4) custom=true;
     updateWave();
 }
 
