@@ -328,7 +328,7 @@ void drawSanta(int cx, int cy, float fatness) {
     drawCircle(cx + 4, cy - 6, 5);
 
     // Belly
-    drawSantaBelly(cx, cy + 10, 24, fatness);
+    drawSantaBelly(cx, cy + 10, fatness);
 
     // Belt
     drawRectFilled(cx - 14, cy + 8, 28, 3);
