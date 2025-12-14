@@ -44,7 +44,7 @@ enum Mode {
     REVERB_MENU
 };
 Mode menu = TONE_MENU;
-int lastMenuRead = -1;
+int lastMenuRead = 0;
 
 
 // ======================================================
