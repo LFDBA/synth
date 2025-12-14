@@ -758,7 +758,7 @@ void getInp() {
     static std::string line="";
     char buf[64];
     int n=read(fd,buf,sizeof(buf));
-    std::cout << n << '\n'
+    std::cout << n << '\n';
     if(n>0){
         for(int i=0;i<n;i++){
             char c=buf[i];
