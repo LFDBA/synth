@@ -38,7 +38,7 @@ float outSamples[3] = {0, 0, 0};
 float b0; float b1; float b2; float a1; float a2;
 float fCutoff = 1000.0f;
 float fQuality = 0.707f;
-
+const float sampleRate = 48000.0f;
 float K = tanf(M_PI * fCutoff / sampleRate); 
 float K2 = K * K; 
 float normed = 1.0f / (1.0f + K / fQuality + K2); 
@@ -452,7 +452,7 @@ int mapKeyNumber(int k) {
 // ======================================================
 //                     Constants
 // ======================================================
-const float sampleRate = 48000.0f;
+
 const int numVoices = 7;
 float outputLevel = 0.1f;
 bool normVoices = true; // Normalize by active voices
