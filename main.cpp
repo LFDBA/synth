@@ -25,7 +25,6 @@
 #include <ctime>
 
 
-std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
 std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
 
@@ -956,6 +955,8 @@ void drawReverb() {
 //                        MAIN
 // ======================================================
 int main() {
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
     if(!initSerial()){
         try{
             initSerial("/dev/ttyACM0");
