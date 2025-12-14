@@ -195,63 +195,6 @@ void drawCircle(int cx, int cy, int radius) {
     }
 }
 
-void drawEllipse(int cx, int cy, int rx, int ry) {
-    long rx2 = (long)rx * rx;
-    long ry2 = (long)ry * ry;
-    long twoRx2 = 2 * rx2;
-    long twoRy2 = 2 * ry2;
-
-    long x = 0;
-    long y = ry;
-
-    long px = 0;
-    long py = twoRx2 * y;
-
-    // Region 1
-    long p = ry2 - (rx2 * ry) + (rx2 / 4);
-
-    while (px < py) {
-        drawPixel(cx + x, cy + y);
-        drawPixel(cx - x, cy + y);
-        drawPixel(cx + x, cy - y);
-        drawPixel(cx - x, cy - y);
-
-        x++;
-        px += twoRy2;
-
-        if (p < 0) {
-            p += ry2 + px;
-        } else {
-            y--;
-            py -= twoRx2;
-            p += ry2 + px - py;
-        }
-    }
-
-    // Region 2
-    p = ry2 * (x + 0.5f) * (x + 0.5f)
-      + rx2 * (y - 1) * (y - 1)
-      - rx2 * ry2;
-
-    while (y >= 0) {
-        drawPixel(cx + x, cy + y);
-        drawPixel(cx - x, cy + y);
-        drawPixel(cx + x, cy - y);
-        drawPixel(cx - x, cy - y);
-
-        y--;
-        py -= twoRx2;
-
-        if (p > 0) {
-            p += rx2 - py;
-        } else {
-            x++;
-            px += twoRy2;
-            p += rx2 - py + px;
-        }
-    }
-}
-
 // Draw a single character at (x, y)
 void drawChar(int x, int y, char c) {
     if (c < 'A' || c > 'Z') return; // ignore non-capitals
@@ -299,8 +242,8 @@ void drawRectFilled(int x, int y, int w, int h) {
 
 void drawRoundedRectFilled(int x, int y, int w, int h, int r) {
     // center rectangle
-    drawRectFilled(x + r, y, w - 2*r, h);
-    drawRectFilled(x, y + r, w, h - 2*r);
+    drawRect(x + r, y, w - 2*r, h);
+    drawRect(x, y + r, w, h - 2*r);
 
     // four corner circles
     drawCircle(x + r,     y + r,     r);
@@ -309,83 +252,51 @@ void drawRoundedRectFilled(int x, int y, int w, int h, int r) {
     drawCircle(x + w-r-1, y + h-r-1, r);
 }
 
-void drawBellyPatternStripes(int cx, int cy, int rx, int ry) {
-    for (int x = -rx + 2; x <= rx - 2; x += 3) {
-        int h = ry * sqrt(1.0f - (float)(x*x)/(rx*rx));
-        drawLine(cx + x, cy - h + 1, cx + x, cy + h - 1);
+void drawSantaBelly(int cx, int cy, int size, float fatness) {
+    fatness = std::max(0.0f, std::min(1.0f, fatness));
+
+    int circleRadius = size / 2;
+
+    // Rectangle dimensions grow as fatness increases
+    int rectW = size + int(fatness * size);
+    int rectH = size;
+
+    // Corner radius shrinks as it becomes boxy
+    int cornerR = int((1.0f - fatness) * circleRadius);
+
+    if (fatness < 0.05f) {
+        // Pure circle
+        drawCircle(cx, cy, circleRadius);
+    } else {
+        // Rounded rectangle
+        drawRoundedRectFilled(
+            cx - rectW/2,
+            cy - rectH/2,
+            rectW,
+            rectH,
+            cornerR
+        );
     }
 }
-
-void drawBellyPatternStitches(int cx, int cy, int rx, int ry) {
-    for (int y = -ry + 2; y <= ry - 2; y += 3) {
-        int w = rx * sqrt(1.0f - (float)(y*y)/(ry*ry));
-        drawLine(cx - w + 1, cy + y, cx - w + 4, cy + y + 2);
-    }
-}
-
-void drawBellyPatternDots(int cx, int cy, int rx, int ry) {
-    for (int y = -ry + 2; y <= ry - 2; y += 4) {
-        for (int x = -rx + 2; x <= rx - 2; x += 4) {
-            if ((x*x)/(float)(rx*rx) + (y*y)/(float)(ry*ry) <= 1.0f)
-                drawPixel(cx + x, cy + y);
-        }
-    }
-}
-
-void drawSantaBelly(int cx, int cy, float fatness) {
-    int base = 18;
-    int rx = base + fatness * 14;
-    int ry = base;
-
-    // Outline
-    drawEllipse(cx, cy, rx, ry);
-
-    // Interior texture (pick one)
-    drawBellyPatternStripes(cx, cy, rx, ry);
-}
-
-void drawSantaHat(int headCX, int headTopY) {
-    int brimW = 26;
-    int brimH = 4;
-
-    // Brim (touches head)
-    drawRectCentered(headCX, headTopY - 2, brimW, brimH);
-
-    // Cone
-    int coneHeight = 18;
-    int coneTipX = headCX + 6;    // lean
-    int coneTipY = headTopY - coneHeight;
-
-    drawLine(headCX - brimW/2 + 2, headTopY - 4, coneTipX, coneTipY);
-    drawLine(headCX + brimW/2 - 2, headTopY - 4, coneTipX, coneTipY);
-
-    // Pom-pom
-    drawCircle(coneTipX, coneTipY, 3);
-}
-
 
 void drawSanta(int cx, int cy, float fatness) {
-    int headCX = 64;
-    int headCY = 20;
-    int headR  = 8;
+    // Belly
+    drawSantaBelly(cx, cy + 10, 24, fatness);
 
-    
+    // Head
+    drawCircle(cx, cy - 12, 8);
 
-    // Hat sits exactly on top
-    drawSantaHat(headCX, headCY - headR);
-    drawCircle(headCX, headCY, headR);
-    // Eyes
-    drawPixel(cx - 2, cy - 14);
-    drawPixel(cx + 2, cy - 14);
-    
-
+    // Hat
+    drawRectFilled(cx - 10, cy - 32, 20, 6);
+    drawCircle(cx + 8, cy - 30, 3); // pompom
 
     // Beard
     drawCircle(cx - 4, cy - 6, 5);
     drawCircle(cx + 4, cy - 6, 5);
 
-    // Belly
-    drawSantaBelly(cx, cy + 10, fatness);
+    // Eyes
+    drawPixel(cx - 2, cy - 14);
+    drawPixel(cx + 2, cy - 14);
 
     // Belt
     drawRectFilled(cx - 14, cy + 8, 28, 3);
@@ -1106,7 +1017,7 @@ void drawReverb() {
     int jitterX = 0;
     int jitterY = 0;
     int amt = 3;
-
+    
     jit += 1;
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
