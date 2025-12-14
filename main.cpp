@@ -757,17 +757,7 @@ bool initSerial(const char* port="/dev/ttyACM1") {
 void getInp() {
     static std::string line="";
     char buf[64];
-    int n = 0;
-    try{
-        n=read(fd,buf,sizeof(buf));
-    }catch(...){
-        try{
-            initSerial("/dev/ttyACM1");
-        }catch(...){
-            initSerial("/dev/ttyACM0");
-        }
-    }
-    std::cout << n << '\n';
+    int n=read(fd,buf,sizeof(buf));
     if(n>0){
         for(int i=0;i<n;i++){
             char c=buf[i];
@@ -783,7 +773,11 @@ void getInp() {
                     else if(label=="p4") p4=(-value)+1023;
                 }
                 line.clear();
-            }else if(c!='\r') line+=c;
+            }else if(c!='\r') {
+                line+=c;
+                std::cout << "now";
+            }
+
         }
     }
 }
