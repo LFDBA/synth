@@ -33,19 +33,6 @@ const unsigned long doubleClickDelay = 400; // ms
 bool singleClickPending = false;
 float fatness;
 
-float inSamples[3] = {0, 0, 0};
-float outSamples[3] = {0, 0, 0};
-float fCutoff = 1000.0f;
-float fQuality = 0.707f;
-const float sampleRate = 48000.0f;
-float K = tanf(M_PI * fCutoff / sampleRate); 
-float K2 = K * K; 
-float normed = 1.0f / (1.0f + K / fQuality + K2); 
-float b0 = K2 * normed; 
-float b1 = 2.0f * b0; 
-float b2 = b0; 
-float a1 = 2.0f * (K2 - 1.0f) * normed;
-float a2 = (1.0f - K / fQuality + K2) * normed;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -675,26 +662,6 @@ void drawOutput() {
 
 
 
-int actNum = 0;
-
-float lowPass(float input) {
-    float y = b0*input + b1*inSamples[1] + b2*inSamples[2]
-              - a1*outSamples[1] - a2*outSamples[2];
-
-    // shift history after computing
-    inSamples[2] = inSamples[1];
-    inSamples[1] = inSamples[0];
-    inSamples[0] = input;
-
-    outSamples[2] = outSamples[1];
-    outSamples[1] = outSamples[0];
-    outSamples[0] = y;
-
-    return y;
-}
-
-
-
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -754,12 +721,6 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
             mix += sample;
         }
-
-        // normalize
-        if(normVoices && activeVoices > 0) mix /= activeVoices;
-
-        // **apply filter to raw mix**
-        mix = lowPass(mix);
 
         // then softclip and reverb
         mix = softClip(mix * outputLevel);
@@ -959,16 +920,7 @@ void editTone(){
 }
 
 void editFilter(){
-    fCutoff = 20.0f * powf(20000.0f/20.0f, p1);
     fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
-    fQuality = norm(p2, 0.0f, 1023.0f, 0.1f, 10.0f);
-    
-    K = tanf(M_PI * fCutoff / sampleRate); 
-    K2 = K * K; 
-    normed = 1.0f / (1.0f + K / fQuality + K2); 
-    b0 = K2 * normed; b1 = 2.0f * b0; b2 = b0; 
-    a1 = 2.0f * (K2 - 1.0f) * normed;
-    a2 = (1.0f - K / fQuality + K2) * normed;
 }
 
 void selectMenu() {
