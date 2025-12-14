@@ -36,14 +36,14 @@ struct KeyState {
 std::map<int, KeyState> keyStates;
 
 enum Mode {
-    MODE_NONE,
+    MAIN_MENU,
     VOICE_TONE_MENU,
     TONE_MENU,
     WAVE_MENU,
     ADSR_MENU,
     REVERB_MENU
 };
-Mode menu = WAVE_MENU;
+Mode menu = TONE_MENU;
 
 
 // ======================================================
@@ -234,6 +234,7 @@ void drawMenuItem(int x, int y, int w, int h, const char* text, bool selected=fa
 
 }
 
+int menuSelection = 1;
 // Draw the full menu
 void drawMenu() {
     int menuX = 10;
@@ -242,25 +243,25 @@ void drawMenu() {
     int menuH = 11;   // enough for 7px font + padding
     int gap = 4;
 
-    if(menu == TONE_MENU) {
+    if(menuSelection == 1) {
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
         drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
     }
-    else if(menu == WAVE_MENU){
+    else if(menuSelection == 2){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
         drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
     }
-    else if(menu == ADSR_MENU){
+    else if(menuSelection == 3){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
         drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
     }
-    else if(menu == REVERB_MENU){
+    else if(menuSelection == 4){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
@@ -808,7 +809,9 @@ void editTone(){
     }
 }
 
-
+void selectMenu() {
+    menuSelection = norm(p4, 0, 1023, 1, 4);
+}
 
 
 
@@ -968,10 +971,17 @@ int main() {
         getInp(); // microcontroller input
 
         
+        if(gpioRead(16) == 1){
+            std::cout << "menu";
+            menu = MAIN_MENU;
+        }
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
         // menu edits
-        
+        if (menu==MAIN_MENU) {
+            selectMenu();
+            drawMenu();
+        }
         if(menu==TONE_MENU) {
             if(edit) editTone();
             drawOutput();
