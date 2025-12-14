@@ -1039,12 +1039,12 @@ int main() {
 
         
         if(gpioRead(16) == 1){
-            while(lastMenuRead == 1){
-                if(menu != MAIN_MENU) menu = MAIN_MENU;
-                else menu = static_cast<Mode>(menuSelection+1);
+            if(lastMenuRead == 1){
+                menu = MAIN_MENU;
+                edit = false;
             }
-            if(lastMenuRead == 0) edit = !edit;
-        }
+            else edit = !edit;
+        }else if(lastMenuRead == 1) menu = static_cast<Mode>(menuSelection+1);
         lastMenuRead = gpioRead(16);
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
