@@ -152,6 +152,39 @@ void drawRect(int x, int y, int w, int h) {
     drawLine(x + w - 1, y, x + w - 1, y + h - 1); // right
 }
 
+// Draw rectangle by center position
+void drawRectCentered(int cx, int cy, int w, int h) {
+    int x = cx - w / 2;
+    int y = cy - h / 2;
+    drawRect(x, y, w, h);
+}
+
+
+void drawCircle(int cx, int cy, int radius) {
+    int x = radius;
+    int y = 0;
+    int err = 0;
+
+    while (x >= y) {
+        drawPixel(cx + x, cy + y);
+        drawPixel(cx + y, cy + x);
+        drawPixel(cx - y, cy + x);
+        drawPixel(cx - x, cy + y);
+        drawPixel(cx - x, cy - y);
+        drawPixel(cx - y, cy - x);
+        drawPixel(cx + y, cy - x);
+        drawPixel(cx + x, cy - y);
+
+        y += 1;
+        if (err <= 0) {
+            err += 2*y + 1;
+        } 
+        if (err > 0) {
+            x -= 1;
+            err -= 2*x + 1;
+        }
+    }
+}
 
 // Draw a single character at (x, y)
 void drawChar(int x, int y, char c) {
@@ -767,22 +800,25 @@ void editADSR(){
     if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
     if(abs(p4-lastP4)>1) release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
 }
-
+float dry = 1.0f;
+float wet = 0.0f;
+float size = 1.0f;
+float decay = 0.5f;
 // ======================================================
 //                   Reverb Edit
 // ======================================================
 void editReverb() {
     if(abs(p1-lastP1)>1){
-        float dry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
-        float wet = 1.0f - dry;
+        dry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
+        wet = 1.0f - dry;
         reverb.setDryWet(wet,dry);
     }
     if(abs(p2-lastP2)>1){
-        float size = norm(p2,0.0f,1023.0f,0.1f,1.5f);
+        size = norm(p2,0.0f,1023.0f,0.1f,1.5f);
         reverb.setRoomSize(size);
     }
     if(abs(p3-lastP3)>1){
-        float decay = norm(p3,0.0f,1023.0f,0.1f,1.0f);
+        decay = norm(p3,0.0f,1023.0f,0.1f,1.0f);
         reverb.setDecay(decay);
     }
 }
@@ -894,8 +930,14 @@ void drawWave() {
     }
 }
 
+void drawReverb() {
+    int dCay = norm(wet, 0.0f, 1.0f, 0.0f, 14.0f);
+    int dSize = norm(size, 0.1f, 1.5f, 10.0f, 63.0f-dCay);
+    int dWet = norm(decay, 0.1f, 1.0f, 0.0f, dSize);
 
-
+    clearBuffer();
+    drawRectCentered(64, 32, dSize, dSize);
+}
 
 
 
@@ -999,7 +1041,10 @@ int main() {
             if(edit) editADSR();
             drawADSR();
         }
-        if(menu==REVERB_MENU && edit) editReverb();
+        if(menu==REVERB_MENU) {
+            if(edit) editReverb();
+            drawReverb();
+        }
     
         updateDisplay(global_spi_handle);
 
