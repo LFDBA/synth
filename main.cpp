@@ -1158,6 +1158,10 @@ int main() {
             if(edit) editReverb();
             drawReverb();
         }
+        if(menu==FILTER_MENU) {
+            if(edit) editFilter();
+            drawFilter();
+        }
     
         updateDisplay(global_spi_handle);
 
