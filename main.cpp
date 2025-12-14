@@ -35,7 +35,11 @@ float fatness;
 
 float inSamples[3] = {0, 0, 0};
 float outSamples[3] = {0, 0, 0};
-float b0; float b1; float b2; float a1; float a2;
+float b0; 
+float b1; 
+float b2; 
+float a1; 
+float a2;
 float fCutoff = 1000.0f;
 float fQuality = 0.707f;
 const float sampleRate = 48000.0f;
