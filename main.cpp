@@ -1031,7 +1031,7 @@ void drawReverb() {
     }
 }
 
-drawFilter() {
+void drawFilter() {
     drawSanta(64, 32, fatness);
 }
 
