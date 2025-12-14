@@ -760,7 +760,7 @@ void getInp() {
     int n = 0;
     try{
         n=read(fd,buf,sizeof(buf));
-    }catch{
+    }catch(...){
         try{
             initSerial("/dev/ttyACM1");
         }catch(...){
