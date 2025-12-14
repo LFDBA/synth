@@ -932,18 +932,25 @@ void drawWave() {
         lastY = y;
     }
 }
-
+int jit = 0;
 void drawReverb() {
     int dCay = norm(rWet, 0.0f, 1.0f, 0.0f, 14.0f);
     int dSize = norm(rSize, 0.1f, 1.5f, 10.0f, 63.0f-dCay);
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
-
+    jit += 1;
     clearBuffer();
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
+    int jitterX = 0;
+    int jitterY = 0;
+    int amt = 3;
     for(int i = 0; i < dCay/2; i++){
-        int jitterX = std::rand() % (3)-1;
-        int jitterY = std::rand() % (3)-1;
+        if(jit > 10){
+            jitterX = std::rand() % (amt*2 + 1)-amt;
+            jitterY = std::rand() % (3)-1;
+            jit = 0;
+        }
+        
         drawRectCentered(64+jitterX, 32+jitterY, dSize+pow(i, 2), dSize+pow(i,2));
     }
 }
