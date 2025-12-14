@@ -670,11 +670,23 @@ void drawOutput() {
 
 int actNum = 0;
 
-float lowPass(float x0) {
-    // only compute output
-    return b0*x0 + b1*inSamples[1] + b2*inSamples[2]
-           - a1*outSamples[1] - a2*outSamples[2];
+float lowPass(float input) {
+    // compute output sample
+    float y = b0*input + b1*inSamples[1] + b2*inSamples[2]
+              - a1*outSamples[1] - a2*outSamples[2];
+
+    // shift history
+    inSamples[2] = inSamples[1];
+    inSamples[1] = inSamples[0];
+    inSamples[0] = input;
+
+    outSamples[2] = outSamples[1];
+    outSamples[1] = outSamples[0];
+    outSamples[0] = y;
+
+    return y;
 }
+
 
 // ======================================================
 //                  Audio Callback
@@ -743,29 +755,24 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
        
         // Normalize
-        if(normVoices && activeVoices>0) mix; ///= (activeVoices*0.2f);
-
         
-        // 3. Filter raw mix
-        float filtered = lowPass(mix);  // pass raw mix to filter
 
-        // 4. Update history
-        inSamples[2] = inSamples[1];
-        inSamples[1] = inSamples[0];
-        inSamples[0] = mix;   // raw mix
+        // optional normalization
+        if (normVoices && activeVoices>0)
+            mix /= activeVoices;
 
-        outSamples[2] = outSamples[1];
-        outSamples[1] = outSamples[0];
-        outSamples[0] = filtered;
+        // apply filter first
+        float filtered = lowPass(mix);
 
-        // 5. Then softclip / reverb
+        // then apply softClip and reverb
         filtered = softClip(filtered * outputLevel);
         filtered = reverb.process(filtered);
 
-        // 6. Push and output
+        // push to output
         pushSample(filtered);
-        output[2*i]     = filtered*(1.0f-pan);
-        output[2*i + 1] = filtered*(pan+1.0f);
+        output[2*i]     = filtered * (1.0f-pan);
+        output[2*i + 1] = filtered * (pan+1.0f);
+
 
         
     }
