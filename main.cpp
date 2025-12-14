@@ -767,6 +767,7 @@ void getInp() {
             initSerial("/dev/ttyACM0");
         }
     }
+    std::cout << n << '\n';
     if(n>0){
         for(int i=0;i<n;i++){
             char c=buf[i];
