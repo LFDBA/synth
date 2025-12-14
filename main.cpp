@@ -924,7 +924,7 @@ void editTone(){
 }
 
 void editFilter(){
-    fatness = norm(p1, 0.0f, 1023.0f, 0.15f, 0.85f)
+    fatness = norm(p1, 0.0f, 1023.0f, 0.15f, 0.85f);
 }
 
 void selectMenu() {
