@@ -33,6 +33,14 @@ const unsigned long doubleClickDelay = 400; // ms
 bool singleClickPending = false;
 float fatness;
 
+float inSamples[3] = {0, 0, 0};
+float outSamples[3] = {0, 0, 0};
+float b0; float b1, float b2; float a1; float a2;
+float fCutoff;
+float fRate;
+float fQuality;
+
+
 // Debounce in consecutive scans
 const int debounceScans = 8;
 
@@ -663,7 +671,23 @@ void drawOutput() {
 
 int actNum = 0;
 
+float lowPass(){
 
+    // calculate filter coefficients
+    float K = tanf(M_PI * fCutoff / fRate);
+    float K_squared = K * K;
+
+    float normed = 1.0f / (1.0f + K / fQuality + K_squared);
+
+    b0 = K_squared * norm;
+    b1 = 2.0f * b0;
+    b2 = b0;
+
+    a1 = 2.0f * (K_squared - 1.0f) * norm;
+    a2 = (1.0f - K / fQuality + K_squared) * norm;
+
+    return b0*inSamples[0]+b1*inSamples[1]+b2*inSamples[2]-a1*outSamples[1]-a2*outSamples[2];
+}
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -729,17 +753,28 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             mix += sample;
         }
 
+
         // Normalize
         if(normVoices && activeVoices>0) mix; ///= (activeVoices*0.2f);
 
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
-
+        
+        inSamples[2] = inSamples[1];
+        inSamples[1] = inSamples[0];
+        inSamples[0] = mix;
+        mix = lowPass();
+        outSamples[2] = outSamples[1];
+        outSamples[1] = outSamples[0];
+        outSamples[0] = mix;
+        
         pushSample(mix);
         
 
         output[2*i]     = mix*(1.0f-pan);
         output[2*i + 1] = mix*(pan+1.0f);
+
+        
     }
 
     return 0;
@@ -926,7 +961,7 @@ void editTone(){
 }
 
 void editFilter(){
-    fatness = norm(p1, 0.0f, 1023.0f, 0.15f, 0.85f);
+    fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
 }
 
 void selectMenu() {
