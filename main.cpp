@@ -670,23 +670,12 @@ void drawOutput() {
 
 int actNum = 0;
 
-float lowPass(){
-
-    // calculate filter coefficients
-    float K = tanf(M_PI * fCutoff / sampleRate);
-    float K2 = K * K;
-    float norm = 1.0f / (1.0f + K / fQuality + K2);
-
-    b0 = K2 * norm;
-    b1 = 2.0f * b0;
-    b2 = b0;
-
-    a1 = 2.0f * (K2 - 1.0f) * norm;
-    a2 = (1.0f - K / fQuality + K2) * norm;
-
-
-    return b0*inSamples[0]+b1*inSamples[1]+b2*inSamples[2]-a1*outSamples[1]-a2*outSamples[2];
+float lowPass(float x0) {
+    // only compute output
+    return b0*x0 + b1*inSamples[1] + b2*inSamples[2]
+           - a1*outSamples[1] - a2*outSamples[2];
 }
+
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -756,22 +745,27 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         // Normalize
         if(normVoices && activeVoices>0) mix; ///= (activeVoices*0.2f);
 
-        mix = softClip(mix * outputLevel);
-        mix = reverb.process(mix);
         
+        // 3. Filter raw mix
+        float filtered = lowPass(mix);  // pass raw mix to filter
+
+        // 4. Update history
         inSamples[2] = inSamples[1];
         inSamples[1] = inSamples[0];
-        inSamples[0] = mix;
-        mix = lowPass();
+        inSamples[0] = mix;   // raw mix
+
         outSamples[2] = outSamples[1];
         outSamples[1] = outSamples[0];
-        outSamples[0] = mix;
+        outSamples[0] = filtered;
 
-        pushSample(mix);
-        
+        // 5. Then softclip / reverb
+        filtered = softClip(filtered * outputLevel);
+        filtered = reverb.process(filtered);
 
-        output[2*i]     = mix*(1.0f-pan);
-        output[2*i + 1] = mix*(pan+1.0f);
+        // 6. Push and output
+        pushSample(filtered);
+        output[2*i]     = filtered*(1.0f-pan);
+        output[2*i + 1] = filtered*(pan+1.0f);
 
         
     }
@@ -963,6 +957,8 @@ void editFilter(){
     fCutoff = 20.0f * powf(20000.0f/20.0f, p1);
     fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
     fQuality = norm(p2, 0.0f, 1023.0f, 0.1f, 10.0f);
+
+    float K = tanf(M_PI * fCutoff / sampleRate); float K2 = K * K; float norm = 1.0f / (1.0f + K / fQuality + K2); b0 = K2 * norm; b1 = 2.0f * b0; b2 = b0; a1 = 2.0f * (K2 - 1.0f) * norm; a2 = (1.0f - K / fQuality + K2) * norm;
 }
 
 void selectMenu() {
