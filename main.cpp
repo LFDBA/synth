@@ -757,7 +757,19 @@ bool initSerial(const char* port="/dev/ttyACM1") {
 void getInp() {
     static std::string line="";
     char buf[64];
-    int n=read(fd,buf,sizeof(buf));
+    int n = 0;
+    try{
+        n=read(fd,buf,sizeof(buf));
+    }catch{
+        try {
+            dac.openStream(&oParams,nullptr,RTAUDIO_FLOAT32,
+                        sampleRate,&bufferFrames,&audioCallback);
+            dac.startStream();
+        } catch(RtAudioError &e){
+            e.printMessage();
+            return 1;
+        }
+    }
     if(n>0){
         for(int i=0;i<n;i++){
             char c=buf[i];
