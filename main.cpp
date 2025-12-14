@@ -1222,8 +1222,8 @@ int main() {
 
                 // 2. If none available, steal the oldest active voice
                 if(!voice){
-                    int oldestIdx = -1;
-                    float oldestTime = -1.0f;
+                    int oldestIdx = 0;
+                    float oldestTime = voices[0].envTime;
                     for(int i = 0; i < numVoices; i++){
                         if(voices[i].active && voices[i].envTime > oldestTime){
                             oldestTime = voices[i].envTime;
@@ -1231,7 +1231,12 @@ int main() {
                         }
                     }
                     voice = &voices[oldestIdx];
+                    // Force release the old note
+                    voice->active = false;
+                    voice->releasing = true;
+                    voice->envTime = 0.0f;
                 }
+
 
                 // Assign the new note
                 voice->active = true;
@@ -1249,9 +1254,9 @@ int main() {
                         voices[i].active = false;
                         voices[i].releasing = true;
                         voices[i].envTime = 0.0f;
-                        break; // release only this voice
                     }
                 }
+
             }
         }
 
