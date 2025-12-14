@@ -1010,16 +1010,18 @@ void drawWave() {
 }
 int jit = 0;
 void drawReverb() {
+    clearBuffer();
     int dCay = norm(rWet, 0.0f, 1.0f, 0.0f, 14.0f);
     int dSize = norm(rSize, 0.1f, 1.5f, 10.0f, 63.0f-dCay);
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
-    jit += 1;
-    clearBuffer();
-    drawRectCentered(64, 32, dSize, dSize);
-    drawCircle(64, 32, dWet/2);
     int jitterX = 0;
     int jitterY = 0;
     int amt = 3;
+    
+    jit += 1;
+    drawRectCentered(64, 32, dSize, dSize);
+    drawCircle(64, 32, dWet/2);
+    
     for(int i = 0; i < dCay/2; i++){
         if(jit > 10){
             jitterX = std::rand() % (amt*2 + 1)-amt;
@@ -1032,6 +1034,7 @@ void drawReverb() {
 }
 
 void drawFilter() {
+    clearBuffer();
     drawSanta(64, 32, fatness);
 }
 
