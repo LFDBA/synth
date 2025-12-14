@@ -1042,17 +1042,17 @@ int main() {
             if(lastMenuRead == 1){
                 for(int i = 0; i < 1001; i++){
                     for(int j = 0; j < 1000; j++){
-                        if(gpioRead(16) == 0 && menu != MAIN_MENU) {
-                            edit = !edit;
-                            std::cout << edit;
-                            break;
-                        }
+                        
                         if(i == 1000){
                             menu = MAIN_MENU;
                             edit = false;
                         }
                     }
-                    
+                    if(gpioRead(16) == 0 && menu != MAIN_MENU) {
+                        edit = !edit;
+                        std::cout << edit;
+                        break;
+                    }
                 }
                 
             }
