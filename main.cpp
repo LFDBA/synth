@@ -48,7 +48,8 @@ enum Mode {
     TONE_MENU,
     WAVE_MENU,
     ADSR_MENU,
-    REVERB_MENU
+    REVERB_MENU,
+    FILTER_MENU
 };
 Mode menu = TONE_MENU;
 int lastMenuRead = 0;
@@ -289,24 +290,35 @@ void drawMenu() {
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
         drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER");
     }
     else if(menuSelection == 2){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
         drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER");
     }
     else if(menuSelection == 3){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
         drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER");
     }
     else if(menuSelection == 4){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
         drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER");
+    }
+    else if(menuSelection == 5){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER", true);
     }
 }
 
@@ -856,7 +868,7 @@ void editTone(){
 
 
 void selectMenu() {
-    menuSelection = norm(p4, 0, 1023, 1, 4);
+    menuSelection = norm(p4, 0, 1023, 1, 5);
 }
 
 
@@ -1144,7 +1156,10 @@ int main() {
                 singleClickPending = false;
 
                 // Original single-click behavior
-                if(menu == MAIN_MENU) menu = static_cast<Mode>(menuSelection+1);
+                if(menu == MAIN_MENU) {
+                    edit = false;
+                    menu = static_cast<Mode>(menuSelection+1);
+                }
                 else edit = !edit;
 
                 std::cout << "Single click detected!" << std::endl;
