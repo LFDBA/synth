@@ -1036,7 +1036,10 @@ int main() {
         
         if(gpioRead(16) == 1 && lastMenuRead == 0){
             if(menu != MAIN_MENU) menu = MAIN_MENU;
-            else menu = static_cast<Mode>(menuSelection+1);
+            else{
+                lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
+                menu = static_cast<Mode>(menuSelection+1);
+            } 
         }
         lastMenuRead = gpioRead(16);
 
