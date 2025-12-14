@@ -33,6 +33,13 @@ const unsigned long doubleClickDelay = 400; // ms
 bool singleClickPending = false;
 float fatness;
 
+float inSamples[3] = {0, 0, 0};
+float outSamples[3] = {0, 0, 0};
+float b0; float b1; float b2; float a1; float a2;
+float fCutoff;
+float fQuality;
+
+
 // Debounce in consecutive scans
 const int debounceScans = 8;
 
@@ -287,9 +294,9 @@ void drawSanta(int cx, int cy, float fatness) {
     drawCircle(cx, cy - 12, 8);
 
     // Hat
-    drawRectFilled(cx - 10, cy - 20, 20, 6);
-    drawLine(cx -5, cy-20, cx+7, cy-28);
-    drawLine(cx -15, cy-20, cx+9, cy-28);
+    drawRectFilled(cx - 10, cy - 22, 20, 6);
+    drawLine(cx -5, cy-22, cx+7, cy-28);
+    drawLine(cx+5, cy-22, cx+9, cy-28);
     drawCircle(cx + 8, cy - 30, 3); // pompom
 
     // Beard
@@ -663,7 +670,23 @@ void drawOutput() {
 
 int actNum = 0;
 
+float lowPass(){
 
+    // calculate filter coefficients
+    float K = tanf(M_PI * fCutoff / sampleRate);
+    float K_squared = K * K;
+
+    float normed = 1.0f / (1.0f + K / fQuality + K_squared);
+
+    b0 = K_squared * normed;
+    b1 = 2.0f * b0;
+    b2 = b0;
+
+    a1 = 2.0f * (K_squared - 1.0f) * normed;
+    a2 = (1.0f - K / fQuality + K_squared) * normed;
+
+    return b0*inSamples[0]+b1*inSamples[1]+b2*inSamples[2]-a1*outSamples[1]-a2*outSamples[2];
+}
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -729,17 +752,28 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             mix += sample;
         }
 
+
         // Normalize
         if(normVoices && activeVoices>0) mix; ///= (activeVoices*0.2f);
 
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
+        
+        inSamples[2] = inSamples[1];
+        inSamples[1] = inSamples[0];
+        inSamples[0] = mix;
+        mix = lowPass();
+        outSamples[2] = outSamples[1];
+        outSamples[1] = outSamples[0];
+        outSamples[0] = mix;
 
         pushSample(mix);
         
 
         output[2*i]     = mix*(1.0f-pan);
         output[2*i + 1] = mix*(pan+1.0f);
+
+        
     }
 
     return 0;
@@ -926,7 +960,9 @@ void editTone(){
 }
 
 void editFilter(){
-    fatness = norm(p1, 0.0f, 1023.0f, 0.15f, 0.85f);
+    fCutoff = 20.0f * powf(20000.0f/20.0f, p1);
+    fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
+    fQuality = norm(p2, 0.0f, 1023.0f, 0.1f, 10.0f);
 }
 
 void selectMenu() {
