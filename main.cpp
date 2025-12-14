@@ -35,7 +35,7 @@ float fatness;
 
 float inSamples[3] = {0, 0, 0};
 float outSamples[3] = {0, 0, 0};
-float b0; float b1, float b2; float a1; float a2;
+float b0; float b1; float b2; float a1; float a2;
 float fCutoff;
 float fRate;
 float fQuality;
@@ -767,7 +767,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         outSamples[2] = outSamples[1];
         outSamples[1] = outSamples[0];
         outSamples[0] = mix;
-        
+
         pushSample(mix);
         
 
