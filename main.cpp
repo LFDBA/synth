@@ -758,7 +758,7 @@ void getInp() {
     static std::string line="";
     char buf[64];
     int n=read(fd,buf,sizeof(buf));
-    std::cout << n << '\n';
+    
     if(n>0){
         for(int i=0;i<n;i++){
             char c=buf[i];
@@ -775,6 +775,14 @@ void getInp() {
                 }
                 line.clear();
             }else if(c!='\r') line+=c;
+        }
+    }else{
+        try{
+            initSerial();
+            std::cout << '1';
+        }catch(...){
+            initSerial("/dev/ttyAMC0");
+            std::cout << '0';
         }
     }
 }
