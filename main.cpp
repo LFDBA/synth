@@ -23,10 +23,15 @@
 #include <map>
 #include <cstdlib> // For rand() and srand()
 #include <ctime>
-
+using namespace std::chrono;
 
 
 std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
+
+unsigned long lastClickTime = 0;
+const unsigned long doubleClickDelay = 400; // ms
+bool singleClickPending = false;
+float fatness;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -44,7 +49,8 @@ enum Mode {
     TONE_MENU,
     WAVE_MENU,
     ADSR_MENU,
-    REVERB_MENU
+    REVERB_MENU,
+    FILTER_MENU
 };
 Mode menu = TONE_MENU;
 int lastMenuRead = 0;
@@ -234,6 +240,69 @@ void drawRectFilled(int x, int y, int w, int h) {
         drawLine(x + i, y, x + i, y + h - 1);
 }
 
+void drawRoundedRectFilled(int x, int y, int w, int h, int r) {
+    // center rectangle
+    drawRect(x + r, y, w - 2*r, h);
+    drawRect(x, y + r, w, h - 2*r);
+
+    // four corner circles
+    drawCircle(x + r,     y + r,     r);
+    drawCircle(x + w-r-1, y + r,     r);
+    drawCircle(x + r,     y + h-r-1, r);
+    drawCircle(x + w-r-1, y + h-r-1, r);
+}
+
+void drawSantaBelly(int cx, int cy, int size, float fatness) {
+    fatness = std::max(0.0f, std::min(1.0f, fatness));
+
+    int circleRadius = size / 2;
+
+    // Rectangle dimensions grow as fatness increases
+    int rectW = size + int(fatness * size);
+    int rectH = size;
+
+    // Corner radius shrinks as it becomes boxy
+    int cornerR = int((1.0f - fatness) * circleRadius);
+
+    if (fatness < 0.05f) {
+        // Pure circle
+        drawCircle(cx, cy, circleRadius);
+    } else {
+        // Rounded rectangle
+        drawRoundedRectFilled(
+            cx - rectW/2,
+            cy - rectH/2,
+            rectW,
+            rectH,
+            cornerR
+        );
+    }
+}
+
+void drawSanta(int cx, int cy, float fatness) {
+    // Belly
+    drawSantaBelly(cx, cy + 10, 24, fatness);
+
+    // Head
+    drawCircle(cx, cy - 12, 8);
+
+    // Hat
+    drawRectFilled(cx - 10, cy - 32, 20, 6);
+    drawCircle(cx + 8, cy - 30, 3); // pompom
+
+    // Beard
+    drawCircle(cx - 4, cy - 6, 5);
+    drawCircle(cx + 4, cy - 6, 5);
+
+    // Eyes
+    drawPixel(cx - 2, cy - 14);
+    drawPixel(cx + 2, cy - 14);
+
+    // Belt
+    drawRectFilled(cx - 14, cy + 8, 28, 3);
+}
+
+
 // Draw a menu item with selection highlight
 void drawMenuItem(int x, int y, int w, int h, const char* text, bool selected=false) {
     // Draw border
@@ -280,29 +349,34 @@ void drawMenu() {
     int menuH = 11;   // enough for 7px font + padding
     int gap = 4;
     clearBuffer();
-    if(menuSelection == 1) {
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+    if(menuSelection<5){
+        if(menuSelection == 1) {
+            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
+            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        }
+        else if(menuSelection == 2){
+            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
+            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        }
+        else if(menuSelection == 3){
+            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
+            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        }
+        else if(menuSelection == 4){
+            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB", true);
+        }
     }
-    else if(menuSelection == 2){
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-    }
-    else if(menuSelection == 3){
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-    }
-    else if(menuSelection == 4){
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB", true);
+    else if(menuSelection == 5){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "FILTER", true);
     }
 }
 
@@ -849,10 +923,12 @@ void editTone(){
     }
 }
 
-
+void editFilter(){
+    fatness = norm(p1, 0.0f, 1023.0f, 0.15f, 0.85f);
+}
 
 void selectMenu() {
-    menuSelection = norm(p4, 0, 1023, 1, 4);
+    menuSelection = norm(p4, 0, 1023, 1, 5);
 }
 
 
@@ -934,16 +1010,18 @@ void drawWave() {
 }
 int jit = 0;
 void drawReverb() {
+    clearBuffer();
     int dCay = norm(rWet, 0.0f, 1.0f, 0.0f, 14.0f);
     int dSize = norm(rSize, 0.1f, 1.5f, 10.0f, 63.0f-dCay);
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
-    jit += 1;
-    clearBuffer();
-    drawRectCentered(64, 32, dSize, dSize);
-    drawCircle(64, 32, dWet/2);
     int jitterX = 0;
     int jitterY = 0;
     int amt = 3;
+    
+    jit += 1;
+    drawRectCentered(64, 32, dSize, dSize);
+    drawCircle(64, 32, dWet/2);
+    
     for(int i = 0; i < dCay/2; i++){
         if(jit > 10){
             jitterX = std::rand() % (amt*2 + 1)-amt;
@@ -955,7 +1033,10 @@ void drawReverb() {
     }
 }
 
-
+void drawFilter() {
+    clearBuffer();
+    drawSanta(64, 32, fatness);
+}
 
 
 // ======================================================
@@ -1034,14 +1115,28 @@ int main() {
         getInp(); // microcontroller input
 
         
-        if(gpioRead(16) == 1 && lastMenuRead == 0){
-            if(menu != MAIN_MENU) menu = MAIN_MENU;
-            else{
-                lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
-                menu = static_cast<Mode>(menuSelection+1);
-            } 
+        int currentRead = gpioRead(16);
+
+        if (currentRead == 1 && lastMenuRead == 0) { // button pressed
+            unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+
+            if (singleClickPending && (now - lastClickTime <= doubleClickDelay)) {
+                // Double click detected
+                singleClickPending = false;
+                lastClickTime = 0;
+
+                std::cout << "Double click detected!" << std::endl;
+                // TODO: Handle double click (e.g., special menu)
+                menu = static_cast<Mode>(MAIN_MENU); 
+
+            } else {
+                // First click, maybe a single click
+                singleClickPending = true;
+                lastClickTime = now;
+            }
         }
-        lastMenuRead = gpioRead(16);
+
+        lastMenuRead = currentRead;
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
         // menu edits
@@ -1065,6 +1160,10 @@ int main() {
         if(menu==REVERB_MENU) {
             if(edit) editReverb();
             drawReverb();
+        }
+        if(menu==FILTER_MENU) {
+            if(edit) editFilter();
+            drawFilter();
         }
     
         updateDisplay(global_spi_handle);
@@ -1116,6 +1215,23 @@ int main() {
                         break; // release only this voice
                     }
                 }
+            }
+        }
+
+        if (singleClickPending) {
+            unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            if ((now - lastClickTime) > doubleClickDelay) {
+                // Single click confirmed
+                singleClickPending = false;
+
+                // Original single-click behavior
+                if(menu == MAIN_MENU) {
+                    edit = false;
+                    menu = static_cast<Mode>(menuSelection+1);
+                }
+                else edit = !edit;
+
+                std::cout << "Single click detected!" << std::endl;
             }
         }
         usleep(1000);
