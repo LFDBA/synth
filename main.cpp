@@ -287,7 +287,7 @@ void drawSanta(int cx, int cy, float fatness) {
     drawCircle(cx, cy - 12, 8);
 
     // Hat
-    drawRectFilled(cx - 10, cy - 32, 20, 6);
+    drawRectFilled(cx - 10, cy - 24, 20, 6);
     drawCircle(cx + 8, cy - 30, 3); // pompom
 
     // Beard
