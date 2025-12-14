@@ -752,7 +752,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             mix += sample;
         }
 
-
+        std::cout << mix << '\n';
         // Normalize
         if(normVoices && activeVoices>0) mix; ///= (activeVoices*0.2f);
 
@@ -1152,7 +1152,6 @@ int main() {
     while(true){
         getInp(); // microcontroller input
 
-        std::cout << outputLevel << '\n';
         int currentRead = gpioRead(16);
 
         if (currentRead == 1 && lastMenuRead == 0) { // button pressed
@@ -1208,7 +1207,6 @@ int main() {
 
         // Keyboard triggering
         int noteKey = readKeyBoard();
-        if(noteKey != -1111) std::cout << noteKey << '\n';
         if(noteKey != -1111){
             if(noteKey >= 0){
                 // Key press
