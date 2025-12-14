@@ -453,7 +453,7 @@ bool normVoices = true; // Normalize by active voices
 float pan = 0.0f;
 int fd;
 int editIndex = 0;
-bool edit = true;
+bool edit = false;
 
 Reverb reverb(sampleRate);
 
@@ -762,7 +762,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         inSamples[2] = inSamples[1];
         inSamples[1] = inSamples[0];
         inSamples[0] = mix;
-        // mix = lowPass();
+        mix = lowPass();
         outSamples[2] = outSamples[1];
         outSamples[1] = outSamples[0];
         outSamples[0] = mix;
