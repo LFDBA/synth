@@ -1040,10 +1040,18 @@ int main() {
         
         if(gpioRead(16) == 1){
             if(lastMenuRead == 1){
-                menu = MAIN_MENU;
-                edit = false;
+                for(int i = 0; i < 101; i++){
+                    if(gpioRead(16) == 0 && menu != MAIN_MENU) {
+                        edit = !edit;
+                        break;
+                    }
+                    if(i == 100){
+                        menu = MAIN_MENU;
+                        edit = false;
+                    }
+                }
+                
             }
-            else edit = !edit;
         }else if(lastMenuRead == 1) menu = static_cast<Mode>(menuSelection+1);
         lastMenuRead = gpioRead(16);
 
