@@ -665,10 +665,11 @@ void drawOutput() {
 // ======================================================
 //                  Audio Callback
 // ======================================================
+float *output = 0.0f;
 int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBufferFrames,
                   double /*streamTime*/, RtAudioStreamStatus /*status*/, void* /*userData*/) 
 {
-    float *output = static_cast<float*>(outputBuffer);
+    output = static_cast<float*>(outputBuffer);
 
     if(custom && waveNeedsRebuild) rebuildWaveTable();
 
@@ -1012,7 +1013,7 @@ void drawReverb() {
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
     int jitterX = 0;
     int jitterY = 0;
-    int amt = 3;
+    int amt = norm(output, 0.0f, 0.1f, 0.0f, 3.0f)
     
     jit += 1;
     drawRectCentered(64, 32, dSize, dSize);
@@ -1020,14 +1021,9 @@ void drawReverb() {
     
     for(int i = 0; i < dCay/2; i++){
         if(jit > 10){
-            for(int j = 0; j < numVoices; j++){
-                if(voices[j].active == true){
-                    jitterX = std::rand() % (amt*2 + 1)-amt;
-                    jitterY = std::rand() % (3)-1;
-                    jit = 0;
-                }
-            }
-            
+            jitterX = std::rand() % (amt*2 + 1)-amt;
+            jitterY = std::rand() % (amt*2 + 1)-amt;
+            jit = 0;
         }
         
         drawRectCentered(64+jitterX, 32+jitterY, dSize+pow(i, 2), dSize+pow(i,2));
