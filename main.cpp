@@ -1144,7 +1144,8 @@ int main() {
                 singleClickPending = false;
 
                 // Original single-click behavior
-                edit = !edit;
+                if(menu == MAIN_MENU) menu = static_cast<Mode>(menuSelection+1);
+                else edit = !edit;
 
                 std::cout << "Single click detected!" << std::endl;
             }
