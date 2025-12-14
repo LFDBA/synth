@@ -937,6 +937,8 @@ void drawReverb() {
 
     clearBuffer();
     drawRectCentered(64, 32, dSize, dSize);
+    drawCircle(64, 32, dWet, dWet);
+    
 }
 
 
