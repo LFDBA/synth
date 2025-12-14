@@ -758,6 +758,7 @@ void getInp() {
     static std::string line="";
     char buf[64];
     int n=read(fd,buf,sizeof(buf));
+    std::cout << n << '\n'
     if(n>0){
         for(int i=0;i<n;i++){
             char c=buf[i];
@@ -773,11 +774,7 @@ void getInp() {
                     else if(label=="p4") p4=(-value)+1023;
                 }
                 line.clear();
-            }else if(c!='\r') {
-                line+=c;
-                std::cout << "now";
-            }
-
+            }else if(c!='\r') line+=c;
         }
     }
 }
