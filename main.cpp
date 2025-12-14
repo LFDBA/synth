@@ -23,10 +23,14 @@
 #include <map>
 #include <cstdlib> // For rand() and srand()
 #include <ctime>
-
+using namespace std::chrono;
 
 
 std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
+
+unsigned long lastClickTime = 0;
+const unsigned long doubleClickDelay = 400; // ms
+bool singleClickPending = false;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -1034,14 +1038,28 @@ int main() {
         getInp(); // microcontroller input
 
         
-        if(gpioRead(16) == 1 && lastMenuRead == 0){
-            if(menu != MAIN_MENU) menu = MAIN_MENU;
-            else{
-                lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
-                menu = static_cast<Mode>(menuSelection+1);
-            } 
+        int currentRead = gpioRead(16);
+
+        if (currentRead == 1 && lastMenuRead == 0) { // button pressed
+            unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+
+            if (singleClickPending && (now - lastClickTime <= doubleClickDelay)) {
+                // Double click detected
+                singleClickPending = false;
+                lastClickTime = 0;
+
+                std::cout << "Double click detected!" << std::endl;
+                // TODO: Handle double click (e.g., special menu)
+                menu = static_cast<Mode>(SPECIAL_MENU); 
+
+            } else {
+                // First click, maybe a single click
+                singleClickPending = true;
+                lastClickTime = now;
+            }
         }
-        lastMenuRead = gpioRead(16);
+
+        lastMenuRead = currentRead;
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
         // menu edits
@@ -1116,6 +1134,20 @@ int main() {
                         break; // release only this voice
                     }
                 }
+            }
+        }
+
+        if (singleClickPending) {
+            unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            if ((now - lastClickTime) > doubleClickDelay) {
+                // Single click confirmed
+                singleClickPending = false;
+
+                // Original single-click behavior
+                if (menu != MAIN_MENU) menu = MAIN_MENU;
+                else menu = static_cast<Mode>(menuSelection+1);
+
+                std::cout << "Single click detected!" << std::endl;
             }
         }
         usleep(1000);
