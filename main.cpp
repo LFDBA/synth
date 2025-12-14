@@ -42,7 +42,9 @@ const float sampleRate = 48000.0f;
 float K = tanf(M_PI * fCutoff / sampleRate); 
 float K2 = K * K; 
 float normed = 1.0f / (1.0f + K / fQuality + K2); 
-b0 = K2 * normed; b1 = 2.0f * b0; b2 = b0; 
+b0 = K2 * normed; 
+b1 = 2.0f * b0; 
+b2 = b0; 
 a1 = 2.0f * (K2 - 1.0f) * normed;
 a2 = (1.0f - K / fQuality + K2) * normed;
 
