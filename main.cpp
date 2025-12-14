@@ -800,26 +800,26 @@ void editADSR(){
     if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
     if(abs(p4-lastP4)>1) release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
 }
-float dry = 1.0f;
-float wet = 0.0f;
-float size = 1.0f;
-float decay = 0.5f;
+float rDry = 1.0f;
+float rWet = 0.0f;
+float rSize = 1.0f;
+float rDecay = 0.5f;
 // ======================================================
 //                   Reverb Edit
 // ======================================================
 void editReverb() {
     if(abs(p1-lastP1)>1){
-        dry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
-        wet = 1.0f - dry;
-        reverb.setDryWet(wet,dry);
+        rDry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
+        rWet = 1.0f - rDry;
+        reverb.setDryWet(rWet,rDry);
     }
     if(abs(p2-lastP2)>1){
-        size = norm(p2,0.0f,1023.0f,0.1f,1.5f);
-        reverb.setRoomSize(size);
+        rSize = norm(p2,0.0f,1023.0f,0.1f,1.5f);
+        reverb.setRoomSize(rSize);
     }
     if(abs(p3-lastP3)>1){
-        decay = norm(p3,0.0f,1023.0f,0.1f,1.0f);
-        reverb.setDecay(decay);
+        rDecay = norm(p3,0.0f,1023.0f,0.1f,1.0f);
+        reverb.setDecay(rDecay);
     }
 }
 
@@ -931,9 +931,9 @@ void drawWave() {
 }
 
 void drawReverb() {
-    int dCay = norm(wet, 0.0f, 1.0f, 0.0f, 14.0f);
-    int dSize = norm(size, 0.1f, 1.5f, 10.0f, 63.0f-dCay);
-    int dWet = norm(decay, 0.1f, 1.0f, 0.0f, dSize);
+    int dCay = norm(rWet, 0.0f, 1.0f, 0.0f, 14.0f);
+    int dSize = norm(rSize, 0.1f, 1.5f, 10.0f, 63.0f-dCay);
+    int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
 
     clearBuffer();
     drawRectCentered(64, 32, dSize, dSize);
