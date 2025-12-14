@@ -32,7 +32,7 @@ unsigned long lastClickTime = 0;
 const unsigned long doubleClickDelay = 400; // ms
 bool singleClickPending = false;
 float fatness;
-
+float sampleRate = 48000.0f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
