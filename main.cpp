@@ -870,10 +870,10 @@ void editWave(){
 //                     ADSR Edit
 // ======================================================
 void editADSR(){
-    if(abs(p1-lastP1)>1) attack = norm(p1,0.0f,1023.0f,0.0f,5.0f);
-    if(abs(p2-lastP2)>1) decay = norm(p2,0.0f,1023.0f,0.0f,5.0f);
-    if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
-    if(abs(p4-lastP4)>1) release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
+    attack = norm(p1,0.0f,1023.0f,0.0f,5.0f);
+    decay = norm(p2,0.0f,1023.0f,0.0f,5.0f);
+    sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
+    release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
 }
 float rDry = 1.0f;
 float rWet = 0.0f;
