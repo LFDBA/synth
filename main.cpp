@@ -285,40 +285,34 @@ void drawMenu() {
     int menuH = 11;   // enough for 7px font + padding
     int gap = 4;
     clearBuffer();
-    if(menuSelection == 1) {
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER");
-    }
-    else if(menuSelection == 2){
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER");
-    }
-    else if(menuSelection == 3){
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER");
-    }
-    else if(menuSelection == 4){
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB", true);
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER");
+    if(menuSelection<5){
+        if(menuSelection == 1) {
+            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
+            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        }
+        else if(menuSelection == 2){
+            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
+            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        }
+        else if(menuSelection == 3){
+            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
+            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+        }
+        else if(menuSelection == 4){
+            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB", true);
+        }
     }
     else if(menuSelection == 5){
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "FILTER", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "FILTER", true);
     }
 }
 
