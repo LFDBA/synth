@@ -679,12 +679,12 @@ float lowPass(){
 
     float normed = 1.0f / (1.0f + K / fQuality + K_squared);
 
-    b0 = K_squared * norm;
+    b0 = K_squared * normed;
     b1 = 2.0f * b0;
     b2 = b0;
 
-    a1 = 2.0f * (K_squared - 1.0f) * norm;
-    a2 = (1.0f - K / fQuality + K_squared) * norm;
+    a1 = 2.0f * (K_squared - 1.0f) * normed;
+    a2 = (1.0f - K / fQuality + K_squared) * normed;
 
     return b0*inSamples[0]+b1*inSamples[1]+b2*inSamples[2]-a1*outSamples[1]-a2*outSamples[2];
 }
