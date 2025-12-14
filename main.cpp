@@ -1040,12 +1040,12 @@ int main() {
         
         if(gpioRead(16) == 1){
             if(lastMenuRead == 1){
-                for(int i = 0; i < 101; i++){
+                for(int i = 0; i < 1001; i++){
                     if(gpioRead(16) == 0 && menu != MAIN_MENU) {
                         edit = !edit;
                         break;
                     }
-                    if(i == 100){
+                    if(i == 1000){
                         menu = MAIN_MENU;
                         edit = false;
                     }
