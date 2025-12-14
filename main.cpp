@@ -39,6 +39,12 @@ float b0; float b1; float b2; float a1; float a2;
 float fCutoff = 1000.0f;
 float fQuality = 0.707f;
 
+float K = tanf(M_PI * fCutoff / sampleRate); 
+float K2 = K * K; 
+float normed = 1.0f / (1.0f + K / fQuality + K2); 
+b0 = K2 * normed; b1 = 2.0f * b0; b2 = b0; 
+a1 = 2.0f * (K2 - 1.0f) * normed;
+a2 = (1.0f - K / fQuality + K2) * normed;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -671,11 +677,10 @@ void drawOutput() {
 int actNum = 0;
 
 float lowPass(float input) {
-    // compute output sample
     float y = b0*input + b1*inSamples[1] + b2*inSamples[2]
               - a1*outSamples[1] - a2*outSamples[2];
 
-    // shift history
+    // shift history after computing
     inSamples[2] = inSamples[1];
     inSamples[1] = inSamples[0];
     inSamples[0] = input;
@@ -686,6 +691,7 @@ float lowPass(float input) {
 
     return y;
 }
+
 
 
 // ======================================================
@@ -699,33 +705,30 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
     if(custom && waveNeedsRebuild) rebuildWaveTable();
 
     for(unsigned int i=0;i<nBufferFrames;i++){
-        float mix=0.0f;
-        int activeVoices=0;
+        // compute raw mix from all voices
+        float mix = 0.0f;
+        int activeVoices = 0;
 
-        for(int v=0;v<numVoices;v++){
+        for(int v = 0; v < numVoices; v++){
             Voice &voice = voices[v];
             float sample = 0.0f;
 
             if(voice.active || voice.releasing){
                 activeVoices++;
-
-                // Increment envelope time
                 voice.envTime += 1.0f/sampleRate;
-
-                // Compute ADSR
                 float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume);
 
-                // Oscillator
+                // oscillator blending (same as your code)
                 float oscSample;
                 if(custom){
-                    int idx=int(voice.phase*TABLE_SIZE);
-                    if(idx>=TABLE_SIZE) idx=TABLE_SIZE-1;
+                    int idx = int(voice.phase * TABLE_SIZE);
+                    if(idx >= TABLE_SIZE) idx = TABLE_SIZE-1;
                     oscSample = customTable[idx];
-                }else{
-                    float seg=knobPosition*4.0f;
-                    int idx=int(seg);
-                    float blend=seg-idx;
-                    float w1,w2;
+                } else {
+                    float seg = knobPosition * 4.0f;
+                    int idx = int(seg);
+                    float blend = seg - idx;
+                    float w1, w2;
                     switch(idx){
                         case 0: w1=sineWave(voice.phase); w2=squareWave(voice.phase); break;
                         case 1: w1=squareWave(voice.phase); w2=sawWave(voice.phase); break;
@@ -738,40 +741,34 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
                 sample = oscSample * env;
 
-                // Increment phase
                 voice.phase += voice.frequency/sampleRate;
                 if(voice.phase >= 1.0f) voice.phase -= 1.0f;
 
-                // Handle end of release
                 if(voice.releasing && voice.envTime >= release){
                     voice.releasing = false;
                     voice.envTime = 0.0f;
                     voice.phase = 0.0f;
                 }
             }
- 
+
             mix += sample;
         }
 
-       
-        // Normalize
-        
+        // normalize
+        if(normVoices && activeVoices > 0) mix /= activeVoices;
 
-        // optional normalization
-        if (normVoices && activeVoices>0)
-            mix /= activeVoices;
+        // **apply filter to raw mix**
+        mix = lowPass(mix);
 
-        // apply filter first
-        float filtered = lowPass(mix);
+        // then softclip and reverb
+        mix = softClip(mix * outputLevel);
+        mix = reverb.process(mix);
 
-        // then apply softClip and reverb
-        filtered = softClip(filtered * outputLevel);
-        filtered = reverb.process(filtered);
+        // push and output
+        pushSample(mix);
+        output[2*i]     = mix*(1.0f-pan);
+        output[2*i + 1] = mix*(pan+1.0f);
 
-        // push to output
-        pushSample(filtered);
-        output[2*i]     = filtered * (1.0f-pan);
-        output[2*i + 1] = filtered * (pan+1.0f);
 
 
         
@@ -964,8 +961,13 @@ void editFilter(){
     fCutoff = 20.0f * powf(20000.0f/20.0f, p1);
     fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
     fQuality = norm(p2, 0.0f, 1023.0f, 0.1f, 10.0f);
-
-    float K = tanf(M_PI * fCutoff / sampleRate); float K2 = K * K; float norm = 1.0f / (1.0f + K / fQuality + K2); b0 = K2 * norm; b1 = 2.0f * b0; b2 = b0; a1 = 2.0f * (K2 - 1.0f) * norm; a2 = (1.0f - K / fQuality + K2) * norm;
+    
+    K = tanf(M_PI * fCutoff / sampleRate); 
+    K2 = K * K; 
+    normed = 1.0f / (1.0f + K / fQuality + K2); 
+    b0 = K2 * normed; b1 = 2.0f * b0; b2 = b0; 
+    a1 = 2.0f * (K2 - 1.0f) * normed;
+    a2 = (1.0f - K / fQuality + K2) * normed;
 }
 
 void selectMenu() {
