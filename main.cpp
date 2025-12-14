@@ -758,7 +758,6 @@ void getInp() {
     static std::string line="";
     char buf[64];
     int n=read(fd,buf,sizeof(buf));
-    
     if(n>0){
         for(int i=0;i<n;i++){
             char c=buf[i];
@@ -775,14 +774,6 @@ void getInp() {
                 }
                 line.clear();
             }else if(c!='\r') line+=c;
-        }
-    }else{
-        try{
-            initSerial();
-            std::cout << '1';
-        }catch(...){
-            initSerial("/dev/ttyAMC0");
-            std::cout << '0';
         }
     }
 }
@@ -957,8 +948,8 @@ void drawReverb() {
     drawCircle(64, 32, dWet/2);
     for(int i = 0; i < dCay/2; i++){
         if(jit > 1){
-            jitterX = std::rand() % (5)-2;
-            jitterY = std::rand() % (5)-2;
+            jitterX = std::rand() % (3)-1;
+            jitterY = std::rand() % (3)-1;
             jit = 0;
         }
         
