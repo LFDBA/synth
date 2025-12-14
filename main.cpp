@@ -1152,7 +1152,7 @@ int main() {
     while(true){
         getInp(); // microcontroller input
 
-        
+        std::cout << outputLevel << '\n';
         int currentRead = gpioRead(16);
 
         if (currentRead == 1 && lastMenuRead == 0) { // button pressed
