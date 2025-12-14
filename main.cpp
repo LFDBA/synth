@@ -36,7 +36,7 @@ float fatness;
 float inSamples[3] = {0, 0, 0};
 float outSamples[3] = {0, 0, 0};
 float b0; float b1; float b2; float a1; float a2;
-float fCutoff = 0.707f;
+float fCutoff = 1000.0f;
 float fQuality = 0.707f;
 
 
@@ -673,17 +673,17 @@ int actNum = 0;
 float lowPass(){
 
     // calculate filter coefficients
-    float K = tanf(M_PI * fCutoff / sampleRate);
-    float K_squared = K * K;
+    float K = tanf(M_PI * fCutoff / fRate);
+    float K2 = K * K;
+    float norm = 1.0f / (1.0f + K / fQuality + K2);
 
-    float normed = 1.0f / (1.0f + K / fQuality + K_squared);
-
-    b0 = K_squared * normed;
+    b0 = K2 * norm;
     b1 = 2.0f * b0;
     b2 = b0;
 
-    a1 = 2.0f * (K_squared - 1.0f) * normed;
-    a2 = (1.0f - K / fQuality + K_squared) * normed;
+    a1 = 2.0f * (K2 - 1.0f) * norm;
+    a2 = (1.0f - K / fQuality + K2) * norm;
+
 
     return b0*inSamples[0]+b1*inSamples[1]+b2*inSamples[2]-a1*outSamples[1]-a2*outSamples[2];
 }
