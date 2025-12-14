@@ -21,9 +21,6 @@
 #include <thread>
 #include <chrono>
 #include <map>
-#include <cstdlib> // For rand() and srand()
-#include <ctime>
-
 
 
 std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
@@ -933,27 +930,16 @@ void drawWave() {
     }
 }
 
-int jit = 0;
-
 void drawReverb() {
     int dCay = norm(rWet, 0.0f, 1.0f, 0.0f, 14.0f);
     int dSize = norm(rSize, 0.1f, 1.5f, 10.0f, 63.0f-dCay);
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
-    int jitterY = 0;
-    int jitterX = 0;
-    jit ++;
 
     clearBuffer();
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
     for(int i = 0; i < dCay/2; i++){
-        if(jit > 1){
-            jitterX = std::rand() % (3)-1;
-            jitterY = std::rand() % (3)-1;
-            jit = 0;
-        }
-        
-        drawRectCentered(64+jitterX, 32+jitterY, dSize+pow(i, 2), dSize+pow(i,2));
+        drawRectCentered(64, 32, dSize+pow(i, 2), dSize+pow(i,2));
     }
 }
 
@@ -964,8 +950,6 @@ void drawReverb() {
 //                        MAIN
 // ======================================================
 int main() {
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
-
     if(!initSerial()){
         try{
             initSerial("/dev/ttyACM0");
