@@ -195,6 +195,63 @@ void drawCircle(int cx, int cy, int radius) {
     }
 }
 
+void drawEllipse(int cx, int cy, int rx, int ry) {
+    long rx2 = (long)rx * rx;
+    long ry2 = (long)ry * ry;
+    long twoRx2 = 2 * rx2;
+    long twoRy2 = 2 * ry2;
+
+    long x = 0;
+    long y = ry;
+
+    long px = 0;
+    long py = twoRx2 * y;
+
+    // Region 1
+    long p = ry2 - (rx2 * ry) + (rx2 / 4);
+
+    while (px < py) {
+        drawPixel(cx + x, cy + y);
+        drawPixel(cx - x, cy + y);
+        drawPixel(cx + x, cy - y);
+        drawPixel(cx - x, cy - y);
+
+        x++;
+        px += twoRy2;
+
+        if (p < 0) {
+            p += ry2 + px;
+        } else {
+            y--;
+            py -= twoRx2;
+            p += ry2 + px - py;
+        }
+    }
+
+    // Region 2
+    p = ry2 * (x + 0.5f) * (x + 0.5f)
+      + rx2 * (y - 1) * (y - 1)
+      - rx2 * ry2;
+
+    while (y >= 0) {
+        drawPixel(cx + x, cy + y);
+        drawPixel(cx - x, cy + y);
+        drawPixel(cx + x, cy - y);
+        drawPixel(cx - x, cy - y);
+
+        y--;
+        py -= twoRx2;
+
+        if (p > 0) {
+            p += rx2 - py;
+        } else {
+            x++;
+            px += twoRy2;
+            p += rx2 - py + px;
+        }
+    }
+}
+
 // Draw a single character at (x, y)
 void drawChar(int x, int y, char c) {
     if (c < 'A' || c > 'Z') return; // ignore non-capitals
