@@ -945,14 +945,10 @@ void drawReverb() {
     int jitterY = 0;
     int amt = 3;
     for(int i = 0; i < dCay/2; i++){
-        for(int v=0;v<numVoices;v++){
-            Voice &voice = voices[v];
-
-            if((voice.active || voice.releasing) && jit > 6){
-                jitterX = std::rand() % (amt*2 + 1)-amt;
-                jitterY = std::rand() % (3)-1;
-                jit = 0;
-            }
+        if(jit > 10){
+            jitterX = std::rand() % (amt*2 + 1)-amt;
+            jitterY = std::rand() % (3)-1;
+            jit = 0;
         }
         
         drawRectCentered(64+jitterX, 32+jitterY, dSize+pow(i, 2), dSize+pow(i,2));
@@ -1038,28 +1034,10 @@ int main() {
         getInp(); // microcontroller input
 
         
-        if(gpioRead(16) == 1){
-            if(lastMenuRead == 1){
-                for(int i = 0; i < 10001; i++){
-                    for(int j = 0; j < 1000; j++){
-                        if(gpioRead(16) == 0 && menu != MAIN_MENU) {
-                            
-                            break;
-                        }
-                        if(i == 1000){
-                            menu = MAIN_MENU;
-                            edit = false;
-                        }
-                    }
-                    if(gpioRead(16) == 0 && menu != MAIN_MENU) {
-                        edit = !edit;
-                        std::cout << edit;
-                        break;
-                    }
-                }
-                
-            }
-        }else if(menu== MAIN_MENU) menu = static_cast<Mode>(menuSelection+1);
+        if(gpioRead(16) == 1 && lastMenuRead == 0){
+            if(menu != MAIN_MENU) menu = MAIN_MENU;
+            else menu = static_cast<Mode>(menuSelection+1);
+        }
         lastMenuRead = gpioRead(16);
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
@@ -1069,23 +1047,19 @@ int main() {
             drawMenu();
         }
         if(menu==TONE_MENU) {
-            lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
             if(edit) editTone();
             drawOutput();
         }
         if(menu==WAVE_MENU) {
-            lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
             if(edit) editWave();
             drawWave();
         }
 
         if(menu==ADSR_MENU) {
-            lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
             if(edit) editADSR();
             drawADSR();
         }
         if(menu==REVERB_MENU) {
-            lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
             if(edit) editReverb();
             drawReverb();
         }
