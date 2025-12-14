@@ -752,7 +752,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             mix += sample;
         }
 
-        std::cout << mix << '\n';
+       
         // Normalize
         if(normVoices && activeVoices>0) mix; ///= (activeVoices*0.2f);
 
@@ -762,7 +762,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         inSamples[2] = inSamples[1];
         inSamples[1] = inSamples[0];
         inSamples[0] = mix;
-        mix = lowPass();
+        // mix = lowPass();
         outSamples[2] = outSamples[1];
         outSamples[1] = outSamples[0];
         outSamples[0] = mix;
