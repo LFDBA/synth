@@ -761,12 +761,10 @@ void getInp() {
     try{
         n=read(fd,buf,sizeof(buf));
     }catch{
-        try {
-            dac.openStream(&oParams,nullptr,RTAUDIO_FLOAT32,
-                        sampleRate,&bufferFrames,&audioCallback);
-            dac.startStream();
-        } catch(RtAudioError &e){
-            e.printMessage();
+        try{
+            initSerial("/dev/ttyACM1");
+        }catch(...){
+            initSerial("/dev/ttyACM0");
         }
     }
     if(n>0){
