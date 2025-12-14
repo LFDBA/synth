@@ -939,7 +939,7 @@ void drawReverb() {
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
     for(int i = 0; i < dCay/2; i++){
-        drawRectCentered(64, 32, dSize+(i*2), dSize+(i*2));
+        drawRectCentered(64, 32, dSize+(i*4), dSize+(i*4));
     }
 }
 
