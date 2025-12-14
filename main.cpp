@@ -37,7 +37,6 @@ float inSamples[3] = {0, 0, 0};
 float outSamples[3] = {0, 0, 0};
 float b0; float b1; float b2; float a1; float a2;
 float fCutoff;
-float fRate;
 float fQuality;
 
 
@@ -674,7 +673,7 @@ int actNum = 0;
 float lowPass(){
 
     // calculate filter coefficients
-    float K = tanf(M_PI * fCutoff / fRate);
+    float K = tanf(M_PI * fCutoff / sampleRate);
     float K_squared = K * K;
 
     float normed = 1.0f / (1.0f + K / fQuality + K_squared);
@@ -961,7 +960,9 @@ void editTone(){
 }
 
 void editFilter(){
+    fCutoff = 20.0f * powf(20000.0f/20.0f, p1);
     fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
+    fQuality = norm(p2, 0.0f, 1023.0f, 0.1f, 10.0f);
 }
 
 void selectMenu() {
