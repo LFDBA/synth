@@ -767,7 +767,6 @@ void getInp() {
             dac.startStream();
         } catch(RtAudioError &e){
             e.printMessage();
-            return 1;
         }
     }
     if(n>0){
