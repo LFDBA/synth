@@ -1041,14 +1041,17 @@ int main() {
         if(gpioRead(16) == 1){
             if(lastMenuRead == 1){
                 for(int i = 0; i < 1001; i++){
-                    if(gpioRead(16) == 0 && menu != MAIN_MENU) {
-                        edit = !edit;
-                        break;
+                    for(int j = 0; j < 1000; j++){
+                        if(gpioRead(16) == 0 && menu != MAIN_MENU) {
+                            edit = !edit;
+                            break;
+                        }
+                        if(i == 1000){
+                            menu = MAIN_MENU;
+                            edit = false;
+                        }
                     }
-                    if(i == 1000){
-                        menu = MAIN_MENU;
-                        edit = false;
-                    }
+                    
                 }
                 
             }
