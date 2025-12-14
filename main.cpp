@@ -665,17 +665,18 @@ void drawOutput() {
 // ======================================================
 //                  Audio Callback
 // ======================================================
-float *output = 0.0f;
+
+float mix;
 int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBufferFrames,
                   double /*streamTime*/, RtAudioStreamStatus /*status*/, void* /*userData*/) 
 {
-    output = static_cast<float*>(outputBuffer);
+    float *output = static_cast<float*>(outputBuffer);
 
     if(custom && waveNeedsRebuild) rebuildWaveTable();
 
     for(unsigned int i=0;i<nBufferFrames;i++){
         // compute raw mix from all voices
-        float mix = 0.0f;
+        mix = 0.0f;
         int activeVoices = 0;
 
         for(int v = 0; v < numVoices; v++){
@@ -1013,7 +1014,7 @@ void drawReverb() {
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
     int jitterX = 0;
     int jitterY = 0;
-    int amt = norm(output, 0.0f, 0.1f, 0.0f, 3.0f)
+    int amt = norm(mix, 0.0f, 0.1f, 0.0f, 3.0f)
     
     jit += 1;
     drawRectCentered(64, 32, dSize, dSize);
