@@ -21,7 +21,11 @@
 #include <thread>
 #include <chrono>
 #include <map>
+#include <cstdlib> // For rand() and srand()
+#include <ctime>
 
+
+std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
 std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
 
@@ -939,7 +943,9 @@ void drawReverb() {
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
     for(int i = 0; i < dCay/2; i++){
-        drawRectCentered(64, 32, dSize+pow(i, 2), dSize+pow(i,2));
+        int jitterX = std::rand() % (3)-1;
+        int jitterY = std::rand() % (3)-1;
+        drawRectCentered(64+jitterX, 32+jitterY, dSize+pow(i, 2), dSize+pow(i,2));
     }
 }
 
