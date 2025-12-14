@@ -35,22 +35,17 @@ float fatness;
 
 float inSamples[3] = {0, 0, 0};
 float outSamples[3] = {0, 0, 0};
-float b0; 
-float b1; 
-float b2; 
-float a1; 
-float a2;
 float fCutoff = 1000.0f;
 float fQuality = 0.707f;
 const float sampleRate = 48000.0f;
 float K = tanf(M_PI * fCutoff / sampleRate); 
 float K2 = K * K; 
 float normed = 1.0f / (1.0f + K / fQuality + K2); 
-b0 = K2 * normed; 
-b1 = 2.0f * b0; 
-b2 = b0; 
-a1 = 2.0f * (K2 - 1.0f) * normed;
-a2 = (1.0f - K / fQuality + K2) * normed;
+float b0 = K2 * normed; 
+float b1 = 2.0f * b0; 
+float b2 = b0; 
+float a1 = 2.0f * (K2 - 1.0f) * normed;
+float a2 = (1.0f - K / fQuality + K2) * normed;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
