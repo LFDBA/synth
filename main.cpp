@@ -947,7 +947,7 @@ void drawReverb() {
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
     for(int i = 0; i < dCay/2; i++){
-        if(jit > 3){
+        if(jit > 1){
             jitterX = std::rand() % (3)-1;
             jitterY = std::rand() % (3)-1;
             jit = 0;
