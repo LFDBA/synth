@@ -673,7 +673,7 @@ int actNum = 0;
 float lowPass(){
 
     // calculate filter coefficients
-    float K = tanf(M_PI * fCutoff / fRate);
+    float K = tanf(M_PI * fCutoff / sampleRate);
     float K2 = K * K;
     float norm = 1.0f / (1.0f + K / fQuality + K2);
 
