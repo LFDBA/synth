@@ -1013,7 +1013,7 @@ void drawReverb() {
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
     int jitterX = 0;
     int jitterY = 0;
-    int amt = norm(mix, 0.0f, 0.1f, 0.0f, 3.0f);
+    int amt = norm(mix, 0.0f, 0.1f, 0.0f, 2.0f);
     
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
