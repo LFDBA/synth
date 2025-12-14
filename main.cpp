@@ -1007,7 +1007,7 @@ void drawWave() {
 int jit = 0;
 void drawReverb() {
     clearBuffer();
-    int dCay = norm(rWet, 0.0f, 1.0f, 0.0f, 14.0f);
+    int dCay = 14-norm(rWet, 0.0f, 1.0f, 0.0f, 14.0f);
     int dSize = norm(rSize, 0.1f, 1.5f, 10.0f, 63.0f-dCay);
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
     int jitterX = 0;
