@@ -1020,8 +1020,8 @@ void drawReverb() {
     
     for(int i = 0; i < dCay/2; i++){
         if(jit > 10){
-            for(auto voi : voices){
-                if(voices[voi].active == true){
+            for(int j = 0; j < numVoices; j++){
+                if(voices[j].active == true){
                     jitterX = std::rand() % (amt*2 + 1)-amt;
                     jitterY = std::rand() % (3)-1;
                     jit = 0;
