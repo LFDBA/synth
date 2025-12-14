@@ -1050,7 +1050,7 @@ int main() {
 
                 std::cout << "Double click detected!" << std::endl;
                 // TODO: Handle double click (e.g., special menu)
-                menu = static_cast<Mode>(SPECIAL_MENU); 
+                menu = static_cast<Mode>(MAIN_MENU); 
 
             } else {
                 // First click, maybe a single click
@@ -1144,8 +1144,7 @@ int main() {
                 singleClickPending = false;
 
                 // Original single-click behavior
-                if (menu != MAIN_MENU) menu = MAIN_MENU;
-                else menu = static_cast<Mode>(menuSelection+1);
+                edit = !edit;
 
                 std::cout << "Single click detected!" << std::endl;
             }
