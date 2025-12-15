@@ -1048,11 +1048,11 @@ int width, height, channels;
 void drawNoise() {
     clearBuffer();
     // drawSanta(64, 32, fatness);
-    if(NoiseType == PINK_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
-    else if(NoiseType == BLACK_NOISE) img = stbi_load("black.png", &width, &height, &channels, 1);
-    else if(NoiseType == BROWN_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
-    else if(NoiseType == WHITE_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
-    else if(NoiseType == RED_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    if(noiseType == PINK_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    else if(noiseType == BLACK_NOISE) img = stbi_load("black.png", &width, &height, &channels, 1);
+    else if(noiseType == BROWN_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    else if(noiseType == WHITE_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    else if(noiseType == RED_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
     
     for(int page = 0; page < 8; page++){
         for(int x = 0; x < 128; x++){
