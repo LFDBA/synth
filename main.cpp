@@ -24,6 +24,12 @@
 #include <cstdlib> // For rand() and srand()
 #include <ctime>
 using namespace std::chrono;
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#include <vector>
+#include <cstdint>
+#include <iostream>
+
 
 
 std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
@@ -384,7 +390,7 @@ void drawMenu() {
 }
 
 
-
+unsigned char* img
 // Send buffer to OLED
 void updateDisplay(int spi) {
     for (int page = 0; page < HEIGHT/8; page++) {
@@ -1029,7 +1035,20 @@ void drawReverb() {
 
 void drawFilter() {
     clearBuffer();
-    drawSanta(64, 32, fatness);
+    // drawSanta(64, 32, fatness);
+    img = stbi_load("panther.png", &width, &height, &channels, 1);
+    for(int page = 0; page < 8; page++){
+        for(int x = 0; x < 128; x++){
+            uint8_t byte = 0;
+            for(int bit = 0; bit < 8; bit++){
+                int y = page * 8 + bit;
+                int pixel = img[y * 128 + x]; // 0=black, 255=white
+                if(pixel == 0) byte |= (1 << bit);
+            }
+            buffer[page * 128 + x] = byte;
+        }
+    }
+    stbi_image_free(img);
 }
 
 
