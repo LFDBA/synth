@@ -43,6 +43,16 @@ float sampleRate = 48000.0f;
 // Debounce in consecutive scans
 const int debounceScans = 8;
 
+enum NoiseType {
+    WHITE_NOISE,
+    BLACK_NOISE,
+    BROWN_NOISE
+    PINK_NOISE,
+    RED_NOISE
+};
+NoiseType noiseType = WHITE_NOISE;
+
+
 // Key state tracking
 struct KeyState {
     int count = 0;
@@ -57,7 +67,7 @@ enum Mode {
     WAVE_MENU,
     ADSR_MENU,
     REVERB_MENU,
-    FILTER_MENU
+    NOISE_MENU
 };
 Mode menu = TONE_MENU;
 int lastMenuRead = 0;
@@ -385,7 +395,7 @@ void drawMenu() {
         }
     }
     else if(menuSelection == 5){
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "FILTER", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE", true);
     }
 }
 
@@ -927,8 +937,10 @@ void editTone(){
     }
 }
 
-void editFilter(){
+
+void editNoise(){
     fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
+    noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 1.0f, 5.0f));
 }
 
 void selectMenu() {
@@ -1033,10 +1045,15 @@ void drawReverb() {
     }
 }
 int width, height, channels;
-void drawFilter() {
+void drawNoise() {
     clearBuffer();
     // drawSanta(64, 32, fatness);
-    img = stbi_load("panther.png", &width, &height, &channels, 1);
+    if(NoiseType == PINK_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    else if(NoiseType == BLACK_NOISE) img = stbi_load("black.png", &width, &height, &channels, 1);
+    else if(NoiseType == BROWN_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    else if(NoiseType == WHITE_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    else if(NoiseType == RED_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    
     for(int page = 0; page < 8; page++){
         for(int x = 0; x < 128; x++){
             uint8_t byte = 0;
@@ -1173,9 +1190,9 @@ int main() {
             if(edit) editReverb();
             drawReverb();
         }
-        if(menu==FILTER_MENU) {
-            if(edit) editFilter();
-            drawFilter();
+        if(menu==NOISE_MENU) {
+            if(edit) editNoise();
+            drawNoise();
         }
     
         updateDisplay(global_spi_handle);
