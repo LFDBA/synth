@@ -390,7 +390,7 @@ void drawMenu() {
 }
 
 
-unsigned char* img
+unsigned char* img;
 // Send buffer to OLED
 void updateDisplay(int spi) {
     for (int page = 0; page < HEIGHT/8; page++) {
@@ -1032,11 +1032,11 @@ void drawReverb() {
         drawRectCentered(64+jitterX, 32+jitterY, dSize+pow(i, 2), dSize+pow(i,2));
     }
 }
-
+int width, height, channels;
 void drawFilter() {
     clearBuffer();
     // drawSanta(64, 32, fatness);
-    img = stbi_load("panther.png", &width, &height, &channels, 1);
+    img = stbi_load("panther.png", &WIDTH, &HEIGHT, &channels, 1);
     for(int page = 0; page < 8; page++){
         for(int x = 0; x < 128; x++){
             uint8_t byte = 0;
