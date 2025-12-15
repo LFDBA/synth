@@ -46,7 +46,7 @@ const int debounceScans = 8;
 enum NoiseType {
     WHITE_NOISE,
     BLACK_NOISE,
-    BROWN_NOISE
+    BROWN_NOISE,
     PINK_NOISE,
     RED_NOISE
 };
