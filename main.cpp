@@ -1049,7 +1049,7 @@ void drawNoise() {
     clearBuffer();
     stbi_image_free(img);
     // drawSanta(64, 32, fatness);
-    if(noiseType == PINK_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
+    if(noiseType == PINK_NOISE) img = stbi_load("black.png", &width, &height, &channels, 1);
     else if(noiseType == BLACK_NOISE) img = stbi_load("black.png", &width, &height, &channels, 1);
     else if(noiseType == BROWN_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
     else if(noiseType == WHITE_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
