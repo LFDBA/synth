@@ -1044,30 +1044,58 @@ void drawReverb() {
         drawRectCentered(64+jitterX, 32+jitterY, dSize+pow(i, 2), dSize+pow(i,2));
     }
 }
+
+
 int width, height, channels;
+uint8_t* img = nullptr;
+
 void drawNoise() {
     clearBuffer();
-    stbi_image_free(img);
-    // drawSanta(64, 32, fatness);
-    if(noiseType == PINK_NOISE) img = stbi_load("black.png", &width, &height, &channels, 1);
-    else if(noiseType == BLACK_NOISE) img = stbi_load("black.png", &width, &height, &channels, 1);
-    else if(noiseType == BROWN_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
-    else if(noiseType == WHITE_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
-    else if(noiseType == RED_NOISE) img = stbi_load("panther.png", &width, &height, &channels, 1);
-    
+
+    // Only free img if it was previously allocated
+    if(img) {
+        stbi_image_free(img);
+        img = nullptr;
+    }
+
+    // Load the correct image
+    const char* filename = nullptr;
+    switch(noiseType) {
+        case PINK_NOISE: filename = "black.png"; break;
+        case BLACK_NOISE: filename = "black.png"; break;
+        case BROWN_NOISE: filename = "panther.png"; break;
+        case WHITE_NOISE: filename = "panther.png"; break;
+        case RED_NOISE: filename = "panther.png"; break;
+    }
+
+    if(filename) {
+        img = stbi_load(filename, &width, &height, &channels, 1);
+        if(!img) {
+            fprintf(stderr, "Failed to load %s\n", filename);
+            return;
+        }
+    } else {
+        return;
+    }
+
+    // Convert image to your buffer
     for(int page = 0; page < 8; page++){
         for(int x = 0; x < 128; x++){
             uint8_t byte = 0;
             for(int bit = 0; bit < 8; bit++){
                 int y = page * 8 + bit;
-                int pixel = img[y * 128 + x]; // 0=black, 255=white
+                if(y >= height || x >= width) continue; // safety check
+                int pixel = img[y * width + x]; // now safe
                 if(pixel == 0) byte |= (1 << bit);
             }
             buffer[page * 128 + x] = byte;
         }
     }
+
     stbi_image_free(img);
+    img = nullptr;
 }
+
 
 
 // ======================================================
