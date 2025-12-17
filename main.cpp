@@ -1093,9 +1093,9 @@ void drawNoise() {
 
     float cx = WIDTH / 2.0f;   // circle center x
     float cy = HEIGHT / 2.0f;  // circle center y
-    float R = 20.0f;           // base radius
-    float A = 5.0f;           // amplitude of sine wave
-    float k = 5.0f;
+    float R = 20.0f+(mix*100);           // base radius
+    float A = 5.0f+(mix*10);           // amplitude of sine wave
+    float k = 5.0f+(mix*20);           // frequency of sine wave
     int points = 150;
     for(int i = 0; i < points; i++) {
         float t = 2 * M_PI * i / points;      // parameter t from 0 to 2π
