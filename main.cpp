@@ -940,7 +940,7 @@ void editTone(){
 
 void editNoise(){
     fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
-    noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 1.0f, 5.0f));
+    noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 0.0f, 4.0f));
 }
 
 void selectMenu() {
@@ -1060,11 +1060,11 @@ void drawNoise() {
     // Load the correct image
     const char* filename = nullptr;
     switch(noiseType) {
-        case PINK_NOISE: filename = "black.png"; break;
+        case PINK_NOISE: filename = "pink.png"; break;
         case BLACK_NOISE: filename = "black.png"; break;
-        case BROWN_NOISE: filename = "panther.png"; break;
-        case WHITE_NOISE: filename = "panther.png"; break;
-        case RED_NOISE: filename = "panther.png"; break;
+        case BROWN_NOISE: filename = "brown.png"; break;
+        case WHITE_NOISE: filename = "white.png"; break;
+        case RED_NOISE: filename = "red.png"; break;
     }
 
     if(filename) {
