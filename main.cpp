@@ -109,14 +109,20 @@ private:
 
     // pink noise: Voss-McCartney simple implementation
     float nextPink() {
-        int i;
-        float sum = 0.0f;
-        for(i = 0; i < 7; i++) {
-            if(rand() % 2) pinkStore[i] = randFloat(-1.0f, 1.0f);
-            sum += pinkStore[i];
-        }
-        return sum / 7.0f;
+        float white = randFloat(-1.0f, 1.0f);
+        // Simple 1/f filter
+        pinkStore[0] = 0.99886f * pinkStore[0] + white * 0.0555179f;
+        pinkStore[1] = 0.99332f * pinkStore[1] + white * 0.0750759f;
+        pinkStore[2] = 0.96900f * pinkStore[2] + white * 0.1538520f;
+        pinkStore[3] = 0.86650f * pinkStore[3] + white * 0.3104856f;
+        pinkStore[4] = 0.55000f * pinkStore[4] + white * 0.5329522f;
+        pinkStore[5] = -0.7616f * pinkStore[5] - white * 0.0168980f;
+        pinkStore[6] = white * 0.115926f;  // final small component
+        float output = 0.0f;
+        for(int i = 0; i < 7; i++) output += pinkStore[i];
+        return output;
     }
+
 
     // black noise: mostly zero, occasional spike
     float nextBlack() {
@@ -1280,7 +1286,7 @@ int main() {
     RtAudio::StreamParameters oParams;
     oParams.deviceId = dac.getDefaultOutputDevice();
     oParams.nChannels = 2;
-    unsigned int bufferFrames = 256;
+    unsigned int bufferFrames = 1024;
 
     try {
         dac.openStream(&oParams,nullptr,RTAUDIO_FLOAT32,
