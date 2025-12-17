@@ -53,6 +53,84 @@ enum NoiseType {
 NoiseType noiseType = WHITE_NOISE;
 
 
+#include <cmath>
+#include <cstdlib>
+
+enum NoiseType {
+    WHITE_NOISE,
+    PINK_NOISE,
+    BROWN_NOISE,
+    RED_NOISE,
+    BLACK_NOISE
+};
+
+class NoiseGenerator {
+public:
+    NoiseGenerator(NoiseType type = WHITE_NOISE) 
+        : type(type), lastBrown(0.0f), pinkStore{0} {}
+
+    float next() {
+        switch(type) {
+            case WHITE_NOISE:
+                return randFloat(-1.0f, 1.0f);
+
+            case PINK_NOISE:
+                return nextPink();
+
+            case BROWN_NOISE:
+                return nextBrown();
+
+            case RED_NOISE:
+                return nextBrown(); // treat same as brown for simplicity
+
+            case BLACK_NOISE:
+                return nextBlack();
+        }
+        return 0.0f;
+    }
+
+    void setType(NoiseType t) { type = t; }
+
+private:
+    NoiseType type;
+    float lastBrown;
+    float pinkStore[7]; // simple pink filter
+
+    // helper: uniform float -1..1
+    float randFloat(float min, float max) {
+        return min + (float)rand() / RAND_MAX * (max - min);
+    }
+
+    // brown noise: integrate white
+    float nextBrown() {
+        float white = randFloat(-0.05f, 0.05f); // small step
+        lastBrown += white;
+        // optional: clamp to prevent runaway
+        if(lastBrown > 1.0f) lastBrown = 1.0f;
+        if(lastBrown < -1.0f) lastBrown = -1.0f;
+        return lastBrown;
+    }
+
+    // pink noise: Voss-McCartney simple implementation
+    float nextPink() {
+        int i;
+        float sum = 0.0f;
+        for(i = 0; i < 7; i++) {
+            if(rand() % 2) pinkStore[i] = randFloat(-1.0f, 1.0f);
+            sum += pinkStore[i];
+        }
+        return sum / 7.0f;
+    }
+
+    // black noise: mostly zero, occasional spike
+    float nextBlack() {
+        if(rand() % 100 < 2)  // ~2% chance spike
+            return randFloat(-1.0f, 1.0f);
+        return 0.0f;
+    }
+};
+
+
 // Key state tracking
 struct KeyState {
     int count = 0;
@@ -677,7 +755,7 @@ void drawOutput() {
 }
 
 
-
+NoiseGenerator noise(WHITE_NOISE);
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -724,6 +802,12 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
                     }
                     oscSample = ((1.0f-blend)*w1 + blend*w2);
                 }
+                
+
+                for(int i = 0; i < 100; i++) {
+                    oscSample += noise.next();
+                    // send sample to buffer, plot, or DAC
+                }
 
                 sample = oscSample * env;
 
@@ -737,6 +821,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
                 }
             }
 
+            
             mix += sample;
         }
 
@@ -941,6 +1026,8 @@ void editTone(){
 void editNoise(){
     fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
     noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 0.0f, 4.0f));
+    noise.setType(noiseType);
+
 }
 
 void selectMenu() {
