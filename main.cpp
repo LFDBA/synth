@@ -1093,9 +1093,10 @@ void drawNoise() {
 
     float cx = WIDTH / 2.0f;
     float cy = HEIGHT / 2.0f;
-    int points = numSamples; // number of points in your noise buffer
+    int points = 150; // number of points in your noise buffer
 
     for(int i = 0; i < points; i++){
+        float R = 20.0f;                     // base radius
         float t = 2 * M_PI * i / points;       // angle around the circle
         float r = R + out[i] * 100.0f;        // base radius + scaled noise output
 
