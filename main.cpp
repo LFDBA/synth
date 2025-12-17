@@ -1091,26 +1091,42 @@ void drawNoise() {
         }
     }
 
-    float cx = WIDTH / 2.0f;   // circle center x
-    float cy = HEIGHT / 2.0f;  // circle center y
-    float R = 20.0f+(mix*100);           // base radius
-    float A = 5.0f+(mix*10);           // amplitude of sine wave
-    float k = 5.0f+(mix*20);           // frequency of sine wave
-    int points = 150;
-    for(int i = 0; i < points; i++) {
-        float t = 2 * M_PI * i / points;      // parameter t from 0 to 2π
-        float r = R + A * sin(k * t);        // radial sine
+    float cx = WIDTH/2.0f;
+    float cy = HEIGHT/2.0f;
+    static float phase = 0.0f;
+    static float pulsePhase = 0.0f;
 
-        float x = cx + r * cos(t);           // x coordinate
-        float y = cy + r * sin(t);           // y coordinate
+    float pulseAmp = mix * 15.0f; // audio-reactive pulsation
+    const int points = 150;
 
-        // clamp to display bounds
+    // precompute per-bump variation (do once at startup)
+    static float bumpVariations[points];
+    static bool initialized = false;
+    if(!initialized){
+        for(int i = 0; i < points; i++){
+            bumpVariations[i] = 0.8f + 0.4f * ((float)rand()/RAND_MAX); // 0.8-1.2
+        }
+        initialized = true;
+    }
+
+    for(int i = 0; i < points; i++){
+        float t = 2*M_PI * i / points;
+
+        float r = R + A * bumpVariations[i] * sin(k*t + phase) + pulseAmp * sin(pulsePhase);
+
+        float x = cx + r * cos(t);
+        float y = cy + r * sin(t);
+
         int px = std::round(x);
         int py = std::round(y);
-        if(px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT) {
-            drawPixel(px, py);            // drawPixel(x, y, color)
+        if(px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT){
+            drawPixel(px, py, 1);
         }
     }
+
+    phase += 0.15f;
+    pulsePhase += 0.05f;
+
 
     stbi_image_free(img);
     img = nullptr;
