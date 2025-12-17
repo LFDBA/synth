@@ -1149,6 +1149,7 @@ void drawNoise() {
         case BROWN_NOISE: filename = "brown.png"; break;
         case WHITE_NOISE: filename = "white.png"; break;
         case RED_NOISE: filename = "red.png"; break;
+        case NOISE_NONE: filename = "none.png"; break;
     }
 
     if(filename) {
