@@ -1098,6 +1098,7 @@ void drawNoise() {
 
     float pulseAmp = mix * 15.0f; // audio-reactive pulsation
     const int points = 150;
+    int k = 7;
 
     // precompute per-bump variation (do once at startup)
     static float bumpVariations[points];
