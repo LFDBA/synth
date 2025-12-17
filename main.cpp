@@ -44,11 +44,12 @@ float sampleRate = 48000.0f;
 const int debounceScans = 8;
 
 enum NoiseType {
+    NOISE_NONE,
     WHITE_NOISE,
     BLACK_NOISE,
     BROWN_NOISE,
     PINK_NOISE,
-    RED_NOISE
+    RED_NOISE,
 };
 NoiseType noiseType = WHITE_NOISE;
 
@@ -56,13 +57,7 @@ NoiseType noiseType = WHITE_NOISE;
 #include <cmath>
 #include <cstdlib>
 
-enum NoiseType {
-    WHITE_NOISE,
-    PINK_NOISE,
-    BROWN_NOISE,
-    RED_NOISE,
-    BLACK_NOISE
-};
+
 
 class NoiseGenerator {
 public:
