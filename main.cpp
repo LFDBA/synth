@@ -39,6 +39,7 @@ const unsigned long doubleClickDelay = 400; // ms
 bool singleClickPending = false;
 float fatness;
 float sampleRate = 48000.0f;
+float noiseVolume = 0.5f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -67,19 +68,19 @@ public:
     float next() {
         switch(type) {
             case WHITE_NOISE:
-                return randFloat(-1.0f, 1.0f);
+                return randFloat(-1.0f, 1.0f)*noiseVolume;
 
             case PINK_NOISE:
-                return nextPink();
+                return nextPink()*noiseVolume;
 
             case BROWN_NOISE:
-                return nextBrown();
+                return nextBrown()*noiseVolume;
 
             case RED_NOISE:
-                return nextBrown(); // treat same as brown for simplicity
+                return nextBrown()*noiseVolume; // treat same as brown for simplicity
 
             case BLACK_NOISE:
-                return nextBlack();
+                return nextBlack()*noiseVolume;
         }
         return 0.0f;
     }
@@ -1018,9 +1019,10 @@ void editTone(){
 }
 
 
+
 void editNoise(){
-    fatness = norm(p1, 0.0f, 1023.0f, 0.0f, 0.85f);
-    noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 0.0f, 4.0f));
+    noiseVolume = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
+    noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 0.0f, 5.0f));
     noise.setType(noiseType);
 
 }
@@ -1183,7 +1185,7 @@ void drawNoise() {
     float cx = WIDTH / 2.0f;
     float cy = HEIGHT / 2.0f;
     float R = 20.0f;          // base circle radius
-    float scale = 100.0f;     // scale factor for sample amplitudes
+    float scale = 30.0f;     // scale factor for sample amplitudes
 
     for (int i = 0; i < DRAW_WIDTH; ++i) {
         // map x to buffer index
