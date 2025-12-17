@@ -1091,23 +1091,44 @@ void drawNoise() {
         }
     }
 
+    int len = BUF_LEN.load(std::memory_order_acquire);
+    if (len <= 0) len = 1;
+    if (len > MAX_BUF_LEN) len = MAX_BUF_LEN;
+
+    int writePos = bufIndex.load(std::memory_order_acquire);
+    int start = writePos % len; // oldest sample
+
     float cx = WIDTH / 2.0f;
     float cy = HEIGHT / 2.0f;
-    int points = 150; // number of points in your noise buffer
+    float R = 20.0f;          // base circle radius
+    float scale = 100.0f;     // scale factor for sample amplitudes
 
-    for(int i = 0; i < points; i++){
-        float R = 20.0f;                     // base radius
-        float t = 2 * M_PI * i / points;       // angle around the circle
-        float r = R + mix * 800.0f;        // base radius + scaled noise output
+    for (int i = 0; i < DRAW_WIDTH; ++i) {
+        // map x to buffer index
+        int bufPos = iMap(i, 0, DRAW_WIDTH - 1, 0, len - 1);
+        int idx = (start + bufPos) % len;
+        float sample = sampleBuffer[idx];  // raw value
 
-        float x = cx + r * cos(t);
-        float y = cy + r * sin(t);
+        float angle = 2.0f * M_PI * i / DRAW_WIDTH;
+        float r = R + sample * scale;
 
-        int px = std::round(x);
-        int py = std::round(y);
+        float x = cx + r * cos(angle);
+        float y = cy + r * sin(angle);
 
-        if(px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT){
-            drawPixel(px, py);
+        if (i > 0) {
+            // previous point
+            int prevBufPos = iMap(i - 1, 0, DRAW_WIDTH - 1, 0, len - 1);
+            int prevIdx = (start + prevBufPos) % len;
+            float prevSample = sampleBuffer[prevIdx];
+
+            float prevAngle = 2.0f * M_PI * (i - 1) / DRAW_WIDTH;
+            float prevR = R + prevSample * scale;
+            float x0 = cx + prevR * cos(prevAngle);
+            float y0 = cy + prevR * sin(prevAngle);
+
+            drawLine(int(x0), int(y0), int(x), int(y));
+        } else {
+            drawPixel(int(x), int(y));
         }
     }
 
