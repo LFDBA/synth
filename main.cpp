@@ -1096,7 +1096,7 @@ void drawNoise() {
     static float phase = 0.0f;
     static float pulsePhase = 0.0f;
 
-    float pulseAmp = mix * 15.0f; // audio-reactive pulsation
+    float pulseAmp = mix * 100.0f; // audio-reactive pulsation
     const int points = 150;
     float R = 20.0f;           // base radius
     float A = 5.0f;           // amplitude of sine wave
