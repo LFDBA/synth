@@ -1091,6 +1091,27 @@ void drawNoise() {
         }
     }
 
+    float cx = WIDTH / 2.0f;   // circle center x
+    float cy = HEIGHT / 2.0f;  // circle center y
+    float R = 20.0f;           // base radius
+    float A = 5.0f;           // amplitude of sine wave
+    float k = 5.0f;
+    int points = 150;
+    for(int i = 0; i < points; i++) {
+        float t = 2 * M_PI * i / points;      // parameter t from 0 to 2π
+        float r = R + A * sin(k * t);        // radial sine
+
+        float x = cx + r * cos(t);           // x coordinate
+        float y = cy + r * sin(t);           // y coordinate
+
+        // clamp to display bounds
+        int px = std::round(x);
+        int py = std::round(y);
+        if(px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT) {
+            drawPixel(px, py, 1);            // drawPixel(x, y, color)
+        }
+    }
+
     stbi_image_free(img);
     img = nullptr;
 }
