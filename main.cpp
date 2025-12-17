@@ -1120,7 +1120,7 @@ void drawNoise() {
         int px = std::round(x);
         int py = std::round(y);
         if(px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT){
-            drawPixel(px, py, 1);
+            drawPixel(px, py);
         }
     }
 
