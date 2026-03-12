@@ -958,7 +958,7 @@ void getInp() {
 // ======================================================
 void editWave(){
     editIndex = static_cast<int>(norm(p1,0.0f,1023.0f,0.0f,WAVE_RES-1));
-    if(abs(p2-lastP2)>1){
+    if(abs(p2-lastP2)>1 && editIndex >= 0 && editIndex < WAVE_RES){
         wavePoints[editIndex] = norm(p2,0.0f,1023.0f,-2.0f,2.0f);
         waveNeedsRebuild=true;
     }
