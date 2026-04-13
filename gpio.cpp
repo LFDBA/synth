@@ -3,7 +3,7 @@
  *
  * Uses an RC-timing method rather than a simple digital HIGH/LOW read.
  *
- * -- How it works ------------------------------------------------------------
+ * ── How it works ────────────────────────────────────────────────────────────
  *
  *  Basic digital read (old version):
  *    Drive A HIGH → read B with pull-down.
@@ -24,23 +24,23 @@
  *      τ    = C_stray × (Rext ∥ Rpull)
  *    Crossing time increases monotonically with Rext.
  *
- * -- Calibration -------------------------------------------------------------
+ * ── Calibration ─────────────────────────────────────────────────────────────
  *    At startup, CALIBRATION_RUNS decay measurements are taken per pair
  *    with no driver active (floating baseline).
  *    Detection = mean + sensitivity × stddev.
  *    Higher --sensitivity → detects higher R, more potential false positives.
  *
- * -- Sensitivity guide -------------------------------------------------------
+ * ── Sensitivity guide ───────────────────────────────────────────────────────
  *    --sensitivity 2   conservative  ~<  50 kΩ
  *    --sensitivity 5   default       ~< 200 kΩ
  *    --sensitivity 10  high          ~< 500 kΩ
  *    --sensitivity 20  very high     ~< 1–2 MΩ  (needs stable, short wiring)
  *
- * -- Compile ------------------------------------------------------------------
+ * ── Compile ──────────────────────────────────────────────────────────────────
  *    g++ -O2 -o gpio_resistance_check gpio_resistance_check.cpp \
  *        -lpigpio -lrt -lpthread
  *
- * -- Run (pigpio needs root) ---------------------------------------------------
+ * ── Run (pigpio needs root) ───────────────────────────────────────────────────
  *    sudo ./gpio_resistance_check
  *    sudo ./gpio_resistance_check --sensitivity 10
  *    sudo ./gpio_resistance_check --once --sensitivity 5
@@ -57,30 +57,24 @@
 #include <thread>
 #include <pigpio.h>
 
-// -- Driver pin ----------------------------------------------------------------
-// Only this pin ever drives HIGH. All other pins are sense-only.
-static const int DRIVER_PIN = 6;
-
-// -- Sense pin list (BCM numbers, must NOT include DRIVER_PIN) -----------------
+// ── GPIO pin list (BCM numbers) ───────────────────────────────────────────────
 // Remove pins you want to protect (UART=14/15, I2C=2/3, SPI=7-11, etc.)
 static const std::vector<int> PINS = {
-    2, 3, 4, 5,     7, 8, 9,
+    2, 3, 4, 5, 6, 7, 8, 9,
     10, 11, 12, 13, 14, 15, 16, 17,
     18, 19, 20, 21, 22, 23, 24, 25,
     26, 27
 };
 
-// -- Tuning --------------------------------------------------------------------
+// ── Tuning ────────────────────────────────────────────────────────────────────
 static const int      CALIBRATION_RUNS = 30;    // samples per pair at startup
 static const int      MEASURE_RUNS     = 10;    // samples per pair each scan
 static const uint32_t TIMEOUT_US       = 5000;  // µs cap (= effectively open circuit)
 static const int      PRECHARGE_US     = 10;    // µs to hold pre-charge
 
-// -- Helpers -------------------------------------------------------------------
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 static void releaseAll() {
-    gpioSetMode(DRIVER_PIN, PI_INPUT);
-    gpioSetPullUpDown(DRIVER_PIN, PI_PUD_OFF);
     for (int p : PINS) {
         gpioSetMode(p, PI_INPUT);
         gpioSetPullUpDown(p, PI_PUD_OFF);
@@ -135,14 +129,15 @@ static void sampleDecay(int driver, int sense, int runs,
     if (stddev < 0.5) stddev = 0.5; // floor prevents divide-by-zero
 }
 
-// -- Pair data -----------------------------------------------------------------
+// ── Pair data ─────────────────────────────────────────────────────────────────
 
 struct PinPair {
-    int    sense;           // the sense pin (driver is always DRIVER_PIN)
-    double base_mean, base_sd;
+    int    a, b;
+    double base_ab_mean, base_ab_sd; // baseline: driver=a, sense=b
+    double base_ba_mean, base_ba_sd; // baseline: driver=b, sense=a
 };
 
-// -- Main ----------------------------------------------------------------------
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 int main(int argc, char* argv[]) {
     bool   runOnce    = false;
@@ -164,58 +159,70 @@ int main(int argc, char* argv[]) {
     }
     releaseAll();
 
-    const size_t n = PINS.size();
+    const size_t n        = PINS.size();
+    const size_t numPairs = n * (n - 1) / 2;
 
     std::cout << "GPIO High-Sensitivity Resistance Checker\n"
-              << "Driver: GPIO " << DRIVER_PIN
-              << "  Sense pins: " << n
+              << "Pins: " << n << "  Pairs: " << numPairs
               << "  Sensitivity: " << sensitivity << "×σ\n"
               << std::string(56, '-') << "\n";
 
-    // -- Calibration ----------------------------------------------------------
-    std::cout << "Calibrating (" << CALIBRATION_RUNS << " samples/pin) …\n";
+    // ── Calibration ──────────────────────────────────────────────────────────
+    std::cout << "Calibrating (" << CALIBRATION_RUNS << " samples/pair) …\n";
 
     std::vector<PinPair> pairs;
-    pairs.reserve(n);
+    pairs.reserve(numPairs);
+    size_t done = 0;
 
     for (size_t i = 0; i < n; ++i) {
-        PinPair p;
-        p.sense = PINS[i];
+        for (size_t j = i + 1; j < n; ++j) {
+            PinPair p;
+            p.a = PINS[i];
+            p.b = PINS[j];
 
-        // Calibrate with driver floating (INPUT, no pull) so we capture
-        // the natural decay of each sense pin in isolation.
-        gpioSetMode(DRIVER_PIN, PI_INPUT);
-        gpioSetPullUpDown(DRIVER_PIN, PI_PUD_OFF);
-        sampleDecay(DRIVER_PIN, p.sense, CALIBRATION_RUNS, p.base_mean, p.base_sd);
+            // During calibration the driver is released (INPUT, no pull)
+            // so we capture the natural floating decay of each sense pin.
+            gpioSetMode(p.a, PI_INPUT);
+            gpioSetPullUpDown(p.a, PI_PUD_OFF);
+            sampleDecay(p.a, p.b, CALIBRATION_RUNS, p.base_ab_mean, p.base_ab_sd);
 
-        pairs.push_back(p);
+            gpioSetMode(p.b, PI_INPUT);
+            gpioSetPullUpDown(p.b, PI_PUD_OFF);
+            sampleDecay(p.b, p.a, CALIBRATION_RUNS, p.base_ba_mean, p.base_ba_sd);
 
-        if ((i + 1) % 5 == 0 || i + 1 == n)
-            std::cout << "\r  " << (i + 1) << "/" << n << std::flush;
+            pairs.push_back(p);
+
+            if (++done % 20 == 0 || done == numPairs)
+                std::cout << "\r  " << done << "/" << numPairs << std::flush;
+        }
     }
     std::cout << "\nCalibration complete.\n"
               << std::string(56, '-') << "\n";
 
-    // -- Scan -----------------------------------------------------------------
+    // ── Scan ─────────────────────────────────────────────────────────────────
     auto runScan = [&]() {
         auto t0 = std::chrono::steady_clock::now();
         std::vector<std::pair<const PinPair*, double>> found;
 
         for (const auto& p : pairs) {
-            double m, s;
-            sampleDecay(DRIVER_PIN, p.sense, MEASURE_RUNS, m, s);
+            double m_ab, s_ab, m_ba, s_ba;
+            sampleDecay(p.a, p.b, MEASURE_RUNS, m_ab, s_ab);
+            sampleDecay(p.b, p.a, MEASURE_RUNS, m_ba, s_ba);
 
-            double sigma = (m - p.base_mean) / p.base_sd;
+            double sigma_ab = (m_ab - p.base_ab_mean) / p.base_ab_sd;
+            double sigma_ba = (m_ba - p.base_ba_mean) / p.base_ba_sd;
+            double best     = std::max(sigma_ab, sigma_ba);
 
             if (verbose) {
-                std::cout << "  GPIO " << DRIVER_PIN
-                          << " → GPIO" << std::setw(2) << p.sense
-                          << "  " << std::fixed << std::setprecision(1)
-                          << m << "µs (+" << sigma << "σ)\n";
+                std::cout << "  GPIO" << std::setw(2) << p.a
+                          << " ↔ GPIO" << std::setw(2) << p.b
+                          << "  AB " << std::fixed << std::setprecision(1)
+                          << m_ab << "µs (+"  << sigma_ab << "σ)"
+                          << "  BA " << m_ba << "µs (+" << sigma_ba << "σ)\n";
             }
 
-            if (sigma >= sensitivity)
-                found.push_back({&p, sigma});
+            if (best >= sensitivity)
+                found.push_back({&p, best});
         }
 
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -226,14 +233,14 @@ int main(int argc, char* argv[]) {
         std::strftime(ts, sizeof(ts), "%H:%M:%S", std::localtime(&now));
 
         if (found.empty()) {
-            std::cout << "[" << ts << "] No pins detected  (" << ms << " ms)\n";
+            std::cout << "[" << ts << "] No pairs detected  (" << ms << " ms)\n";
         } else {
             std::cout << "[" << ts << "] *** " << found.size()
-                      << " PIN(S) DETECTED ***  (" << ms << " ms)\n";
+                      << " PAIR(S) DETECTED ***  (" << ms << " ms)\n";
             for (auto& [pp, sig] : found) {
-                std::cout << "    GPIO " << DRIVER_PIN << " <--> GPIO " << pp->sense
+                std::cout << "    GPIO " << pp->a << " <──> GPIO " << pp->b
                           << "   +" << std::fixed << std::setprecision(1)
-                          << sig << "σ above baseline\n";
+                          << sig << " above baseline\n";
             }
         }
         std::cout.flush();
