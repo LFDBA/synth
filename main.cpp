@@ -12,7 +12,7 @@
 #include <rtaudio/RtAudio.h>
 #include "Reverb.h"
 #include "font5x7.h"
-#include <ncurses.h>  // For proper non-blocking keyboard input
+#include <ncurses.h>  
 #include <pigpio.h>
 #include <cstdint>
 #include <cstring>
@@ -21,7 +21,7 @@
 #include <thread>
 #include <chrono>
 #include <map>
-#include <cstdlib> // For rand() and srand()
+#include <cstdlib> 
 #include <ctime>
 using namespace std::chrono;
 #define STB_IMAGE_IMPLEMENTATION
@@ -659,14 +659,21 @@ float noteToHz(int noteNumber) {
 // ======================================================
 //                  ADSR Envelope
 // ======================================================
-float ADSR(float attack,float decay,float sustain,float release,bool trig,float t,float lvl){
+float ADSR(float attack,float decay,float sustain,float release,bool trig,float t,float lvl, float current=0.0f) {
     float curvature=3.0f;
     if(trig){
-        if(t<attack) return powf(t/attack,curvature)*lvl;
-        else if(t<attack+decay) return (1.0f - powf((t-attack)/decay,1.0f/curvature)*(1.0f-sustain))*lvl;
-        else return sustain*lvl;
+        if(t<attack) return {"level": powf(t/attack,curvature)*lvl, "holding": true};
+        else if(t<attack+decay) return {"level": (1.0f - powf((t-attack)/decay,1.0f/curvature)*(1.0f-sustain))*lvl, "holding": true};
+        else return {"level": sustain*lvl, "holding": true};
     }else{
-        if(t<release) return (1.0f - powf(t/release,1.0f/curvature))*(sustain*lvl);
+        if(t<release) {
+
+            return {
+                "level": (1.0f - powf(t/release,1.0f/curvature))*(current*lvl),
+                "holding": false
+            };
+            // return (1.0f - powf(t/release,1.0f/curvature))*(sustain*lvl);
+        }
         else return 0.0f;
     }
 }
@@ -782,7 +789,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             if(voice.active || voice.releasing){
                 activeVoices++;
                 voice.envTime += 1.0f/sampleRate;
-                float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume);
+                float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume, sample);
 
                 // oscillator blending (same as your code)
                 float oscSample;
@@ -1044,18 +1051,27 @@ void drawADSR() {
 
     float sustainView = 0.2;
     float totalTime = attack + decay + sustainView + release;
-
     int lastY = -1;
     for (int x = 0; x < WIDTH; x++) {
         float t = (float)x / WIDTH * totalTime;
 
         float env;
+
+        //============================ TEST ==============================//
+        // if (t < attack + decay + sustainView)
+        //     env = ADSR(attack, decay, sustain, release, true, t, 1.0, sustain); //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+        // else
+        //     env = ADSR(attack, decay, sustain, release, false,
+        //                t - (attack + decay + sustainView),
+        //                1.0, sustain);  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+
+                       
         if (t < attack + decay + sustainView)
-            env = ADSR(attack, decay, sustain, release, true, t, 1.0);
+            env = ADSR(attack, decay, sustain, release, true, voices[numVoices-1].envTime, 1.0, sustain); //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
         else
             env = ADSR(attack, decay, sustain, release, false,
-                       t - (attack + decay + sustainView),
-                       1.0);
+                       voices[numVoices-1].envTime - (attack + decay + sustainView),
+                       1.0, sustain);  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
 
         int y = HEIGHT - 1 - int(env * (HEIGHT - 1));
         if (lastY >= 0) drawLine(x-1, lastY, x, y);
