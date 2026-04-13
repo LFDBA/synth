@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
         }
     }
     std::cout << "\nCalibration complete.\n"
-              << std::string(56, '─') << "\n";
+              << std::string(56, '-') << "\n";
 
     // ── Scan ─────────────────────────────────────────────────────────────────
     auto runScan = [&]() {
