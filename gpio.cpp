@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
     std::cout << "GPIO High-Sensitivity Resistance Checker\n"
               << "Pins: " << n << "  Pairs: " << numPairs
               << "  Sensitivity: " << sensitivity << "×σ\n"
-              << std::string(56, '─') << "\n";
+              << std::string(56, '-') << "\n";
 
     // ── Calibration ──────────────────────────────────────────────────────────
     std::cout << "Calibrating (" << CALIBRATION_RUNS << " samples/pair) …\n";
@@ -240,7 +240,7 @@ int main(int argc, char* argv[]) {
             for (auto& [pp, sig] : found) {
                 std::cout << "    GPIO " << pp->a << " <──> GPIO " << pp->b
                           << "   +" << std::fixed << std::setprecision(1)
-                          << sig << "σ above baseline\n";
+                          << sig << " above baseline\n";
             }
         }
         std::cout.flush();
