@@ -1291,6 +1291,10 @@ int main() {
         gpioSetPullUpDown(p, PI_PUD_DOWN);
     }
 
+    // Initialize button pin (pin 16) with pull-down
+    gpioSetMode(16, PI_INPUT);
+    gpioSetPullUpDown(16, PI_PUD_DOWN);
+
     global_spi_handle = spiOpen(SPI_CHANNEL, SPI_SPEED, 0);
     if (global_spi_handle < 0) {
         std::cerr << "SPI failed\n";
