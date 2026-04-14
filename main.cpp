@@ -525,12 +525,20 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 }
 
 int mapKeyNumber(int k) {
-    std::cout << "Mapping key number: " << k << std::endl; // Debug print for key mapping
-    int base = 6;
-    int col = (k - base) / 12;
-    int row = k - base - (col * 12);
-    int index = row * 5 + col + 1;
-    return index-1; // zero-based
+    // User-provided remaps for raw key numbers.
+    switch (k) {
+        case 31: return 7;
+        case 19: return 8;
+        case 55: return 9;
+        case 7:  return 13;
+        case 39: return 14;
+        case 18: return 15;
+        case 54: return 16;
+        case 6:  return 20;
+        default:
+            break;
+    }
+    return k;
 }
 
 // ======================================================
