@@ -1508,6 +1508,7 @@ int main() {
 
         // Keyboard triggering
         int noteKey = readKeyBoard();
+        debugScan();
         // if(noteKey != -1111){
         //     std::cout << "Read keyboard: " << noteKey << std::endl; // Debug print for key presses
         // }
