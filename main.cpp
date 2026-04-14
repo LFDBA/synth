@@ -658,7 +658,7 @@ float noteToHz(int noteNumber) {
 // ======================================================
 //                  ADSR Envelope
 // ======================================================
-float ADSR(float attack,float decay,float sustain,float release,bool trig,float t,float lvl, float current=0.0f) {
+std::array<float, 2> ADSR(float attack,float decay,float sustain,float release,bool trig,float t,float lvl, float current=0.0f) {
     float curvature=3.0f;
     if(trig){
         if(t<attack) {
