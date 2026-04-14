@@ -1,4 +1,6 @@
 #!/bin/bash
+git pull
+
 g++ \
   main.cpp \
   Reverb.cpp \

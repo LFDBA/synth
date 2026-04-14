@@ -31,7 +31,7 @@ using namespace std::chrono;
 
 
 
-std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 21, 22};
+std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
 
 unsigned long lastClickTime = 0;
 const unsigned long doubleClickDelay = 400; // ms
