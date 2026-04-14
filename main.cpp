@@ -896,47 +896,44 @@ int getKeyPress() {
 
 int readKeyBoard() {
     const size_t n = pins.size();
-
-    // Reset all to input with pull-up
-    for (size_t i = 0; i < n; ++i) {
-        gpioSetMode(pins[i], PI_INPUT);
-        gpioSetPullUpDown(pins[i], PI_PUD_UP);
-    }
-    std::this_thread::sleep_for(std::chrono::microseconds(200));
+    bool anyHigh = false;
 
     for (size_t i = 0; i < n; ++i) {
-        // Drive this pin LOW
         gpioSetMode(pins[i], PI_OUTPUT);
-        gpioWrite(pins[i], 0);
+        gpioWrite(pins[i], 1);
         std::this_thread::sleep_for(std::chrono::microseconds(500));
 
         for (size_t j = 0; j < n; ++j) {
             if (j == i) continue;
             int keyNum = (i * n) + j + 1;
-            bool isPressed = gpioRead(pins[j]) == 0; // LOW means connected
+            bool isHigh = gpioRead(pins[j]) == 1;
 
-            if (isPressed) {
+            if (isHigh) {
+                anyHigh = true;
                 keyStates[keyNum].count++;
                 if (keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed) {
                     keyStates[keyNum].pressed = true;
+                    gpioWrite(pins[i], 0);
                     gpioSetMode(pins[i], PI_INPUT);
-                    gpioSetPullUpDown(pins[i], PI_PUD_UP);
+                    gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
                     return keyNum;
                 }
             } else {
                 keyStates[keyNum].count = 0;
                 if (keyStates[keyNum].pressed) {
                     keyStates[keyNum].pressed = false;
+                    gpioWrite(pins[i], 0);
                     gpioSetMode(pins[i], PI_INPUT);
-                    gpioSetPullUpDown(pins[i], PI_PUD_UP);
+                    gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
                     return -keyNum - 1;
                 }
             }
         }
 
+        gpioWrite(pins[i], 0);
         gpioSetMode(pins[i], PI_INPUT);
-        gpioSetPullUpDown(pins[i], PI_PUD_UP);
-        std::this_thread::sleep_for(std::chrono::microseconds(300));
+        gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
     return -1111;
@@ -946,7 +943,7 @@ void debugScan() {
     const size_t n = pins.size();
     for (size_t i = 0; i < n; ++i) {
         gpioSetMode(pins[i], PI_OUTPUT);
-        gpioWrite(pins[i], 0);
+        gpioWrite(pins[i], 1);
         std::this_thread::sleep_for(std::chrono::microseconds(500));
 
         for (size_t j = 0; j < n; ++j) {
@@ -958,9 +955,9 @@ void debugScan() {
             }
         }
 
-        gpioWrite(pins[i], 1);
+        gpioWrite(pins[i], 0);
         gpioSetMode(pins[i], PI_INPUT);
-        gpioSetPullUpDown(pins[i], PI_PUD_UP);
+        gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 }
@@ -1410,7 +1407,7 @@ int main() {
     // Initialize all pins as input with pull-down
     for (auto p : pins) {
         gpioSetMode(p, PI_INPUT);
-        gpioSetPullUpDown(p, PI_PUD_UP);
+        gpioSetPullUpDown(p, PI_PUD_DOWN);
     }
 
     // Initialize button pin (pin 16) with pull-down
