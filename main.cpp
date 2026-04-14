@@ -895,36 +895,23 @@ int getKeyPress() {
 
 
 int readKeyBoard() {
-    for(size_t i = 0; i < 5; ++i){  // drive outputs (your exact original range)
+    const size_t n = pins.size();
+
+    for (size_t i = 0; i < n; ++i) {
         gpioWrite(pins[i], 1);
+        std::this_thread::sleep_for(std::chrono::microseconds(50)); // settle
 
-        for(size_t j = 0; j < pins.size(); ++j){
-            if(j == i || j == i - 1) continue;
-
-            int keyNum = j + 1 + (i * 12);  // keep your original numbering
-            bool isHigh = gpioRead(pins[j]) == 1;
-
-            // Debounce + press/release tracking
-            if(isHigh){
-                keyStates[keyNum].count++;
-                if(keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed){
-                    keyStates[keyNum].pressed = true;
-                    return mapKeyNumber(keyNum);
-                }
-            } else {
-                keyStates[keyNum].count = 0;
-                if(keyStates[keyNum].pressed){
-                    keyStates[keyNum].pressed = false;
-                    return -mapKeyNumber(keyNum)-1;
-                }
+        for (size_t j = 0; j < n; ++j) {
+            if (gpioRead(pins[j]) == 1) {
+                gpioWrite(pins[i], 0);
+                return (i * n) + j + 1;
             }
-
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
 
         gpioWrite(pins[i], 0);
     }
-    return -1111;
+
+    return -1111; // nothing detected
 }
 
 
