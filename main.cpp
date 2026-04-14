@@ -1,6 +1,5 @@
 #include <iostream>
 #include <cmath>
-#include <vector>
 #include <array>
 #include <algorithm>
 #include <sstream>
@@ -662,19 +661,34 @@ float noteToHz(int noteNumber) {
 float ADSR(float attack,float decay,float sustain,float release,bool trig,float t,float lvl, float current=0.0f) {
     float curvature=3.0f;
     if(trig){
-        if(t<attack) return {"level": powf(t/attack,curvature)*lvl, "holding": true};
-        else if(t<attack+decay) return {"level": (1.0f - powf((t-attack)/decay,1.0f/curvature)*(1.0f-sustain))*lvl, "holding": true};
-        else return {"level": sustain*lvl, "holding": true};
+        if(t<attack) {
+            std::vector<float> getArray() {
+                return {powf(t/attack,curvature)*lvl, 1.0f}; 
+            }
+        }
+        else if(t<attack+decay) {
+            std::vector<float> getArray() {
+                return { (1.0f - powf((t-attack)/decay,1.0f/curvature)*(1.0f-sustain))*lvl, 1.0f };
+            }
+        }
+        else {
+            std::vector<float> getArray() {
+                return {sustain*lvl, 1.0f};
+            }
+        }
     }else{
         if(t<release) {
 
-            return {
-                "level": (1.0f - powf(t/release,1.0f/curvature))*(current*lvl),
-                "holding": false
-            };
+            std::vector<float> getArray() {
+                return { (1.0f - powf(t/release,1.0f/curvature))*(current*lvl), 0.0f };
+            }
             // return (1.0f - powf(t/release,1.0f/curvature))*(sustain*lvl);
         }
-        else return 0.0f;
+        else {
+            std::vector<float> getArray() {
+                return {0.0f, 0.0f};
+            }
+        }
     }
 }
 
