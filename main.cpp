@@ -948,7 +948,7 @@ void debugScan() {
     const size_t n = pins.size();
     for (size_t i = 0; i < n; ++i) {
         gpioSetMode(pins[i], PI_OUTPUT);
-        gpioWrite(pins[i], 1);
+        gpioWrite(pins[i], 0);
         std::this_thread::sleep_for(std::chrono::microseconds(500));
 
         for (size_t j = 0; j < n; ++j) {
@@ -960,9 +960,9 @@ void debugScan() {
             }
         }
 
-        gpioWrite(pins[i], 0);
+        gpioWrite(pins[i], 1);
         gpioSetMode(pins[i], PI_INPUT);
-        gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
+        gpioSetPullUpDown(pins[i], PI_PUD_UP);
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 }
