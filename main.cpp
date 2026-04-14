@@ -939,6 +939,28 @@ int readKeyBoard() {
     return -1111;
 }
 
+void debugScan() {
+    const size_t n = pins.size();
+    for (size_t i = 0; i < n; ++i) {
+        gpioSetMode(pins[i], PI_OUTPUT);
+        gpioWrite(pins[i], 1);
+        std::this_thread::sleep_for(std::chrono::microseconds(500));
+
+        for (size_t j = 0; j < n; ++j) {
+            if (j == i) continue;
+            if (gpioRead(pins[j]) == 1) {
+                std::cout << "DETECTED: pins[" << i << "] (GPIO " << pins[i] 
+                          << ") -> pins[" << j << "] (GPIO " << pins[j] 
+                          << ") = key " << (i * n) + j + 1 << std::endl;
+            }
+        }
+
+        gpioWrite(pins[i], 0);
+        gpioSetMode(pins[i], PI_INPUT);
+        gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+}
 
 // ======================================================
 //               Read Input Device
@@ -1486,9 +1508,9 @@ int main() {
 
         // Keyboard triggering
         int noteKey = readKeyBoard();
-        if(noteKey != -1111){
-            std::cout << "Read keyboard: " << noteKey << std::endl; // Debug print for key presses
-        }
+        // if(noteKey != -1111){
+        //     std::cout << "Read keyboard: " << noteKey << std::endl; // Debug print for key presses
+        // }
         if(noteKey != -1111){
             if(noteKey >= 0){
                 // Key press
