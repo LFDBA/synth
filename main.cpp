@@ -1192,7 +1192,7 @@ void drawNoise() {
 
     // Fill buffer
     for(int page = 0; page < 8; page++){
-        for(int x = 0; x < 128; x++){
+        for(int x = 0; x < WIDTH; x++){
             uint8_t byte = 0;
             for(int bit = 0; bit < 8; bit++){
                 int y = page * 8 + bit;
@@ -1200,7 +1200,7 @@ void drawNoise() {
                 int pixel = img[y * width + x]; // safe
                 if(pixel == 0) byte |= (1 << bit);
             }
-            buffer[page * 128 + x] = byte;
+            buffer[page * WIDTH + x] = byte;
         }
     }
 
