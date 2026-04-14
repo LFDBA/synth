@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <linux/input.h>
-#include <rtaudio/RtAudio.h>
+#include <RtAudio.h>
 #include "Reverb.h"
 #include "font5x7.h"
 #include <ncurses.h>  
@@ -42,6 +42,12 @@ float noiseVolume = 0.5f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
+
+// Global audio objects
+RtAudio dac;
+RtAudio::StreamParameters oParams;
+unsigned int currentDeviceId;
+std::atomic<bool> deviceSwitching(false);
 
 enum NoiseType {
     NOISE_NONE,
@@ -531,7 +537,7 @@ int mapKeyNumber(int k) {
         case 19: return 8;
         case 55: return 9;
         case 7:  return 13;
-        case 39: return 14;
+        case 30: return 14;
         case 18: return 15;
         case 54: return 16;
         case 6:  return 20;
@@ -1262,6 +1268,77 @@ void drawNoise() {
 
 
 // ======================================================
+//                  Device Switching
+// ======================================================
+
+void switchToDevice(unsigned int newDeviceId) {
+    if (deviceSwitching.load()) return; // Already switching
+    deviceSwitching.store(true);
+
+    try {
+        // Stop the current stream
+        if (dac.isStreamRunning()) {
+            dac.stopStream();
+        }
+        if (dac.isStreamOpen()) {
+            dac.closeStream();
+        }
+
+        // Update device ID
+        oParams.deviceId = newDeviceId;
+        currentDeviceId = newDeviceId;
+
+        // Restart with new device
+        unsigned int bufferFrames = 1024;
+        dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback);
+        dac.startStream();
+
+        std::cout << "Switched to audio device: " << newDeviceId << std::endl;
+    } catch (RtAudioError &e) {
+        std::cerr << "Failed to switch audio device: " << e.getMessage() << std::endl;
+        // Try to restart with old device
+        try {
+            unsigned int bufferFrames = 1024;
+            dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback);
+            dac.startStream();
+        } catch (RtAudioError &e2) {
+            std::cerr << "Failed to restart audio: " << e2.getMessage() << std::endl;
+        }
+    }
+
+    deviceSwitching.store(false);
+}
+
+void monitorAudioDevices() {
+    unsigned int lastDeviceCount = dac.getDeviceCount();
+
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
+
+        unsigned int currentDeviceCount = dac.getDeviceCount();
+        if (currentDeviceCount > lastDeviceCount) {
+            // New device(s) detected
+            std::cout << "New audio device(s) detected. Device count: " << currentDeviceCount << std::endl;
+
+            // Find the highest device ID (assuming new devices have higher IDs)
+            unsigned int newDeviceId = currentDeviceCount - 1;
+
+            // Check if it's an output device
+            RtAudio::DeviceInfo info = dac.getDeviceInfo(newDeviceId);
+            if (info.outputChannels > 0) {
+                std::cout << "Switching to new output device: " << info.name << std::endl;
+                switchToDevice(newDeviceId);
+            }
+
+            lastDeviceCount = currentDeviceCount;
+        } else if (currentDeviceCount < lastDeviceCount) {
+            // Device removed, but we'll keep current if possible
+            lastDeviceCount = currentDeviceCount;
+        }
+    }
+}
+
+// ======================================================
 //                        MAIN
 // ======================================================
 int main() {
@@ -1317,9 +1394,8 @@ int main() {
 
 
     // RtAudio setup
-    RtAudio dac;
-    RtAudio::StreamParameters oParams;
     oParams.deviceId = dac.getDefaultOutputDevice();
+    currentDeviceId = oParams.deviceId;
     oParams.nChannels = 2;
     unsigned int bufferFrames = 1024;
 
@@ -1331,6 +1407,10 @@ int main() {
         e.printMessage();
         return 1;
     }
+
+    // Start background device monitoring thread
+    std::thread deviceMonitor(monitorAudioDevices);
+    deviceMonitor.detach(); // Run in background
 
     std::cout << "Polyphonic Synth Ready.\n";
     std::cout << "Press keys z,x,c,v to trigger voices, 1–3 for menus.\n";
