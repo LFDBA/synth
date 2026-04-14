@@ -898,26 +898,28 @@ int readKeyBoard() {
     const size_t n = pins.size();
 
     for (size_t i = 0; i < n; ++i) {
-        // Drive this pin high
         gpioSetMode(pins[i], PI_OUTPUT);
         gpioWrite(pins[i], 1);
-        std::this_thread::sleep_for(std::chrono::microseconds(50));
+        std::this_thread::sleep_for(std::chrono::microseconds(500));
 
         for (size_t j = 0; j < n; ++j) {
-            if (j == i) continue; // don't read the pin we're driving
+            if (j == i) continue;
             if (gpioRead(pins[j]) == 1) {
-                // Reset before returning
-                gpioWrite(pins[i], 0);
-                gpioSetMode(pins[i], PI_INPUT);
-                gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
-                return (i * n) + j + 1;
+                // confirm it's still high on a second read
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+                if (gpioRead(pins[j]) == 1) {
+                    gpioWrite(pins[i], 0);
+                    gpioSetMode(pins[i], PI_INPUT);
+                    gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
+                    return (i * n) + j + 1;
+                }
             }
         }
 
-        // Reset pin back to input
         gpioWrite(pins[i], 0);
         gpioSetMode(pins[i], PI_INPUT);
         gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
+        std::this_thread::sleep_for(std::chrono::microseconds(100)); // let pull-down settle before next iteration
     }
 
     return -1111;
