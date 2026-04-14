@@ -31,7 +31,7 @@ using namespace std::chrono;
 
 
 
-std::vector<int> pins = {4, 5, 6, 13, 18, 19, 20, 21, 22, 27};
+std::vector<int> pins = {4, 5, 6, 13, 17, 18, 19, 20, 21, 22, 27};
 
 unsigned long lastClickTime = 0;
 const unsigned long doubleClickDelay = 400; // ms
@@ -531,7 +531,6 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 }
 
 int mapKeyNumber(int k) {
-    // User-provided remaps for raw key numbers.
     switch (k) {
         case 31: return 7;
         case 19: return 8;
