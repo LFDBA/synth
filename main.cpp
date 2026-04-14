@@ -795,7 +795,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             if(voice.active || voice.releasing){
                 activeVoices++;
                 voice.envTime += 1.0f/sampleRate;
-                float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume, sample);
+                float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume, sample)[0];
 
                 // oscillator blending (same as your code)
                 float oscSample;
@@ -1073,11 +1073,11 @@ void drawADSR() {
 
                        
         if (t < attack + decay + sustainView)
-            env = ADSR(attack, decay, sustain, release, true, voices[numVoices-1].envTime, 1.0, sustain); //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+            env = ADSR(attack, decay, sustain, release, true, voices[numVoices-1].envTime, 1.0, sustain)[0]; //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
         else
             env = ADSR(attack, decay, sustain, release, false,
                        voices[numVoices-1].envTime - (attack + decay + sustainView),
-                       1.0, sustain);  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+                       1.0, sustain)[0];  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
 
         int y = HEIGHT - 1 - int(env * (HEIGHT - 1));
         if (lastY >= 0) drawLine(x-1, lastY, x, y);
