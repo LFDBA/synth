@@ -525,27 +525,12 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 }
 
 int mapKeyNumber(int k) {
-    // Map raw scanned key IDs to the logical zero-based key index.
-    // Keys 1..7 are sequential; other known physical keys are remapped explicitly.
-    switch (k) {
-        case 1: return 0;
-        case 2: return 1;
-        case 3: return 2;
-        case 4: return 3;
-        case 5: return 4;
-        case 6: return 5;
-        case 7: return 6;
-        case 8: return 7;
-        case 9: return 6;
-        case 10: return 9;
-        case 14: return 5;
-        case 15: return 2;
-        case 16: return 1;
-        case 17: return 4;
-        case 21: return 0;
-        default:
-            return (k > 0) ? k - 1 : -1;
-    }
+    std::cout << "Mapping key number: " << k << std::endl; // Debug print for key mapping
+    int base = 6;
+    int col = (k - base) / 12;
+    int row = k - base - (col * 12);
+    int index = row * 5 + col + 1;
+    return index-1; // zero-based
 }
 
 // ======================================================
