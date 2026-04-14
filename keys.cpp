@@ -5,7 +5,7 @@
 #include <chrono>
 #include <map>
 
-std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,26,21};
+std::vector<int> pins = {2,3,4,17,27,22,0,5,6,13,19,20,21};
 
 // Debounce in consecutive scans
 const int debounceScans = 3;
