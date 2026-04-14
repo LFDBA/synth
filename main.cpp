@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <linux/input.h>
-#include <RtAudio.h>
+#include <rtaudio/RtAudio.h>
 #include "Reverb.h"
 #include "font5x7.h"
 #include <ncurses.h>  
