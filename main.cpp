@@ -896,7 +896,13 @@ int getKeyPress() {
 
 int readKeyBoard() {
     const size_t n = pins.size();
-    bool anyHigh = false;
+
+    // First, ensure ALL pins are inputs and fully settled
+    for (size_t i = 0; i < n; ++i) {
+        gpioSetMode(pins[i], PI_INPUT);
+        gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
+    }
+    std::this_thread::sleep_for(std::chrono::microseconds(200)); // let everything settle
 
     for (size_t i = 0; i < n; ++i) {
         gpioSetMode(pins[i], PI_OUTPUT);
@@ -909,7 +915,6 @@ int readKeyBoard() {
             bool isHigh = gpioRead(pins[j]) == 1;
 
             if (isHigh) {
-                anyHigh = true;
                 keyStates[keyNum].count++;
                 if (keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed) {
                     keyStates[keyNum].pressed = true;
@@ -933,7 +938,7 @@ int readKeyBoard() {
         gpioWrite(pins[i], 0);
         gpioSetMode(pins[i], PI_INPUT);
         gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        std::this_thread::sleep_for(std::chrono::microseconds(300)); // settle before next driver
     }
 
     return -1111;
