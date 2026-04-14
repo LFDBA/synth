@@ -662,32 +662,24 @@ float ADSR(float attack,float decay,float sustain,float release,bool trig,float 
     float curvature=3.0f;
     if(trig){
         if(t<attack) {
-            std::array<float, 2> getArray() {
-                return {powf(t/attack,curvature)*lvl, 1.0f}; 
-            }
+            return {powf(t/attack,curvature)*lvl, 1.0f}; 
         }
         else if(t<attack+decay) {
-            std::array<float, 2> getArray() {
-                return { (1.0f - powf((t-attack)/decay,1.0f/curvature)*(1.0f-sustain))*lvl, 1.0f };
-            }
+            return { (1.0f - powf((t-attack)/decay,1.0f/curvature)*(1.0f-sustain))*lvl, 1.0f };
         }
         else {
-            std::array<float, 2> getArray() {
-                return {sustain*lvl, 1.0f};
-            }
+            return {sustain*lvl, 1.0f};
         }
     }else{
         if(t<release) {
 
-            std::array<float, 2> getArray() {
-                return { (1.0f - powf(t/release,1.0f/curvature))*(current*lvl), 0.0f };
-            }
+            return { (1.0f - powf(t/release,1.0f/curvature))*(current*lvl), 0.0f };
+        
             // return (1.0f - powf(t/release,1.0f/curvature))*(sustain*lvl);
         }
         else {
-            std::array<float, 2> getArray() {
-                return {0.0f, 0.0f};
-            }
+            return {0.0f, 0.0f};
+            
         }
     }
 }
