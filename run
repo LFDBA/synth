@@ -2,6 +2,9 @@
 git pull
 
 gpioset 0 26=1
+gpioset 0 27=0
+
+sudo ./loading
 
 g++ \
   main.cpp \
@@ -18,3 +21,5 @@ g++ \
 sudo ./main
 
 gpioset 0 26=0
+gpioset 0 21=0
+gpioset 0 27=1
