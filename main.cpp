@@ -31,10 +31,19 @@ using namespace std::chrono;
 
 
 std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
+std::vector<int> rowPins = {4, 5, 6, 12}; 
+std::vector<int> colPins = {13, 17, 18, 19, 20, 22, 23};
 
-
-
-
+void initMatrix() {
+    for (int r : rowPins) {
+        gpioSetMode(r, PI_OUTPUT);
+        gpioWrite(r, 0); // Keep rows low by default
+    }
+    for (int c : colPins) {
+        gpioSetMode(c, PI_INPUT);
+        gpioSetPullUpDown(c, PI_PUD_DOWN); // Pull down so they stay 0 until pressed
+    }
+}
 
 unsigned long lastClickTime = 0;
 const unsigned long doubleClickDelay = 400; // ms
@@ -908,7 +917,7 @@ void onKeyPress(int keyID) {
             voices[v].keyID = keyID;
             voices[v].envTime = 0.0f;
             // Map keyID to a frequency (adjust math to fit your scale)
-            voices[v].frequency = noteToHz(48 + keyID); 
+            voices[v].frequency = noteToHz(60 + keyID); 
             break; 
         }
     }
@@ -925,65 +934,38 @@ void onKeyRelease(int keyID) {
     }
 }   
 
-// Group pins by their FUNCTION in your list:
-std::vector<int> drivePins = {4, 5, 6, 12}; 
-std::vector<int> readPins  = {13, 17, 18, 19, 20, 22, 23};
+void updateKeyStates() {
+    for (size_t r = 0; r < rowPins.size(); ++r) {
+        gpioWrite(rowPins[r], 1);
+        std::this_thread::sleep_for(std::chrono::microseconds(30)); // settle time
 
-void initMatrix() {
-    for (int d : drivePins) {
-        gpioSetMode(d, PI_OUTPUT);
-        gpioWrite(d, 0);
-    }
-    for (int r : readPins) {
-        gpioSetMode(r, PI_INPUT);
-        gpioSetPullUpDown(r, PI_PUD_DOWN);
-    }
-}
+        for (size_t c = 0; c < colPins.size(); ++c) {
+            int keyID = (r * colPins.size()) + c;
+            bool isPhysicalPressed = (gpioRead(colPins[c]) == 1);
 
-void updateKeyBoard() {
-    int currentKeyIndex = 0;
-
-    for (int dPin : drivePins) {
-        gpioWrite(dPin, 1); // Turn on one "Drive" line
-        std::this_thread::sleep_for(std::chrono::microseconds(100)); // Let it settle
-
-        for (int rPin : readPins) {
-            // Check if this specific pair is one that ACTUALLY exists
-            // Based on your list: 4&18 and 6&18 don't exist ("nothing")
-            bool physicalConnectionExists = true;
-            if ((dPin == 4 && rPin == 18) || (dPin == 6 && rPin == 18)) {
-                physicalConnectionExists = false;
-            }
-            // Pin 12 only connects to 17 and 18 in your list
-            if (dPin == 12 && (rPin != 17 && rPin != 18)) {
-                physicalConnectionExists = false;
-            }
-
-            if (physicalConnectionExists) {
-                bool isPressed = (gpioRead(rPin) == 1);
-                
-                // --- Debounce Logic ---
-                if (isPressed) {
-                    if (keyStates[currentKeyIndex].count < debounceScans) {
-                        keyStates[currentKeyIndex].count++;
-                    } else if (!keyStates[currentKeyIndex].pressed) {
-                        keyStates[currentKeyIndex].pressed = true;
-                        onKeyPress(currentKeyIndex);
-                    }
-                } else {
-                    if (keyStates[currentKeyIndex].count > 0) {
-                        keyStates[currentKeyIndex].count--;
-                    } else if (keyStates[currentKeyIndex].pressed) {
-                        keyStates[currentKeyIndex].pressed = false;
-                        onKeyRelease(currentKeyIndex);
-                    }
+            // Simple debounce logic
+            if (isPhysicalPressed) {
+                if (keyStates[keyID].count < debounceScans) {
+                    keyStates[keyID].count++;
+                } else if (!keyStates[keyID].pressed) {
+                    // KEY PRESS EVENT
+                    keyStates[keyID].pressed = true;
+                    onKeyPress(keyID); 
                 }
-                currentKeyIndex++; // Only increment index for real physical keys
+            } else {
+                if (keyStates[keyID].count > 0) {
+                    keyStates[keyID].count--;
+                } else if (keyStates[keyID].pressed) {
+                    // KEY RELEASE EVENT
+                    keyStates[keyID].pressed = false;
+                    onKeyRelease(keyID);
+                }
             }
         }
-        gpioWrite(dPin, 0); // Turn off the line
+        gpioWrite(rowPins[r], 0);
     }
 }
+
 // ======================================================
 //               Read Input Device
 // ======================================================
@@ -1392,7 +1374,32 @@ void monitorAudioDevices() {
         }
     }
 }
+void findDeadKeys() {
+    std::cout << "--- STARTING DIAGNOSTIC ---\n";
+    std::cout << "Press one of the 3 dead keys now...\n";
 
+    while (true) {
+        for (int i = 0; i < pins.size(); i++) {
+            // Set one pin as a 'Source'
+            gpioSetMode(pins[i], PI_OUTPUT);
+            gpioWrite(pins[i], 1);
+
+            for (int j = 0; j < pins.size(); j++) {
+                if (i == j) continue; // Don't check a pin against itself
+                
+                if (gpioRead(pins[j]) == 1) {
+                    std::cout << "SUCCESS! Key detected between Pin " << pins[i] 
+                              << " and Pin " << pins[j] << std::endl;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                }
+            }
+            // Reset pin to high-impedance (Input)
+            gpioWrite(pins[i], 0);
+            gpioSetMode(pins[i], PI_INPUT);
+            gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
+        }
+    }
+}
 // ======================================================
 //                        MAIN
 // ======================================================
@@ -1524,7 +1531,8 @@ int main() {
     
         updateDisplay(global_spi_handle);
 
-        updateKeyBoard(); // scan keyboard matrix
+        // updateKeyStates(); // scan keyboard matrix
+        findDeadKeys(); // diagnostic for dead keys (optional, can be commented out in production)
 
         if (singleClickPending) {
             unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
