@@ -910,6 +910,8 @@ int getKeyPress() {
 
 void onKeyPress(int keyID) {
     // Find an available voice or one that matches this key
+    std::cout << keyID;
+    keyID = mapKeyNumber(keyID);
     for (int v = 0; v < numVoices; v++) {
         if (!voices[v].active) {
             voices[v].active = true;
@@ -941,8 +943,7 @@ void updateKeyStates() {
 
         for (size_t c = 0; c < colPins.size(); ++c) {
             int keyID = (r * colPins.size()) + c;
-            std::cout << keyID;
-            keyID = mapKeyNumber(keyID);
+            
             bool isPhysicalPressed = (gpioRead(colPins[c]) == 1);
 
             // Simple debounce logic
