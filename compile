@@ -21,7 +21,17 @@ g++ \
   -O3 -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
 
-sudo kill -9 $LOADER_PID
+sudo kill -9 $LOADER_PID 2>/dev/null
 sudo killall pigpiod 2>/dev/null
+sudo fuser -k 8888/tcp 2>/dev/null
 sudo rm -f /var/run/pigpio.pid
+while lsof -i :8888 > /dev/null; do 
+    sleep 0.5
+    if gpioget 0 26 == 1; then
+        gpioset 0 26=0
+    else
+        gpioset 0 26=1
+    fi
+
+done
 sleep 1
