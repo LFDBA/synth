@@ -31,8 +31,20 @@ using namespace std::chrono;
 
 
 std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
-std::vector<int> rowPins = {4, 5, 6, 12}; 
-std::vector<int> colPins = {13, 17, 18, 19, 20, 22, 23};
+struct PinPair {
+    int drive;
+    int read;
+};
+
+// This is your physical map based on your "full output list"
+std::vector<PinPair> keyMap = {
+    {4, 13}, {4, 17}, /* Skip 3 */ {4, 19}, {4, 20}, {4, 23}, {4, 22},
+    {5, 13}, {5, 17}, {5, 18}, {5, 19}, {5, 20}, {5, 23}, {5, 22},
+    {6, 13}, {6, 17}, /* Skip 17 */ {6, 19}, {6, 20}, {6, 23}, {6, 22},
+    {12, 17}, {12, 18} // The weird ones at the end
+};
+
+
 
 void initMatrix() {
     for (int r : rowPins) {
@@ -917,7 +929,7 @@ void onKeyPress(int keyID) {
             voices[v].keyID = keyID;
             voices[v].envTime = 0.0f;
             // Map keyID to a frequency (adjust math to fit your scale)
-            voices[v].frequency = noteToHz(60 + keyID); 
+            voices[v].frequency = noteToHz(48 + keyID); 
             break; 
         }
     }
@@ -934,35 +946,43 @@ void onKeyRelease(int keyID) {
     }
 }   
 
-void updateKeyStates() {
-    for (size_t r = 0; r < rowPins.size(); ++r) {
-        gpioWrite(rowPins[r], 1);
-        std::this_thread::sleep_for(std::chrono::microseconds(30)); // settle time
+void updateKeyBoard() {
+    // 1. Set all pins to Input Pull-Down first to be safe
+    for(int p : pins) {
+        gpioSetMode(p, PI_INPUT);
+        gpioSetPullUpDown(p, PI_PUD_DOWN);
+    }
 
-        for (size_t c = 0; c < colPins.size(); ++c) {
-            int keyID = (r * colPins.size()) + c;
-            bool isPhysicalPressed = (gpioRead(colPins[c]) == 1);
+    for (int i = 0; i < keyMap.size(); i++) {
+        int d = keyMap[i].drive;
+        int r = keyMap[i].read;
 
-            // Simple debounce logic
-            if (isPhysicalPressed) {
-                if (keyStates[keyID].count < debounceScans) {
-                    keyStates[keyID].count++;
-                } else if (!keyStates[keyID].pressed) {
-                    // KEY PRESS EVENT
-                    keyStates[keyID].pressed = true;
-                    onKeyPress(keyID); 
-                }
-            } else {
-                if (keyStates[keyID].count > 0) {
-                    keyStates[keyID].count--;
-                } else if (keyStates[keyID].pressed) {
-                    // KEY RELEASE EVENT
-                    keyStates[keyID].pressed = false;
-                    onKeyRelease(keyID);
-                }
+        // 2. Pulse the Drive Pin
+        gpioSetMode(d, PI_OUTPUT);
+        gpioWrite(d, 1);
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
+
+        bool isPressed = (gpioRead(r) == 1);
+
+        // 3. Debounce and Trigger (using your KeyID i)
+        if (isPressed) {
+            if (keyStates[i].count < debounceScans) keyStates[i].count++;
+            else if (!keyStates[i].pressed) {
+                keyStates[i].pressed = true;
+                onKeyPress(i); // i is now the reliable Index (0, 1, 2...)
+            }
+        } else {
+            if (keyStates[i].count > 0) keyStates[i].count--;
+            else if (keyStates[i].pressed) {
+                keyStates[i].pressed = false;
+                onKeyRelease(i);
             }
         }
-        gpioWrite(rowPins[r], 0);
+
+        // 4. Reset Drive Pin back to Input before next check
+        gpioWrite(d, 0);
+        gpioSetMode(d, PI_INPUT);
+        gpioSetPullUpDown(d, PI_PUD_DOWN);
     }
 }
 
@@ -1531,8 +1551,7 @@ int main() {
     
         updateDisplay(global_spi_handle);
 
-        // updateKeyStates(); // scan keyboard matrix
-        findDeadKeys(); // diagnostic for dead keys (optional, can be commented out in production)
+        updateKeyStates(); // scan keyboard matrix
 
         if (singleClickPending) {
             unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
