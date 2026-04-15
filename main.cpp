@@ -1407,11 +1407,7 @@ int main() {
     gpioSetMode(PIN_DC, PI_OUTPUT);
     gpioSetMode(PIN_RES, PI_OUTPUT);
 
-    // Initialize all pins as input with pull-down
-    for (auto p : pins) {
-        gpioSetMode(p, PI_INPUT);
-        gpioSetPullUpDown(p, PI_PUD_DOWN);
-    }
+    
 
     // Initialize button pin (pin 16) with pull-down
     gpioSetMode(16, PI_INPUT);
