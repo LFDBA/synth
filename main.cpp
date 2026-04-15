@@ -1399,6 +1399,7 @@ int main() {
         if (info.probed) { // Check if the device is actually reachable
             std::cout << "Device ID: " << i << "\n";
             std::cout << "Name: " << info.name << "\n";
+            std::cout << "probed: " << (info.probed ? "Yes" : "No") << "\n";
             std::cout << "Max Output Channels: " << info.outputChannels << "\n";
             std::cout << "Is Default: " << (info.isDefaultOutput ? "Yes" : "No") << "\n";
             std::cout << "---------------------------\n";
