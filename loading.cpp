@@ -214,7 +214,8 @@ int main() {
     clearScreen();
     updateDisplay();
     std::system("gpioset 0 26=0");
-    std::system("gpioset 0 27=1");
+    std::system("gpioset 0 21=1");
+    std::system("ls");
     spiClose(spi);
     gpioTerminate();
     return 0;
