@@ -1,6 +1,8 @@
 #!/bin/bash
 git pull
 
+gpioset 0 26=1
+
 g++ \
   main.cpp \
   Reverb.cpp \
@@ -14,3 +16,5 @@ g++ \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
 
 sudo ./main
+
+gpioset 0 26=0
