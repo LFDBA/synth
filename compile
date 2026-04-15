@@ -21,6 +21,7 @@ g++ \
   -O3 -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
 
-kill -9 $LOADER_PID
+sudo kill -9 $LOADER_PID
+sudo killall pigpiod 2>/dev/null
 sudo rm -f /var/run/pigpio.pid
-sleep 0.5
+sleep 1
