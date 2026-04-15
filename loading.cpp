@@ -213,7 +213,8 @@ int main() {
     clearBuffer();
     clearScreen();
     updateDisplay();
-    std::cout << "Loading complete. Exiting.\n";
+    std::system("gpioset 0 26=0");
+    std::system("gpioset 0 27=1");
     spiClose(spi);
     gpioTerminate();
     return 0;
