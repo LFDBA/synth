@@ -69,7 +69,7 @@ enum NoiseType {
     PINK_NOISE,
     RED_NOISE,
 };
-NoiseType noiseType = WHITE_NOISE;
+NoiseType noiseType = NOISE_NONE;
 
 
 #include <cmath>
@@ -917,7 +917,7 @@ void onKeyPress(int keyID) {
             voices[v].keyID = keyID;
             voices[v].envTime = 0.0f;
             // Map keyID to a frequency (adjust math to fit your scale)
-            voices[v].frequency = noteToHz(60 + keyID); 
+            voices[v].frequency = noteToHz(48 + keyID); 
             break; 
         }
     }
