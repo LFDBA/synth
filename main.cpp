@@ -105,7 +105,7 @@ public:
     void setType(NoiseType t) { type = t; }
 
 private:
-    NoiseType type;
+    NoiseType type = NOISE_NONE;
     float lastBrown;
     float pinkStore[7]; // simple pink filter
 
