@@ -31,7 +31,19 @@ using namespace std::chrono;
 
 
 
-std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
+std::vector<int> rowPins = {4, 5, 6, 12}; 
+std::vector<int> colPins = {13, 17, 18, 19, 20, 22, 23};
+
+void initMatrix() {
+    for (int r : rowPins) {
+        gpioSetMode(r, PI_OUTPUT);
+        gpioWrite(r, 0); // Keep rows low by default
+    }
+    for (int c : colPins) {
+        gpioSetMode(c, PI_INPUT);
+        gpioSetPullUpDown(c, PI_PUD_DOWN); // Pull down so they stay 0 until pressed
+    }
+}
 
 unsigned long lastClickTime = 0;
 const unsigned long doubleClickDelay = 400; // ms
@@ -895,48 +907,39 @@ int getKeyPress() {
 
 
 int readKeyBoard() {
-    const size_t n = pins.size();
-    bool anyHigh = false;
+    for (size_t r = 0; r < rowPins.size(); ++r) {
+        // 1. Set one row HIGH
+        gpioWrite(rowPins[r], 1);
+        
+        // Small settle time for capacitance on long membrane traces
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
 
-    for (size_t i = 0; i < n; ++i) {
-        gpioSetMode(pins[i], PI_OUTPUT);
-        gpioWrite(pins[i], 1);
-        std::this_thread::sleep_for(std::chrono::microseconds(500));
+        for (size_t c = 0; c < colPins.size(); ++c) {
+            int keyID = (r * colPins.size()) + c; // Unique ID 0 to 27
+            bool isPressed = (gpioRead(colPins[c]) == 1);
 
-        for (size_t j = 0; j < n; ++j) {
-            if (j == i) continue;
-            int keyNum = (i * n) + j + 1;
-            bool isHigh = gpioRead(pins[j]) == 1;
-
-            if (isHigh) {
-                anyHigh = true;
-                keyStates[keyNum].count++;
-                if (keyStates[keyNum].count >= debounceScans && !keyStates[keyNum].pressed) {
-                    keyStates[keyNum].pressed = true;
-                    gpioWrite(pins[i], 0);
-                    gpioSetMode(pins[i], PI_INPUT);
-                    gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
-                    return keyNum;
+            // Debounce Logic
+            if (isPressed) {
+                keyStates[keyID].count++;
+                if (keyStates[keyID].count >= debounceScans && !keyStates[keyID].pressed) {
+                    keyStates[keyID].pressed = true;
+                    gpioWrite(rowPins[r], 0); // Clean up before return
+                    return keyID; 
                 }
             } else {
-                keyStates[keyNum].count = 0;
-                if (keyStates[keyNum].pressed) {
-                    keyStates[keyNum].pressed = false;
-                    gpioWrite(pins[i], 0);
-                    gpioSetMode(pins[i], PI_INPUT);
-                    gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
-                    return -keyNum - 1;
+                if (keyStates[keyID].pressed && keyStates[keyID].count > 0) {
+                   keyStates[keyID].count = 0;
+                   keyStates[keyID].pressed = false;
+                   // Optional: return negative ID for "key release"
+                   // return -keyID - 1; 
                 }
+                keyStates[keyID].count = 0;
             }
         }
-
-        gpioWrite(pins[i], 0);
-        gpioSetMode(pins[i], PI_INPUT);
-        gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        // 2. Set row back to LOW before moving to next
+        gpioWrite(rowPins[r], 0);
     }
-
-    return -1111;
+    return -1111; // No new press detected
 }
 
 void debugScan() {
