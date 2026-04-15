@@ -79,9 +79,6 @@ int main() {
         return 1;
     }
 
-    signal(SIGINT,  onSignal);
-    signal(SIGTERM, onSignal);
-
     gpioSetMode(PIN_DC,  PI_OUTPUT);
     gpioSetMode(PIN_RES, PI_OUTPUT);
 
