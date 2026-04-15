@@ -35,3 +35,7 @@ while lsof -i :8888 > /dev/null; do
 
 done
 sleep 1
+
+gpioset 0 26=0
+gpioset 0 21=0
+gpioset 0 27=1
