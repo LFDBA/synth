@@ -59,7 +59,6 @@ const int debounceScans = 8;
 RtAudio dac;
 RtAudio::StreamParameters oParams;
 
-std::cout << dac.getDeviceCount() << " audio devices found.\n";
 unsigned int currentDeviceId;
 std::atomic<bool> deviceSwitching(false);
 
@@ -1391,6 +1390,8 @@ void monitorAudioDevices() {
 //                        MAIN
 // ======================================================
 int main() {
+    std::cout << dac.getDeviceCount() << " audio devices found.\n";
+
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     if(!initSerial()){
