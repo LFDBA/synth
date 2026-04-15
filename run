@@ -1,7 +1,7 @@
 #!/bin/bash
-git pull
 
-
+gpioset 0 26=0
+gpioset 0 21=1
 
 sudo ./main
 

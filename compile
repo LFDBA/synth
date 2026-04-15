@@ -6,6 +6,9 @@ gpioset 0 21=0
 sudo ./load_synth_program &
 LOADER_PID=$!
 
+git pull
+
+
 g++ \
   main.cpp \
   Reverb.cpp \
@@ -20,6 +23,4 @@ g++ \
 
 kill -9 $LOADER_PID
 sudo rm -f /var/run/pigpio.pid
-gpioset 0 26=0
-gpioset 0 21=1
 sleep 0.5
