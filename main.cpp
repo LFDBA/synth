@@ -1377,14 +1377,12 @@ void monitorAudioDevices() {
     }
 }
 
-
-
+std::system("pkill -f load_synth_program"); 
 
 // ======================================================
 //                        MAIN
 // ======================================================
 int main() {
-    std::system("pkill -f load_synth_program"); 
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     if(!initSerial()){
