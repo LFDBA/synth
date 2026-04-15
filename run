@@ -6,6 +6,7 @@ gpioset 0 27=0
 gpioset 0 21=0
 
 sudo ./load_synth_program &
+LOADER_PID=$!
 
 g++ \
   main.cpp \
@@ -18,6 +19,10 @@ g++ \
   -o main \
   -O3 -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
+
+kill -9 $LOADER_PID
+sudo rm -f /var/run/pigpio.pid
+sleep 0.5
 
 sudo ./main
 
