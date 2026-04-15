@@ -796,7 +796,7 @@ void drawOutput() {
 }
 
 
-NoiseGenerator noise(WHITE_NOISE);
+NoiseGenerator noise(noiseType);
 // ======================================================
 //                  Audio Callback
 // ======================================================
