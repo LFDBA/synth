@@ -974,7 +974,15 @@ void updateKeyStates() {
 // ======================================================
 bool initSerial(const char* port="/dev/ttyACM1") {
     fd=open(port,O_RDONLY|O_NOCTTY);
-    if(fd<0){ std::cerr<<"Failed to open serial port\n"; return false; }
+    if(fd<0){ 
+        if(port==std::string("/dev/ttyACM1")){
+            std::cerr<<"Failed to open serial port 1, trying port 0...\n";
+            return initSerial("/dev/ttyACM0");
+        }else{
+            std::cerr<<"Failed to open serial port: "<<port<<"\n";
+            return false;
+        }
+    }
 
     termios tty{};
     if(tcgetattr(fd,&tty)!=0){ std::cerr<<"tcgetattr failed\n"; return false; }
