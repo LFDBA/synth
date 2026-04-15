@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <termios.h>
 #include <linux/input.h>
-#include <rtaudio/RtAudio.h>
 #include "Reverb.h"
 #include "font5x7.h"
 #include <ncurses.h>  
@@ -55,12 +54,6 @@ float noiseVolume = 0.5f;
 // Debounce in consecutive scans
 const int debounceScans = 8;
 
-// Global audio objects
-RtAudio dac;
-RtAudio::StreamParameters oParams;
-
-unsigned int currentDeviceId;
-std::atomic<bool> deviceSwitching(false);
 
 enum NoiseType {
     NOISE_NONE,
@@ -804,7 +797,7 @@ NoiseGenerator noise(noiseType);
 
 float mix;
 int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBufferFrames,
-                  double /*streamTime*/, RtAudioStreamStatus /*status*/, void* /*userData*/) 
+                  double /*streamTime*/, void* /*userData*/) 
 {
     float *output = static_cast<float*>(outputBuffer);
 
@@ -848,7 +841,6 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
                 for(int i = 0; i < 100; i++) {
                     oscSample += noise.next();
-                    // send sample to buffer, plot, or DAC
                 }
 
                 sample = oscSample * env;
@@ -1313,76 +1305,6 @@ void drawNoise() {
 
 
 
-// ======================================================
-//                  Device Switching
-// ======================================================
-
-void switchToDevice(unsigned int newDeviceId) {
-    if (deviceSwitching.load()) return; // Already switching
-    deviceSwitching.store(true);
-
-    try {
-        // Stop the current stream
-        if (dac.isStreamRunning()) {
-            dac.stopStream();
-        }
-        if (dac.isStreamOpen()) {
-            dac.closeStream();
-        }
-
-        // Update device ID
-        oParams.deviceId = newDeviceId;
-        currentDeviceId = newDeviceId;
-
-        // Restart with new device
-        unsigned int bufferFrames = 1024;
-        dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback);
-        dac.startStream();
-
-        std::cout << "Switched to audio device: " << newDeviceId << std::endl;
-    } catch (RtAudioError &e) {
-        std::cerr << "Failed to switch audio device: " << e.getMessage() << std::endl;
-        // Try to restart with old device
-        try {
-            unsigned int bufferFrames = 1024;
-            dac.openStream(&oParams, nullptr, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback);
-            dac.startStream();
-        } catch (RtAudioError &e2) {
-            std::cerr << "Failed to restart audio: " << e2.getMessage() << std::endl;
-        }
-    }
-
-    deviceSwitching.store(false);
-}
-
-void monitorAudioDevices() {
-    unsigned int lastDeviceCount = dac.getDeviceCount();
-
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
-
-        unsigned int currentDeviceCount = dac.getDeviceCount();
-        if (currentDeviceCount > lastDeviceCount) {
-            // New device(s) detected
-            std::cout << "New audio device(s) detected. Device count: " << currentDeviceCount << std::endl;
-
-            // Find the highest device ID (assuming new devices have higher IDs)
-            unsigned int newDeviceId = currentDeviceCount - 1;
-
-            // Check if it's an output device
-            RtAudio::DeviceInfo info = dac.getDeviceInfo(newDeviceId);
-            if (info.outputChannels > 0) {
-                std::cout << "Switching to new output device: " << info.name << std::endl;
-                switchToDevice(newDeviceId);
-            }
-
-            lastDeviceCount = currentDeviceCount;
-        } else if (currentDeviceCount < lastDeviceCount) {
-            // Device removed, but we'll keep current if possible
-            lastDeviceCount = currentDeviceCount;
-        }
-    }
-}
 
 
 
@@ -1390,10 +1312,6 @@ void monitorAudioDevices() {
 //                        MAIN
 // ======================================================
 int main() {
-    std::cout << dac.getDeviceCount() << " audio devices found.\n";
-    int defaultDevice = dac.getDefaultOutputDevice();
-    RtAudio::DeviceInfo info = dac.getDeviceInfo(defaultDevice);
-    std::cout << "Default audio device: " << info.name << info.probed << std::endl;
 
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
@@ -1442,20 +1360,8 @@ int main() {
     updateDisplay(global_spi_handle);
 
 
-    // RtAudio setup
-    oParams.deviceId = dac.getDefaultOutputDevice();
-    currentDeviceId = oParams.deviceId;
-    oParams.nChannels = 2;
     unsigned int bufferFrames = 1024;
 
-    try {
-        dac.openStream(&oParams,nullptr,RTAUDIO_FLOAT32,
-                       sampleRate,&bufferFrames,&audioCallback);
-        dac.startStream();
-    } catch(RtAudioError &e){
-        e.printMessage();
-        return 1;
-    }
 
     // Start background device monitoring thread
     std::thread deviceMonitor(monitorAudioDevices);
@@ -1543,8 +1449,6 @@ int main() {
         usleep(1000);
         lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4;
     }
-    try{ dac.stopStream(); } catch(RtAudioError &e){}
-    if(dac.isStreamOpen()) dac.closeStream();
 
     return 0;
 }
