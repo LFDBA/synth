@@ -79,7 +79,7 @@ NoiseType noiseType = NOISE_NONE;
 
 class NoiseGenerator {
 public:
-    NoiseGenerator(NoiseType type = NOISE_NONE) 
+    NoiseGenerator(NoiseType type = WHITE_NOISE) 
         : type(type), lastBrown(0.0f), pinkStore{0} {}
 
     float next() {
@@ -941,6 +941,8 @@ void updateKeyStates() {
 
         for (size_t c = 0; c < colPins.size(); ++c) {
             int keyID = (r * colPins.size()) + c;
+            std::cout << keyID;
+            keyID = mapKeyNumber(keyID);
             bool isPhysicalPressed = (gpioRead(colPins[c]) == 1);
 
             // Simple debounce logic
