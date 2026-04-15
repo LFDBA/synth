@@ -1393,7 +1393,7 @@ int main() {
     RtAudio::DeviceInfo info = dac.getDeviceInfo(dac.getDefaultOutputDevice());
         if (info.outputChannels > 0) {
             std::cout << "Switching to new output device: " << info.name << std::endl;
-            switchToDevice(newDeviceId);
+            switchToDevice(dac.getDefaultOutputDevice());
         }
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
