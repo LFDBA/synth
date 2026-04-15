@@ -4,7 +4,8 @@ git pull
 gpioset 0 26=1
 gpioset 0 27=0
 
-sudo ./load
+sudo ./load &
+SYNTH_LOADING=$!
 
 g++ \
   main.cpp \
