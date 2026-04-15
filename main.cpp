@@ -918,7 +918,7 @@ void onKeyPress(int keyID) {
             voices[v].keyID = keyID;
             voices[v].envTime = 0.0f;
             // Map keyID to a frequency (adjust math to fit your scale)
-            voices[v].frequency = noteToHz(48 + keyID); 
+            voices[v].frequency = noteToHz(12 + keyID); 
             break; 
         }
     }
