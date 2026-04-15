@@ -1391,6 +1391,9 @@ void monitorAudioDevices() {
 // ======================================================
 int main() {
     std::cout << dac.getDeviceCount() << " audio devices found.\n";
+    int defaultDevice = dac.getDefaultOutputDevice();
+    RtAudio::DeviceInfo info = dac.getDeviceInfo(defaultDevice);
+    std::cout << "Default audio device: " << info.name << info.probed << std::endl;
 
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
