@@ -1377,12 +1377,13 @@ void monitorAudioDevices() {
     }
 }
 
-std::system("kill $SYNTH_LOADING")
+
 
 // ======================================================
 //                        MAIN
 // ======================================================
 int main() {
+    std::system("kill $SYNTH_LOADING");
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     if(!initSerial()){
