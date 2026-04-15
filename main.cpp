@@ -565,7 +565,6 @@ int mapKeyNumber(int k) {
 const int numVoices = 7;
 float outputLevel = 0.1f;
 bool normVoices = true; // Normalize by active voices
-float pan = 0.0f;
 int fd;
 int editIndex = 0;
 bool edit = false;
@@ -872,8 +871,8 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
         // push and output
         pushSample(mix);
-        output[2*i]     = mix*(1.0f-pan);
-        output[2*i + 1] = mix*(pan+1.0f);
+        output[2*i]     = mix;
+        output[2*i + 1] = mix;
 
 
 
@@ -1082,7 +1081,6 @@ void editReverb() {
 // ======================================================
 void editTone(){
     if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.1f);
-    if(abs(p2-lastP2)>1) pan = norm(p2,0.0f,1023.0f,-1.0f,1.0f);
 
     if(abs(p3-lastP3)>1) {
         // compute the desired length, clamp to allowed range
