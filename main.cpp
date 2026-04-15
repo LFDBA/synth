@@ -79,7 +79,7 @@ NoiseType noiseType = NOISE_NONE;
 
 class NoiseGenerator {
 public:
-    NoiseGenerator(NoiseType type = WHITE_NOISE) 
+    NoiseGenerator(NoiseType type = NOISE_NONE) 
         : type(type), lastBrown(0.0f), pinkStore{0} {}
 
     float next() {

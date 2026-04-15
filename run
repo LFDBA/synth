@@ -2,6 +2,7 @@
 
 gpioset 0 26=0
 gpioset 0 21=1
+gpioset 0 27=0
 
 sudo ./main
 
