@@ -30,9 +30,9 @@ using namespace std::chrono;
 #include <iostream>
 
 
-std::vector<int> pins = {4, 5, 6, 12, 13, 27, 18, 19, 20, 22, 23};
+std::vector<int> pins = {4, 5, 6, 12, 13, 26, 18, 19, 20, 22, 23};
 std::vector<int> rowPins = {4, 5, 6, 12}; 
-std::vector<int> colPins = {13, 27, 18, 19, 20, 22, 23};
+std::vector<int> colPins = {13, 26, 18, 19, 20, 22, 23};
 
 void initMatrix() {
     for (int r : rowPins) {
