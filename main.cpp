@@ -29,6 +29,37 @@ using namespace std::chrono;
 #include <cstdint>
 #include <iostream>
 
+#include <alsa/asoundlib.h>
+#include <iostream>
+
+bool isHeadphonesPlugged() {
+    snd_hctl_t *hctl;
+    snd_hctl_elem_t *elem;
+    snd_ctl_elem_id_t *id;
+    snd_ctl_elem_value_t *value;
+
+    // Open the control interface for the default card
+    if (snd_hctl_open(&hctl, "hw:0", 0) < 0) return false;
+    if (snd_hctl_load(hctl) < 0) return false;
+
+    snd_ctl_elem_id_alloca(&id);
+    snd_ctl_elem_value_alloca(&value);
+
+    // We are looking for the "Headphone Jack" element
+    snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_CARD);
+    snd_ctl_elem_id_set_name(id, "Headphone Jack");
+
+    elem = snd_hctl_find_elem(hctl, id);
+    if (elem) {
+        snd_hctl_elem_read(elem, value);
+        int status = snd_ctl_elem_value_get_boolean(value, 0);
+        snd_hctl_close(hctl);
+        return status == 1; // 1 = Plugged, 0 = Unplugged
+    }
+
+    snd_hctl_close(hctl);
+    return false;
+}
 
 std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
 std::vector<int> rowPins = {4, 5, 6, 12}; 
@@ -1390,22 +1421,7 @@ void monitorAudioDevices() {
 //                        MAIN
 // ======================================================
 int main() {
-    unsigned int devices = dac.getDeviceCount();
-    RtAudio::DeviceInfo info;
-
-    for (unsigned int i = 0; i < devices; i++) {
-        info = dac.getDeviceInfo(i);
-        
-        if (info.probed) { // Check if the device is actually reachable
-            std::cout << "Device ID: " << i << "\n";
-            std::cout << "Name: " << info.name << "\n";
-            std::cout << "probed: " << (info.probed ? "Yes" : "No") << "\n";
-            std::cout << "Max Output Channels: " << info.outputChannels << "\n";
-            std::cout << "Is Default: " << (info.isDefaultOutput ? "Yes" : "No") << "\n";
-            std::cout << "---------------------------\n";
-        }
-    }
-    return 0;
+    std::cout << isHeadphonesPlugged() << std::endl;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     if(!initSerial()){
