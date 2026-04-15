@@ -31,18 +31,7 @@ using namespace std::chrono;
 
 
 std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
-struct PinPair {
-    int drive;
-    int read;
-};
 
-// This is your physical map based on your "full output list"
-std::vector<PinPair> keyMap = {
-    {4, 13}, {4, 17}, /* Skip 3 */ {4, 19}, {4, 20}, {4, 23}, {4, 22},
-    {5, 13}, {5, 17}, {5, 18}, {5, 19}, {5, 20}, {5, 23}, {5, 22},
-    {6, 13}, {6, 17}, /* Skip 17 */ {6, 19}, {6, 20}, {6, 23}, {6, 22},
-    {12, 17}, {12, 18} // The weird ones at the end
-};
 
 
 
@@ -936,46 +925,65 @@ void onKeyRelease(int keyID) {
     }
 }   
 
-void updateKeyBoard() {
-    // 1. Set all pins to Input Pull-Down first to be safe
-    for(int p : pins) {
-        gpioSetMode(p, PI_INPUT);
-        gpioSetPullUpDown(p, PI_PUD_DOWN);
-    }
+// Group pins by their FUNCTION in your list:
+std::vector<int> drivePins = {4, 5, 6, 12}; 
+std::vector<int> readPins  = {13, 17, 18, 19, 20, 22, 23};
 
-    for (int i = 0; i < keyMap.size(); i++) {
-        int d = keyMap[i].drive;
-        int r = keyMap[i].read;
-
-        // 2. Pulse the Drive Pin
+void initMatrix() {
+    for (int d : drivePins) {
         gpioSetMode(d, PI_OUTPUT);
-        gpioWrite(d, 1);
-        std::this_thread::sleep_for(std::chrono::microseconds(50));
-
-        bool isPressed = (gpioRead(r) == 1);
-
-        // 3. Debounce and Trigger (using your KeyID i)
-        if (isPressed) {
-            if (keyStates[i].count < debounceScans) keyStates[i].count++;
-            else if (!keyStates[i].pressed) {
-                keyStates[i].pressed = true;
-                onKeyPress(i); // i is now the reliable Index (0, 1, 2...)
-            }
-        } else {
-            if (keyStates[i].count > 0) keyStates[i].count--;
-            else if (keyStates[i].pressed) {
-                keyStates[i].pressed = false;
-                onKeyRelease(i);
-            }
-        }
-
-        // 4. Reset Drive Pin back to Input before next check
         gpioWrite(d, 0);
-        gpioSetMode(d, PI_INPUT);
-        gpioSetPullUpDown(d, PI_PUD_DOWN);
+    }
+    for (int r : readPins) {
+        gpioSetMode(r, PI_INPUT);
+        gpioSetPullUpDown(r, PI_PUD_DOWN);
     }
 }
 
+void updateKeyBoard() {
+    int currentKeyIndex = 0;
+
+    for (int dPin : drivePins) {
+        gpioWrite(dPin, 1); // Turn on one "Drive" line
+        std::this_thread::sleep_for(std::chrono::microseconds(100)); // Let it settle
+
+        for (int rPin : readPins) {
+            // Check if this specific pair is one that ACTUALLY exists
+            // Based on your list: 4&18 and 6&18 don't exist ("nothing")
+            bool physicalConnectionExists = true;
+            if ((dPin == 4 && rPin == 18) || (dPin == 6 && rPin == 18)) {
+                physicalConnectionExists = false;
+            }
+            // Pin 12 only connects to 17 and 18 in your list
+            if (dPin == 12 && (rPin != 17 && rPin != 18)) {
+                physicalConnectionExists = false;
+            }
+
+            if (physicalConnectionExists) {
+                bool isPressed = (gpioRead(rPin) == 1);
+                
+                // --- Debounce Logic ---
+                if (isPressed) {
+                    if (keyStates[currentKeyIndex].count < debounceScans) {
+                        keyStates[currentKeyIndex].count++;
+                    } else if (!keyStates[currentKeyIndex].pressed) {
+                        keyStates[currentKeyIndex].pressed = true;
+                        onKeyPress(currentKeyIndex);
+                    }
+                } else {
+                    if (keyStates[currentKeyIndex].count > 0) {
+                        keyStates[currentKeyIndex].count--;
+                    } else if (keyStates[currentKeyIndex].pressed) {
+                        keyStates[currentKeyIndex].pressed = false;
+                        onKeyRelease(currentKeyIndex);
+                    }
+                }
+                currentKeyIndex++; // Only increment index for real physical keys
+            }
+        }
+        gpioWrite(dPin, 0); // Turn off the line
+    }
+}
 // ======================================================
 //               Read Input Device
 // ======================================================
