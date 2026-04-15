@@ -715,8 +715,6 @@ float sampleBuffer[MAX_BUF_LEN];   // physical storage (preallocated)
 std::atomic<int> bufIndex{0};      // next write position (atomic)
 const int DRAW_WIDTH = WIDTH;                   // current write position
 
-// Push new sample into circular buffer
-// Push new sample into circular buffer (safe from audio thread)
 inline void pushSample(float s) {
     // fetch and increment index atomically
     int idx = bufIndex.fetch_add(1, std::memory_order_relaxed);
@@ -1363,9 +1361,6 @@ int main() {
     unsigned int bufferFrames = 1024;
 
 
-    // Start background device monitoring thread
-    std::thread deviceMonitor(monitorAudioDevices);
-    deviceMonitor.detach(); // Run in background
 
     std::cout << "Polyphonic Synth Ready.\n";
     std::cout << "Press keys z,x,c,v to trigger voices, 1–3 for menus.\n";
