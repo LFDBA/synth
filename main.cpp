@@ -1551,7 +1551,7 @@ int main() {
     
         updateDisplay(global_spi_handle);
 
-        updateKeyStates(); // scan keyboard matrix
+        updateKeyBoard(); // scan keyboard matrix
 
         if (singleClickPending) {
             unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
