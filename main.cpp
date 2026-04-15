@@ -906,43 +906,65 @@ int getKeyPress() {
 }
 
 
-int readKeyBoard() {
-    for (size_t r = 0; r < rowPins.size(); ++r) {
-        // 1. Set one row HIGH
-        gpioWrite(rowPins[r], 1);
-        
-        // Small settle time for capacitance on long membrane traces
-        std::this_thread::sleep_for(std::chrono::microseconds(50));
 
-        for (size_t c = 0; c < colPins.size(); ++c) {
-            int keyID = (r * colPins.size()) + c; // Unique ID 0 to 27
-            bool isPressed = (gpioRead(colPins[c]) == 1);
 
-            // Debounce Logic
-            if (isPressed) {
-                keyStates[keyID].count++;
-                if (keyStates[keyID].count >= debounceScans && !keyStates[keyID].pressed) {
-                    keyStates[keyID].pressed = true;
-                    gpioWrite(rowPins[r], 0); // Clean up before return
-                    return keyID; 
-                }
-            } else {
-                if (keyStates[keyID].pressed && keyStates[keyID].count > 0) {
-                   keyStates[keyID].count = 0;
-                   keyStates[keyID].pressed = false;
-                   // Optional: return negative ID for "key release"
-                   // return -keyID - 1; 
-                }
-                keyStates[keyID].count = 0;
-            }
+void onKeyPress(int keyID) {
+    // Find an available voice or one that matches this key
+    for (int v = 0; v < numVoices; v++) {
+        if (!voices[v].active) {
+            voices[v].active = true;
+            voices[v].releasing = false;
+            voices[v].keyID = keyID;
+            voices[v].envTime = 0.0f;
+            // Map keyID to a frequency (adjust math to fit your scale)
+            voices[v].frequency = noteToHz(60 + keyID); 
+            break; 
         }
-        // 2. Set row back to LOW before moving to next
-        gpioWrite(rowPins[r], 0);
     }
-    return -1111; // No new press detected
 }
 
+void onKeyRelease(int keyID) {
+    for (int v = 0; v < numVoices; v++) {
+        if (voices[v].keyID == keyID && voices[v].active) {
+            voices[v].active = false;
+            voices[v].releasing = true;
+            voices[v].envTime = 0.0f; // Reset for the Release phase of ADSR
+            // Note: Don't clear keyID yet, we need it to track this specific release
+        }
+    }
+}   
 
+void updateKeyStates() {
+    for (size_t r = 0; r < rowPins.size(); ++r) {
+        gpioWrite(rowPins[r], 1);
+        std::this_thread::sleep_for(std::chrono::microseconds(30)); // settle time
+
+        for (size_t c = 0; c < colPins.size(); ++c) {
+            int keyID = (r * colPins.size()) + c;
+            bool isPhysicalPressed = (gpioRead(colPins[c]) == 1);
+
+            // Simple debounce logic
+            if (isPhysicalPressed) {
+                if (keyStates[keyID].count < debounceScans) {
+                    keyStates[keyID].count++;
+                } else if (!keyStates[keyID].pressed) {
+                    // KEY PRESS EVENT
+                    keyStates[keyID].pressed = true;
+                    onKeyPress(keyID); 
+                }
+            } else {
+                if (keyStates[keyID].count > 0) {
+                    keyStates[keyID].count--;
+                } else if (keyStates[keyID].pressed) {
+                    // KEY RELEASE EVENT
+                    keyStates[keyID].pressed = false;
+                    onKeyRelease(keyID);
+                }
+            }
+        }
+        gpioWrite(rowPins[r], 0);
+    }
+}
 
 // ======================================================
 //               Read Input Device
@@ -1484,61 +1506,7 @@ int main() {
     
         updateDisplay(global_spi_handle);
 
-        // Keyboard triggering
-        int noteKey = readKeyBoard();
-
-        if(noteKey != -1111){
-            if(noteKey >= 0){
-                // Key press
-                Voice* voice = nullptr;
-
-                // 1. Find an inactive or finished voice
-                for(int i = 0; i < numVoices; i++){
-                    if(!voices[i].active && !voices[i].releasing){
-                        voice = &voices[i];
-                        break;
-                    }
-                }
-
-                // 2. If none available, steal the oldest active voice
-                if(!voice){
-                    int oldestIdx = 0;
-                    float oldestTime = voices[0].envTime;
-                    for(int i = 0; i < numVoices; i++){
-                        if(voices[i].active && voices[i].envTime > oldestTime){
-                            oldestTime = voices[i].envTime;
-                            oldestIdx = i;
-                        }
-                    }
-                    voice = &voices[oldestIdx];
-                    // Force release the old note
-                    voice->active = false;
-                    voice->releasing = true;
-                    voice->envTime = 0.0f;
-                }
-
-
-                // Assign the new note
-                voice->active = true;
-                voice->releasing = false;
-                voice->envTime = 0.0f;
-                voice->phase = 0.0f;
-                voice->frequency = noteToHz(noteKey);
-                voice->keyID = noteKey;
-
-            } else {
-                // Key release
-                int releasedKey = (-noteKey) - 1;
-                for(int i = 0; i < numVoices; i++){
-                    if(voices[i].keyID == releasedKey){
-                        voices[i].active = false;
-                        voices[i].releasing = true;
-                        voices[i].envTime = 0.0f;
-                    }
-                }
-
-            }
-        }
+        
 
         if (singleClickPending) {
             unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
