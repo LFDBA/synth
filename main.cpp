@@ -1374,7 +1374,32 @@ void monitorAudioDevices() {
         }
     }
 }
+void findDeadKeys() {
+    std::cout << "--- STARTING DIAGNOSTIC ---\n";
+    std::cout << "Press one of the 3 dead keys now...\n";
 
+    while (true) {
+        for (int i = 0; i < pins.size(); i++) {
+            // Set one pin as a 'Source'
+            gpioSetMode(pins[i], PI_OUTPUT);
+            gpioWrite(pins[i], 1);
+
+            for (int j = 0; j < pins.size(); j++) {
+                if (i == j) continue; // Don't check a pin against itself
+                
+                if (gpioRead(pins[j]) == 1) {
+                    std::cout << "SUCCESS! Key detected between Pin " << pins[i] 
+                              << " and Pin " << pins[j] << std::endl;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                }
+            }
+            // Reset pin to high-impedance (Input)
+            gpioWrite(pins[i], 0);
+            gpioSetMode(pins[i], PI_INPUT);
+            gpioSetPullUpDown(pins[i], PI_PUD_DOWN);
+        }
+    }
+}
 // ======================================================
 //                        MAIN
 // ======================================================
@@ -1507,6 +1532,7 @@ int main() {
         updateDisplay(global_spi_handle);
 
         updateKeyStates(); // scan keyboard matrix
+        findDeadKeys(); // diagnostic for dead keys (optional, can be commented out in production)
 
         if (singleClickPending) {
             unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
