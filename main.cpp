@@ -1378,15 +1378,16 @@ void monitorAudioDevices() {
 }
 
 
-
+if (std::system("kill $SYNTH_LOADING") != 0) {
+        // Handle error or just log it
+        std::cerr << "Warning: pkill load failed or process not found." << std::endl;
+    }
+    
 // ======================================================
 //                        MAIN
 // ======================================================
 int main() {
-    if (std::system("kill $SYNTH_LOADING") != 0) {
-        // Handle error or just log it
-        std::cerr << "Warning: pkill load failed or process not found." << std::endl;
-    }
+    
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     if(!initSerial()){
