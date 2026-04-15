@@ -1531,7 +1531,7 @@ int main() {
     
         updateDisplay(global_spi_handle);
 
-        updateKeyStates(); // scan keyboard matrix
+        // updateKeyStates(); // scan keyboard matrix
         findDeadKeys(); // diagnostic for dead keys (optional, can be commented out in production)
 
         if (singleClickPending) {
