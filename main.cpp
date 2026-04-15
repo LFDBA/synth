@@ -58,6 +58,8 @@ const int debounceScans = 8;
 // Global audio objects
 RtAudio dac;
 RtAudio::StreamParameters oParams;
+
+std::cout << dac.getDeviceCount() << " audio devices found.\n";
 unsigned int currentDeviceId;
 std::atomic<bool> deviceSwitching(false);
 
@@ -875,9 +877,6 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         output[2*i]     = mix*(1.0f-pan);
         output[2*i + 1] = mix*(pan+1.0f);
 
-
-
-        
     }
 
     return 0;
