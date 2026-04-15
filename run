@@ -20,8 +20,10 @@ g++ \
   -O3 -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
 
-kill $LOADER_PID
+kill -9 $LOADER_PID
 sudo rm -f /var/run/pigpio.pid
+gpioset 0 26=0
+gpioset 0 21=1
 sleep 0.5
 
 sudo ./main
