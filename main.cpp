@@ -46,16 +46,6 @@ std::vector<PinPair> keyMap = {
 
 
 
-void initMatrix() {
-    for (int r : rowPins) {
-        gpioSetMode(r, PI_OUTPUT);
-        gpioWrite(r, 0); // Keep rows low by default
-    }
-    for (int c : colPins) {
-        gpioSetMode(c, PI_INPUT);
-        gpioSetPullUpDown(c, PI_PUD_DOWN); // Pull down so they stay 0 until pressed
-    }
-}
 
 unsigned long lastClickTime = 0;
 const unsigned long doubleClickDelay = 400; // ms
