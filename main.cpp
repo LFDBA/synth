@@ -1390,11 +1390,21 @@ void monitorAudioDevices() {
 //                        MAIN
 // ======================================================
 int main() {
-    RtAudio::DeviceInfo info = dac.getDeviceInfo(dac.getDefaultOutputDevice());
-        if (info.outputChannels > 0) {
-            std::cout << "Switching to new output device: " << info.name << std::endl;
-            switchToDevice(dac.getDefaultOutputDevice());
+    unsigned int devices = dac.getDeviceCount();
+    RtAudio::DeviceInfo info;
+
+    for (unsigned int i = 0; i < devices; i++) {
+        info = dac.getDeviceInfo(i);
+        
+        if (info.probed) { // Check if the device is actually reachable
+            std::cout << "Device ID: " << i << "\n";
+            std::cout << "Name: " << info.name << "\n";
+            std::cout << "Max Output Channels: " << info.outputChannels << "\n";
+            std::cout << "Is Default: " << (info.isDefaultOutput ? "Yes" : "No") << "\n";
+            std::cout << "---------------------------\n";
         }
+    }
+    return 0;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     if(!initSerial()){
