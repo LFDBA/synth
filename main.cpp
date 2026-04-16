@@ -37,11 +37,13 @@ std::vector<int> rowPins = {17, 18, 19, 20, 23, 22};
 void initMatrix() {
     for (int r : rowPins) {
         gpioSetMode(r, PI_OUTPUT);
-        gpioWrite(r, 0); // Keep rows low by default
+        gpioWrite(r, 0);
+        std::cout << "ROW OUTPUT: " << r << "\n";
     }
     for (int c : colPins) {
         gpioSetMode(c, PI_INPUT);
-        gpioSetPullUpDown(c, PI_PUD_DOWN); // Pull down so they stay 0 until pressed
+        gpioSetPullUpDown(c, PI_PUD_DOWN);
+        std::cout << "COL INPUT: " << c << " idle=" << gpioRead(c) << "\n";
     }
 }
 
@@ -1515,11 +1517,6 @@ int main() {
     
         updateDisplay(global_spi_handle);
 
-        // before the scan loop
-        for (size_t c = 0; c < colPins.size(); ++c) {
-            std::cout << "idle col " << c << " pin " << colPins[c] 
-                    << " = " << gpioRead(colPins[c]) << "\n";
-        }
 
         updateKeyStates(); // scan keyboard matrix
 
