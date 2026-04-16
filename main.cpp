@@ -678,7 +678,6 @@ void initWavePoints() {
 // ======================================================
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
-    std::cout << "note: " << noteNumber << " freq: " << fC0*pow(2.0f,float(noteNumber+12)/12.0f) << "\n";
     return fC0*pow(2.0f,float(noteNumber+24)/12.0f);
 }
 
@@ -913,7 +912,6 @@ int getKeyPress() {
 
 void onKeyPress(int keyID) {
     // Find an available voice or one that matches this key
-    std::cout << keyID;
     keyID = mapKeyNumber(keyID);
     for (int v = 0; v < numVoices; v++) {
         if (!voices[v].active) {
@@ -921,8 +919,7 @@ void onKeyPress(int keyID) {
             voices[v].releasing = false;
             voices[v].keyID = keyID;
             voices[v].envTime = 0.0f;
-            // Map keyID to a frequency (adjust math to fit your scale)
-            
+            voices[v].phase = (float)rand() / RAND_MAX;
             voices[v].frequency = noteToHz(keyID);
             break; 
         }
@@ -930,12 +927,12 @@ void onKeyPress(int keyID) {
 }
 
 void onKeyRelease(int keyID) {
+    keyID = mapKeyNumber(keyID);
     for (int v = 0; v < numVoices; v++) {
         if (voices[v].keyID == keyID && voices[v].active) {
             voices[v].active = false;
             voices[v].releasing = true;
-            voices[v].envTime = 0.0f; // Reset for the Release phase of ADSR
-            // Note: Don't clear keyID yet, we need it to track this specific release
+            voices[v].envTime = 0.0f;
         }
     }
 }   
@@ -949,8 +946,6 @@ void updateKeyStates() {
             int keyID = (r * colPins.size()) + c;
             
             bool isPhysicalPressed = (gpioRead(colPins[c]) == 1);
-
-            // Simple debounce logic
             if (isPhysicalPressed) {
                 if (keyStates[keyID].count < debounceScans) {
                     keyStates[keyID].count++;
