@@ -51,6 +51,7 @@ bool singleClickPending = false;
 float fatness;
 float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
+float clipLevel = 2.0f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -637,8 +638,8 @@ float getMorphValue(int knobPos) {
 }
 
 float softClip(float x) {
-    if(x > 1.0f) return 1.0f - expf(-x);   // smooth limit
-    if(x < -1.0f) return -1.0f + expf(x);  // smooth limit
+    if(x > clipLevel) return clipLevel - expf(-x);   // smooth limit
+    if(x < -clipLevel) return -clipLevel + expf(x);  // smooth limit
     return x;
 }
 
@@ -772,8 +773,8 @@ void drawOutput() {
         float normSample = sample / maxVal; // -1..1
 
         // clip to [-1,1] just in case
-        if (normSample > 1.0f) normSample = 1.0f;
-        if (normSample < -1.0f) normSample = -1.0f;
+        if (normSample > clipLevel) normSample = clipLevel;
+        if (normSample < -clipLevel) normSample = -clipLevel;
 
         int y = HEIGHT/2 - int(normSample * (HEIGHT/2 - 1));
 
@@ -783,8 +784,8 @@ void drawOutput() {
             int prevIdx = (start + prevBufPos) % len;
             float prevSample = sampleBuffer[prevIdx];
             float prevNorm = prevSample / maxVal;
-            if (prevNorm > 1.0f) prevNorm = 1.0f;
-            if (prevNorm < -1.0f) prevNorm = -1.0f;
+            if (prevNorm > clipLevel) prevNorm = clipLevel;
+            if (prevNorm < -clipLevel) prevNorm = -clipLevel;
             int y0 = HEIGHT/2 - int(prevNorm * (HEIGHT/2 - 1));
             drawLine(x - 1, y0, x, y);
         } else {
