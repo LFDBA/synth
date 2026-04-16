@@ -679,7 +679,7 @@ void initWavePoints() {
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
     std::cout << "note: " << noteNumber << " freq: " << fC0*pow(2.0f,float(noteNumber+12)/12.0f) << "\n";
-    return fC0*pow(2.0f,float(noteNumber+12)/12.0f);
+    return fC0*pow(2.0f,float(noteNumber+24)/12.0f);
 }
 
 // ======================================================
