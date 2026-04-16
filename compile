@@ -1,7 +1,7 @@
 #!/bin/bash
 gpioset 0 26=1
 gpioset 0 27=0
-gpioset 0 21=0
+gpioset 0 16=0
 
 sudo ./load_synth_program &
 LOADER_PID=$!
@@ -37,5 +37,5 @@ done
 sleep 1
 
 gpioset 0 26=0
-gpioset 0 21=0
+gpioset 0 16=0
 gpioset 0 27=1
