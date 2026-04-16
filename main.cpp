@@ -678,7 +678,7 @@ void initWavePoints() {
 // ======================================================
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
-    return fC0*pow(2.0f,float(noteNumber+24)/12.0f);
+    return fC0*pow(2.0f,float(noteNumber+48)/12.0f);
 }
 
 // ======================================================
@@ -866,8 +866,8 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             mix += sample;
         }
 
-        if (normVoices && activeVoices > 0)
-            mix /= activeVoices;
+        if (normVoices && activeVoices > 1)
+            mix /= activeVoices/1.7f;
 
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
@@ -921,7 +921,9 @@ void onKeyPress(int keyID) {
             voices[v].keyID = keyID;
             voices[v].envTime = 0.0f;
             // Map keyID to a frequency (adjust math to fit your scale)
-            voices[v].frequency = noteToHz(12 + keyID); 
+            
+            voices[v].frequency = noteToHz(keyID); 
+            std::cout << " -> Voice " << keyID << " ON (Freq: " << voices[v].frequency << " Hz)\n";
             break; 
         }
     }
