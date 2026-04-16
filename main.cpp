@@ -939,12 +939,12 @@ void onKeyRelease(int keyID) {
 
 void updateKeyStates() {
     for (size_t r = 0; r < rowPins.size(); ++r) {
+        gpioSetMode(rowPins[r], PI_OUTPUT);
         gpioWrite(rowPins[r], 1);
-        std::this_thread::sleep_for(std::chrono::microseconds(30)); // settle time
+        std::this_thread::sleep_for(std::chrono::microseconds(50)); // bump to 50µs too
 
         for (size_t c = 0; c < colPins.size(); ++c) {
             int keyID = (r * colPins.size()) + c;
-            
             bool isPhysicalPressed = (gpioRead(colPins[c]) == 1);
             if (isPhysicalPressed) {
                 if (keyStates[keyID].count < debounceScans) {
@@ -965,6 +965,8 @@ void updateKeyStates() {
             }
         }
         gpioWrite(rowPins[r], 0);
+        gpioSetMode(rowPins[r], PI_INPUT);
+        gpioSetPullUpDown(rowPins[r], PI_PUD_DOWN);
     }
 }
 
