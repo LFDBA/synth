@@ -31,8 +31,8 @@ using namespace std::chrono;
 
 
 std::vector<int> pins = {4, 5, 6, 12, 21, 17, 18, 19, 20, 22, 23};
-std::vector<int> colPins = {4, 5, 6, 12, 21}; 
-std::vector<int> rowPins = {17, 18, 19, 20, 23, 22};
+std::vector<int> colPins = {4, 5, 6, 12}; 
+std::vector<int> rowPins = {21, 17, 18, 19, 20, 23, 22};
 
 void initMatrix() {
     for (int r : rowPins) {
