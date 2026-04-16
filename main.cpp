@@ -1515,6 +1515,12 @@ int main() {
     
         updateDisplay(global_spi_handle);
 
+        // before the scan loop
+        for (size_t c = 0; c < colPins.size(); ++c) {
+            std::cout << "idle col " << c << " pin " << colPins[c] 
+                    << " = " << gpioRead(colPins[c]) << "\n";
+        }
+
         updateKeyStates(); // scan keyboard matrix
 
         if (singleClickPending) {
