@@ -1413,7 +1413,7 @@ int main() {
         std::cerr << "pigpio init failed\n";
         return 1;
     }
-
+    initMatrix();
     signal(SIGINT, gracefulExit);
 
     gpioSetMode(PIN_DC, PI_OUTPUT);
