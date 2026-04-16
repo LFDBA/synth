@@ -866,7 +866,9 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             mix += sample;
         }
 
-        // then softclip and reverb
+        if (normVoices && activeVoices > 0)
+            mix /= activeVoices;
+
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
 
@@ -1081,7 +1083,7 @@ void editReverb() {
 //                     Tone Edit
 // ======================================================
 void editTone(){
-    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.1f);
+    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.5f);
 
     if(abs(p3-lastP3)>1) {
         // compute the desired length, clamp to allowed range
