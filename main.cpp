@@ -53,7 +53,7 @@ bool singleClickPending = false;
 float fatness;
 float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
-float clipLevel = 15.0f;
+float clipLevel = 2.0f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -564,7 +564,7 @@ int mapKeyNumber(int k) {
 // ======================================================
 
 const int numVoices = 7;
-float outputLevel = 10.0f;
+float outputLevel = 0.5f;
 bool normVoices = true; // Normalize by active voices
 int fd;
 int editIndex = 0;
