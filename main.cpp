@@ -1415,8 +1415,6 @@ int main() {
         std::cerr << "pigpio init failed\n";
         return 1;
     }
-    gpioSetMode(14, PI_INPUT);
-    gpioSetPullUpDown(14, PI_PUD_DOWN);
     initMatrix();
     signal(SIGINT, gracefulExit);
 
