@@ -678,7 +678,8 @@ void initWavePoints() {
 // ======================================================
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
-    return fC0*pow(2.0f,float(noteNumber+24)/12.0f);
+    std::cout << "note: " << noteNumber << " freq: " << fC0*pow(2.0f,float(noteNumber+12)/12.0f) << "\n";
+    return fC0*pow(2.0f,float(noteNumber+12)/12.0f);
 }
 
 // ======================================================
@@ -922,8 +923,7 @@ void onKeyPress(int keyID) {
             voices[v].envTime = 0.0f;
             // Map keyID to a frequency (adjust math to fit your scale)
             
-            voices[v].frequency = noteToHz(keyID); 
-            std::cout << " -> Voice " << keyID << " ON (Freq: " << voices[v].frequency << " Hz)\n";
+            voices[v].frequency = noteToHz(keyID);
             break; 
         }
     }
