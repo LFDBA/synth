@@ -545,14 +545,12 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 
 int mapKeyNumber(int k) {
     switch (k) {
-        case 31: return 7;
-        case 19: return 8;
-        case 55: return 9;
-        case 7:  return 13;
-        case 30: return 14;
-        case 18: return 15;
-        case 54: return 16;
-        case 6:  return 20;
+        case 6: return 5;
+        case 5: return 6;
+        case 13: return 12;
+        case 12: return 13;
+        case 20: return 19;
+        case 19: return 20;
         default:
             break;
     }
@@ -912,7 +910,6 @@ int getKeyPress() {
 
 void onKeyPress(int keyID) {
     // Find an available voice or one that matches this key
-    std::cout << "Key Pressed: " << keyID << "\n";
     keyID = mapKeyNumber(keyID);
     for (int v = 0; v < numVoices; v++) {
         if (!voices[v].active) {
