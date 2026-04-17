@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <cmath>
 #include <iostream>

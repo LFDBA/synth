@@ -1486,8 +1486,8 @@ void drawNoise() {
     img = nullptr;
 }
 
-void jitter(int& x, int amt) {
-    x += std::rand() % (amt*2 + 1) - amt;
+int jitter(int x, int amt) {
+    return x + (std::rand() % (amt*2 + 1) - amt);
 }
 void drawHarmonist() {
     clearBuffer();
