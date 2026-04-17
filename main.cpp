@@ -603,11 +603,17 @@ struct Voice {
     float oscVolume = 1.0f;
     int keyID = -1;             // store which key triggered this voice
 };
+struct Harmony {
+    int interval = -12;   // semitone offset from root
+    Voice& voice;
+    float detune = 0;   // small frequency offset for chorus effect
+    float level = 1;    // volume level of this harmony voice
+};
 
 
 
 Voice voices[numVoices];
-Voice harmonies[numVoices];
+Harmony harmonies[numVoices*3]; // up to 3 harmonies per voice
 int noteMapping[numVoices] = {48, 52, 55, 60, 64, 67, 72}; // MIDI notes
 bool custom = false;
 
@@ -806,94 +812,63 @@ void drawOutput() {
 
 
 NoiseGenerator noise(noiseType);
-// ======================================================
-//                  Audio Callback
-// ======================================================
 
-float mix;
-int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBufferFrames,
-                  double /*streamTime*/, RtAudioStreamStatus /*status*/, void* /*userData*/) 
-{
-    float *output = static_cast<float*>(outputBuffer);
+void sendToOutput(Voice& voice){
 
-    if(custom && waveNeedsRebuild) rebuildWaveTable();
-
-    for(unsigned int i=0;i<nBufferFrames;i++){
         // compute raw mix from all voices
         mix = 0.0f;
         int activeVoices = 0;
 
-        for(int v = 0; v < numVoices; v++){
-            Voice &voice = voices[v];
-            float sample = 0.0f;
+        
+        float sample = 0.0f;
 
-            if(voice.active || voice.releasing){
-                activeVoices++;
-                voice.envTime += 1.0f/sampleRate;
-                float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume, sample)[0];
+        if(voice.active || voice.releasing){
+            activeVoices++;
+            voice.envTime += 1.0f/sampleRate;
+            float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume, sample)[0];
 
-                // oscillator blending (same as your code)
-                float oscSample;
-                if(custom){
-                    int idx = int(voice.phase * TABLE_SIZE);
-                    if(idx >= TABLE_SIZE) idx = TABLE_SIZE-1;
-                    oscSample = customTable[idx];
-                } else {
-                    float seg = knobPosition * 4.0f;
-                    int idx = int(seg);
-                    float blend = seg - idx;
-                    float w1, w2;
-                    switch(idx){
-                        case 0: w1=sineWave(voice.phase); w2=squareWave(voice.phase); break;
-                        case 1: w1=squareWave(voice.phase); w2=sawWave(voice.phase); break;
-                        case 2: w1=sawWave(voice.phase); w2=triangleWave(voice.phase); break;
-                        case 3: w1=triangleWave(voice.phase); w2=sineWave(voice.phase); break;
-                        default: w1=w2=0.0f;
-                    }
-                    oscSample = ((1.0f-blend)*w1 + blend*w2);
+            // oscillator blending (same as your code)
+            float oscSample;
+            if(custom){
+                int idx = int(voice.phase * TABLE_SIZE);
+                if(idx >= TABLE_SIZE) idx = TABLE_SIZE-1;
+                oscSample = customTable[idx];
+            } else {
+                float seg = knobPosition * 4.0f;
+                int idx = int(seg);
+                float blend = seg - idx;
+                float w1, w2;
+                switch(idx){
+                    case 0: w1=sineWave(voice.phase); w2=squareWave(voice.phase); break;
+                    case 1: w1=squareWave(voice.phase); w2=sawWave(voice.phase); break;
+                    case 2: w1=sawWave(voice.phase); w2=triangleWave(voice.phase); break;
+                    case 3: w1=triangleWave(voice.phase); w2=sineWave(voice.phase); break;
+                    default: w1=w2=0.0f;
                 }
-                
+                oscSample = ((1.0f-blend)*w1 + blend*w2);
+            }
+            
 
-                for(int i = 0; i < 100; i++) {
-                    oscSample += noise.next();
-                    // send sample to buffer, plot, or DAC
-                }
-
-                sample = oscSample * env;
-
-                voice.phase += voice.frequency/sampleRate;
-                if(voice.phase >= 1.0f) voice.phase -= 1.0f;
-
-                if(voice.releasing && voice.envTime >= release){
-                    voice.releasing = false;
-                    voice.envTime = 0.0f;
-                    voice.phase = 0.0f;
-                }
+            for(int i = 0; i < 100; i++) {
+                oscSample += noise.next();
+                // send sample to buffer, plot, or DAC
             }
 
-            for(int h = 0; h < numVoices; h++){
-                Voice &harmony = harmonies[h];
-                if(harmony.active || harmony.releasing){
-                    float hSample = 0.0f;
-                    float hEnv = ADSR(attack, decay, sustain, release, harmony.active, harmony.envTime, harmony.oscVolume)[0];
-                    int idx = int(harmony.phase * TABLE_SIZE);
-                    if(idx >= TABLE_SIZE) idx = TABLE_SIZE-1;
-                    hSample = customTable[idx] * hEnv;
+            sample = oscSample * env;
 
-                    harmony.phase += harmony.frequency/sampleRate;
-                    if(harmony.phase >= 1.0f) harmony.phase -= 1.0f;
+            voice.phase += voice.frequency/sampleRate;
+            if(voice.phase >= 1.0f) voice.phase -= 1.0f;
 
-                    if(harmony.releasing && harmony.envTime >= release){
-                        harmony.releasing = false;
-                        harmony.envTime = 0.0f;
-                        harmony.phase = 0.0f;
-                    }
-
-                    sample += hSample;
-                }
+            if(voice.releasing && voice.envTime >= release){
+                voice.releasing = false;
+                voice.envTime = 0.0f;
+                voice.phase = 0.0f;
             }
-            mix += sample;
         }
+
+        
+        mix += sample;
+        
 
         if (normVoices && activeVoices > 1)
             mix /= activeVoices/1.7f;
@@ -910,6 +885,32 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
         
     }
+}
+// ======================================================
+//                  Audio Callback
+// ======================================================
+
+float mix;
+int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBufferFrames,
+                  double /*streamTime*/, RtAudioStreamStatus /*status*/, void* /*userData*/) 
+{
+    float *output = static_cast<float*>(outputBuffer);
+
+    if(custom && waveNeedsRebuild) rebuildWaveTable();
+
+
+    for(int v = 0; v < numVoices; v++){
+        sendToOutput(voices[v]);
+    }
+    for(int h = 0; h < numVoices*3; h++){
+        if(harmonies[h].voice.active || harmonies[h].voice.releasing){
+            Voice v = harmonies[h].voice;
+            v.frequency = noteToHz(noteMapping[v.keyID] + harmonies[h].interval) * (1.0f + harmonies[h].detune);
+            v.oscVolume = harmonies[h].level;
+            sendToOutput(v);
+        }
+    }
+
 
     return 0;
 }
@@ -1550,16 +1551,14 @@ int main() {
             // if(edit) editHarmonist();
             // drawHarmonist();
             for (int i = 0; i < numVoices; i++) {
-                Voice &voice = voices[i];
-                for (int v = 0; v < numVoices; v++) {
-                    if (!harmonies[v].active) {
-                        harmonies[v].active = voice.active;
-                        harmonies[v].releasing = voice.releasing;
-                        harmonies[v].keyID = voice.keyID+7; 
-                        harmonies[v].envTime = voice.envTime;
-                        harmonies[v].phase = voice.phase;
-                        harmonies[v].frequency =  noteToHz(voice.keyID+7); // simple semitone steps
-                        break; 
+                if (voices[i].active) {
+                    Voice &voice = voices[i];
+                    for(int i = 0; i < numVoices * 3; i++) {
+                        if(!harmonies[i].voice.active) {
+                            harmonies[i].voice = voice;
+                            harmonies[i].interval = 7;
+                            break;
+                        }
                     }
                 }
             }
