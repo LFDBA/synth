@@ -1,21 +1,44 @@
 #!/bin/bash
 
-blink=True
 gpioset 0 27=0
 gpioset 0 21=0
-
-while $blink; do
-    gpioset 0 26=1
-    sleep 0.5
-    gpioset 0 26=0
-    sleep 0.5
-done &
 git pull
+
+BLINK_PID=""
+
+start_blink() {
+    (
+        while true; do
+            gpioset 0 26=1
+            sleep 0.5
+            gpioset 0 26=0
+            sleep 0.5
+        done
+    ) &
+    BLINK_PID=$!
+}
+
+stop_blink() {
+    if [ -n "$BLINK_PID" ]; then
+        kill "$BLINK_PID" 2>/dev/null
+        wait "$BLINK_PID" 2>/dev/null
+        BLINK_PID=""
+    fi
+}
+
+gpioset 0 26=0
+start_blink
 g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread
+LOADER_COMPILE_STATUS=$?
+if [ "$LOADER_COMPILE_STATUS" -ne 0 ]; then
+    stop_blink
+    gpioset 0 26=0
+    exit "$LOADER_COMPILE_STATUS"
+fi
+
 sudo ./load_synth_program &
 LOADER_PID=$!
-blink=False
-
+stop_blink
 gpioset 0 26=1
 
 
@@ -41,7 +64,7 @@ sudo fuser -k 8888/tcp 2>/dev/null
 sudo rm -f /var/run/pigpio.pid
 while lsof -i :8888 > /dev/null; do 
     sleep 0.5
-    if gpioget 0 26 == 1; then
+    if [ "$(gpioget 0 26)" = "1" ]; then
         gpioset 0 26=0
     else
         gpioset 0 26=1
