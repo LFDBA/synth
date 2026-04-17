@@ -1424,7 +1424,7 @@ void drawNoise() {
     float cx = WIDTH / 2.0f;
     float cy = HEIGHT / 2.0f;
     float R = 20.0f;          // base circle radius
-    float scale = 30.0f;     // scale factor for sample amplitudes
+    float scale = 10.0f;     // scale factor for sample amplitudes
 
     for (int i = 0; i < DRAW_WIDTH; ++i) {
         // map x to buffer index
@@ -1459,6 +1459,12 @@ void drawNoise() {
     img = nullptr;
 }
 
+
+void drawHarmonist() {
+    clearBuffer();
+
+    drawCircle(64, 32, 10);
+}
 
 
 
@@ -1666,7 +1672,7 @@ int main() {
         }
         if(menu==HARMONIST_MENU) {
             if(edit) editHarmonist();
-            drawOutput();
+            drawHarmonist();
         }
 
         if (edit) {
