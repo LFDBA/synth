@@ -1494,25 +1494,25 @@ void drawHarmonist() {
     int amt = norm(mix, 0.0f, 0.1f, 0.0f, 1.5f);
     
     if (harmonyCount == 0) {
-        drawCircle(jitter(64), jitter(32), 10);
+        drawCircle(jitter(64, amt), jitter(32, amt), 10);
     }
     else if (harmonyCount == 1) {
         int radius = 7 + std::abs(harmonySettings[0].level * 5);
-        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[0].interval, radius)), jitter(32), radius, std::abs(harmonySettings[0].detune*3000));
+        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[0].interval, radius), amt), jitter(32, amt), radius, std::abs(harmonySettings[0].detune*3000));
     }
     else if (harmonyCount == 2) {
         int radius0 = 6 + std::abs(harmonySettings[0].level * 5);
         int radius1 = 6 + std::abs(harmonySettings[1].level * 5);
-        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[0].interval, radius0)), jitter(20), radius0, std::abs(harmonySettings[0].detune*3000));
-        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[1].interval, radius1)), jitter(46), radius1, std::abs(harmonySettings[1].detune*3000));
+        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[0].interval, radius0), amt), jitter(20, amt), radius0, std::abs(harmonySettings[0].detune*3000));
+        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[1].interval, radius1), amt), jitter(46, amt), radius1, std::abs(harmonySettings[1].detune*3000));
     }
     else if (harmonyCount == 3) {
         int radius0 = 3 + std::abs(harmonySettings[0].level * 5);
         int radius1 = 3 + std::abs(harmonySettings[1].level * 5);
         int radius2 = 3 + std::abs(harmonySettings[2].level * 5);
-        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[0].interval, radius0)), jitter(18), radius0, std::abs(harmonySettings[0].detune*3000));
-        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[1].interval, radius1)), jitter(32), radius1, std::abs(harmonySettings[1].detune*3000));
-        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[2].interval, radius2)), jitter(46), radius2, std::abs(harmonySettings[2].detune*3000));
+        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[0].interval, radius0), amt), jitter(18, amt), radius0, std::abs(harmonySettings[0].detune*3000));
+        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[1].interval, radius1), amt), jitter(32, amt), radius1, std::abs(harmonySettings[1].detune*3000));
+        drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[2].interval, radius2), amt), jitter(46, amt), radius2, std::abs(harmonySettings[2].detune*3000));
     }
     
 }
