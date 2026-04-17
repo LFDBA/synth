@@ -546,16 +546,16 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
 }
 
 int mapKeyNumber(int k) {
-    switch (k) {
-        case 6: return 5;
-        case 5: return 6;
-        case 13: return 12;
-        case 12: return 13;
-        case 20: return 19;
-        case 19: return 20;
-        default:
-            break;
-    }
+    // switch (k) {
+    //     case 6: return 5;
+    //     case 5: return 6;
+    //     case 13: return 12;
+    //     case 12: return 13;
+    //     case 20: return 19;
+    //     case 19: return 20;
+    //     default:
+    //         break;
+    // }
     return k;
 }
 
