@@ -1498,8 +1498,8 @@ void drawHarmonist() {
         drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[0].interval, radius), 32, radius, std::abs(harmonySettings[0].detune*1000));
     }
     else if (harmonyCount == 2) {
-        int radius0 = 4 + std::abs(harmonySettings[0].level * 5);
-        int radius1 = 4 + std::abs(harmonySettings[1].level * 5);
+        int radius0 = 6 + std::abs(harmonySettings[0].level * 5);
+        int radius1 = 6 + std::abs(harmonySettings[1].level * 5);
         drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[0].interval, radius0), 20, radius0, std::abs(harmonySettings[0].detune*1000));
         drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[1].interval, radius1), 46, radius1, std::abs(harmonySettings[1].detune*1000));
     }
