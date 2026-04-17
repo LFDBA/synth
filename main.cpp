@@ -1462,8 +1462,29 @@ void drawNoise() {
 
 void drawHarmonist() {
     clearBuffer();
-
-    drawCircle(64, 32, 10);
+    
+    if (harmonyCount == 0) {
+        drawCircle((harmonySettings[0].interval+24)*(128/48), 32, 10);
+    }
+    else if (harmonyCount == 1) {
+        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 32, 10);
+    }
+    else if (harmonyCount == 2) {
+        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 25, 8);
+        drawFilledCircle((harmonySettings[1].interval+24)*(128/48), 39, 8);
+    }
+    else if (harmonyCount == 3) {
+        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 18, 6);
+        drawFilledCircle((harmonySettings[1].interval+24)*(128/48), 32, 6);
+        drawFilledCircle((harmonySettings[2].interval+24)*(128/48), 46, 6);
+    }
+    else if (harmonyCount == 4) {
+        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 14, 4);
+        drawFilledCircle((harmonySettings[1].interval+24)*(128/48), 26, 4);
+        drawFilledCircle((harmonySettings[2].interval+24)*(128/48), 38, 4);
+        drawFilledCircle((harmonySettings[3].interval+24)*(128/48), 50, 4);
+    }
+    
 }
 
 
