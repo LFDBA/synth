@@ -1131,15 +1131,20 @@ void drawADSR() {
         float env;
 
         //============================ TEST ==============================//
+        //if (t < attack + decay + sustainView)
+        //     env = ADSR(attack, decay, sustain, release, true, t, 1.0, sustain); //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+        // else
+        //     env = ADSR(attack, decay, sustain, release, false,
+        //                t - (attack + decay + sustainView),
+        //                1.0, sustain);  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+
+                       
         if (t < attack + decay + sustainView)
-            env = ADSR(attack, decay, sustain, release, true, t, 1.0, sustain); //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+            env = ADSR(attack, decay, sustain, release, true, voices[numVoices-1].envTime, 1.0, sustain)[0]; //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
         else
             env = ADSR(attack, decay, sustain, release, false,
-            t - (attack + decay + sustainView),
-            1.0, sustain);  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
-            
-
-            
+                       voices[numVoices-1].envTime - (attack + decay + sustainView),
+                       1.0, sustain)[0];  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
 
         int y = HEIGHT - 1 - int(env * (HEIGHT - 1));
         if (lastY >= 0) drawLine(x-1, lastY, x, y);
