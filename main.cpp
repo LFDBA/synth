@@ -468,34 +468,37 @@ void drawMenu() {
     int menuH = 11;   // enough for 7px font + padding
     int gap = 4;
     clearBuffer();
-    if(menuSelection<5){
-        if(menuSelection == 1) {
-            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
-            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-        }
-        else if(menuSelection == 2){
-            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
-            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-        }
-        else if(menuSelection == 3){
-            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
-            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
-        }
-        else if(menuSelection == 4){
-            drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
-            drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB", true);
-        }
+    if(menuSelection == 1) {
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+    }
+    else if(menuSelection == 2){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+    }
+    else if(menuSelection == 3){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB");
+    }
+    else if(menuSelection == 4){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "TONE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "WAVE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "ADSR");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "REVERB", true);
     }
     else if(menuSelection == 5){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST");
+    }
+    else if(menuSelection == 6){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST", true);
     }
 }
 
@@ -1128,20 +1131,15 @@ void drawADSR() {
         float env;
 
         //============================ TEST ==============================//
-        // if (t < attack + decay + sustainView)
-        //     env = ADSR(attack, decay, sustain, release, true, t, 1.0, sustain); //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
-        // else
-        //     env = ADSR(attack, decay, sustain, release, false,
-        //                t - (attack + decay + sustainView),
-        //                1.0, sustain);  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
-
-                       
         if (t < attack + decay + sustainView)
-            env = ADSR(attack, decay, sustain, release, true, voices[numVoices-1].envTime, 1.0, sustain)[0]; //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+            env = ADSR(attack, decay, sustain, release, true, t, 1.0, sustain); //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
         else
             env = ADSR(attack, decay, sustain, release, false,
-                       voices[numVoices-1].envTime - (attack + decay + sustainView),
-                       1.0, sustain)[0];  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+            t - (attack + decay + sustainView),
+            1.0, sustain);  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+            
+
+            
 
         int y = HEIGHT - 1 - int(env * (HEIGHT - 1));
         if (lastY >= 0) drawLine(x-1, lastY, x, y);
