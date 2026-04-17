@@ -13,6 +13,10 @@ g++ \
   main.cpp \
   Reverb.cpp \
   font5x7.cpp \
+  FFTConvolver.cpp \
+  TwoStageFFTConvolver.cpp \
+  Utilities.cpp \
+  AudioFFT.cpp \
   -o main \
   -O3 -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
