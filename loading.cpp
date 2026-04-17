@@ -126,7 +126,7 @@ void drawRX2(int centerX, int topY) {
     const int GW  = 5 * S;
     const int GAP = S;
 
-    const uint8_t* glyphs[] = { GLYPH_P, GLYPH_X, GLYPH_DASH, GLYPH_1 };
+    const uint8_t* glyphs[] = { GLYPH_R, GLYPH_X, GLYPH_DASH, GLYPH_2 };
     const int n = 4;
 
     int totalW = n * GW + (n - 1) * GAP;
