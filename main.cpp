@@ -608,6 +608,26 @@ float norm(float x, float in_min, float in_max, float out_min, float out_max) {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+constexpr float MIN_VISUAL_LEVEL = 0.02f;
+
+float sanitizeDisplaySample(float sample) {
+    return std::isfinite(sample) ? sample : 0.0f;
+}
+
+int visualJitterAmount(float sample, float referenceLevel, float maxAmt) {
+    if (maxAmt <= 0.0f || !std::isfinite(sample)) return 0;
+
+    referenceLevel = std::max(referenceLevel, MIN_VISUAL_LEVEL);
+    float magnitude = std::clamp(std::fabs(sample), 0.0f, referenceLevel);
+    return std::max(0, int(norm(magnitude, 0.0f, referenceLevel, 0.0f, maxAmt)));
+}
+
+int randomOffset(int amt) {
+    amt = std::max(0, amt);
+    if (amt == 0) return 0;
+    return std::rand() % (amt * 2 + 1) - amt;
+}
+
 int mapKeyNumber(int k) {
     // switch (k) {
     //     case 6: return 5;
@@ -836,6 +856,8 @@ const int DRAW_WIDTH = WIDTH;                   // current write position
 // Push new sample into circular buffer
 // Push new sample into circular buffer (safe from audio thread)
 inline void pushSample(float s) {
+    s = sanitizeDisplaySample(s);
+
     // fetch and increment index atomically
     int idx = bufIndex.fetch_add(1, std::memory_order_relaxed);
     int len = BUF_LEN.load(std::memory_order_acquire);
@@ -870,10 +892,11 @@ void drawOutput() {
     // Find max absolute value for normalization (scan logical length)
     float maxVal = 1e-6f;
     for (int i = 0; i < len; ++i) {
-        float v = sampleBuffer[(start + i) % len];
-        float av = fabsf(v);
+        float v = sanitizeDisplaySample(sampleBuffer[(start + i) % len]);
+        float av = std::fabs(v);
         if (av > maxVal) maxVal = av;
     }
+    if (!std::isfinite(maxVal) || maxVal < 1e-6f) maxVal = 1.0f;
 
     // Draw line across screen mapping DISPLAY X -> buffer samples
     for (int x = 0; x < DRAW_WIDTH; ++x) {
@@ -881,24 +904,17 @@ void drawOutput() {
         // We map x in 0..DRAW_WIDTH-1 to buffer positions from oldest -> newest
         int bufPos = iMap(x, 0, DRAW_WIDTH - 1, 0, len - 1);
         int idx = (start + bufPos) % len;
-        float sample = sampleBuffer[idx];
-        float normSample = sample / maxVal; // -1..1
-
-        // clip to [-1,1] just in case
-        if (normSample > clipLevel) normSample = clipLevel;
-        if (normSample < -clipLevel) normSample = -clipLevel;
-
-        int y = HEIGHT/2 - int(normSample * (HEIGHT/2 - 1));
+        float sample = sanitizeDisplaySample(sampleBuffer[idx]);
+        float normSample = std::clamp(sample / maxVal, -1.0f, 1.0f);
+        int y = std::clamp(HEIGHT/2 - int(normSample * (HEIGHT/2 - 1)), 0, HEIGHT - 1);
 
         if (x > 0) {
             // previous sample
             int prevBufPos = iMap(x - 1, 0, DRAW_WIDTH - 1, 0, len - 1);
             int prevIdx = (start + prevBufPos) % len;
-            float prevSample = sampleBuffer[prevIdx];
-            float prevNorm = prevSample / maxVal;
-            if (prevNorm > clipLevel) prevNorm = clipLevel;
-            if (prevNorm < -clipLevel) prevNorm = -clipLevel;
-            int y0 = HEIGHT/2 - int(prevNorm * (HEIGHT/2 - 1));
+            float prevSample = sanitizeDisplaySample(sampleBuffer[prevIdx]);
+            float prevNorm = std::clamp(prevSample / maxVal, -1.0f, 1.0f);
+            int y0 = std::clamp(HEIGHT/2 - int(prevNorm * (HEIGHT/2 - 1)), 0, HEIGHT - 1);
             drawLine(x - 1, y0, x, y);
         } else {
             // first column: put a small dot
@@ -1026,6 +1042,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
         mix = softClip(mix * outputLevel);
         mix = reverb.process(mix);
+        mix = sanitizeDisplaySample(mix);
 
         pushSample(mix);
         output[2 * i] = mix;
@@ -1380,14 +1397,14 @@ void drawReverb() {
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
     int jitterX = 0;
     int jitterY = 0;
-    int amt = norm(mix, 0.0f, 0.1f, 0.0f, 1.5f);
+    int amt = visualJitterAmount(mix, outputLevel, 1.5f);
     
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
     
     for(int i = 0; i < dCay/2; i++){
-        jitterX = std::rand() % (amt*2 + 1)-amt;
-        jitterY = std::rand() % (amt*2 + 1)-amt;
+        jitterX = randomOffset(amt);
+        jitterY = randomOffset(amt);
         
         
         drawRectCentered(64+jitterX, 32+jitterY, dSize+pow(i, 2), dSize+pow(i,2));
@@ -1452,15 +1469,16 @@ void drawNoise() {
     float cy = HEIGHT / 2.0f;
     float R = 20.0f;          // base circle radius
     float scale = 10.0f;     // scale factor for sample amplitudes
+    float maxR = std::min(std::min(cx, float(WIDTH - 1) - cx), std::min(cy, float(HEIGHT - 1) - cy));
 
     for (int i = 0; i < DRAW_WIDTH; ++i) {
         // map x to buffer index
         int bufPos = iMap(i, 0, DRAW_WIDTH - 1, 0, len - 1);
         int idx = (start + bufPos) % len;
-        float sample = sampleBuffer[idx];  // raw value
+        float sample = sanitizeDisplaySample(sampleBuffer[idx]);  // raw value
 
         float angle = 2.0f * M_PI * i / DRAW_WIDTH;
-        float r = R + sample * scale;
+        float r = std::clamp(R + sample * scale, 1.0f, maxR);
 
         float x = cx + r * cos(angle);
         float y = cy + r * sin(angle);
@@ -1469,10 +1487,10 @@ void drawNoise() {
             // previous point
             int prevBufPos = iMap(i - 1, 0, DRAW_WIDTH - 1, 0, len - 1);
             int prevIdx = (start + prevBufPos) % len;
-            float prevSample = sampleBuffer[prevIdx];
+            float prevSample = sanitizeDisplaySample(sampleBuffer[prevIdx]);
 
             float prevAngle = 2.0f * M_PI * (i - 1) / DRAW_WIDTH;
-            float prevR = R + prevSample * scale;
+            float prevR = std::clamp(R + prevSample * scale, 1.0f, maxR);
             float x0 = cx + prevR * cos(prevAngle);
             float y0 = cy + prevR * sin(prevAngle);
 
@@ -1487,11 +1505,11 @@ void drawNoise() {
 }
 
 int jitter(int x, int amt) {
-    return x + (std::rand() % (amt*2 + 1) - amt);
+    return x + randomOffset(amt);
 }
 void drawHarmonist() {
     clearBuffer();
-    int amt = norm(mix, 0.0f, 0.1f, 0.0f, 3.0f);
+    int amt = visualJitterAmount(mix, outputLevel, 3.0f);
     
     if (harmonyCount == 0) {
         drawCircle(jitter(64, amt), jitter(32, amt), 10);
