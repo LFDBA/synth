@@ -327,6 +327,22 @@ void drawFilledCircle(int cx, int cy, int radius) {
     }
 }
 
+void drawFilledCircleSparse(int cx, int cy, int radius, float removePercent) {
+    removePercent = std::clamp(removePercent, 0.0f, 100.0f);
+    float keepChance = 1.0f - (removePercent / 100.0f);
+
+    for (int px = -radius; px <= radius; px++) {
+        int half = static_cast<int>(sqrtf(float(radius * radius - px * px)));
+        for (int py = -half; py <= half; py++) {
+            float r = (float)rand() / RAND_MAX;
+            if (r < keepChance) {
+                drawPixel(cx + px, cy + py);
+            }
+        }
+    }
+}
+
+
 // Draw a single character at (x, y)
 void drawChar(int x, int y, char c) {
     if (c < 'A' || c > 'Z') return; // ignore non-capitals
@@ -641,17 +657,17 @@ struct Voice {
 struct HarmonySetting {
     int interval = 7;   // semitone offset from root
     float detune = 0;   // small frequency offset for chorus effect
+    float level = 0.35f;
 };
 
 
 
 Voice voices[numVoices];
 HarmonySetting harmonySettings[MAX_HARMONIES] = {
-    {7, 0.0f},
-    {12, 0.0f},
-    {19, 0.0f}
+    {7, 0.0f, 0.35f},
+    {12, 0.0f, 0.35f},
+    {19, 0.0f, 0.35f}
 };
-float harmonyVolume = 0.35f;
 int harmonyCount = 0;
 bool custom = false;
 
@@ -952,10 +968,11 @@ float renderVoiceSample(Voice& voice) {
 float renderHarmonySample(Voice& voice, int harmonyIndex) {
     if (!(voice.active || voice.releasing)) return 0.0f;
     if (harmonyIndex < 0 || harmonyIndex >= harmonyCount) return 0.0f;
-    if (harmonyVolume <= 0.0f) return 0.0f;
 
     const HarmonySetting& setting = harmonySettings[harmonyIndex];
-    float env = getVoiceEnvelope(voice, voice.oscVolume * harmonyVolume);
+    if (setting.level <= 0.0f) return 0.0f;
+
+    float env = getVoiceEnvelope(voice, voice.oscVolume * setting.level);
     float oscSample = renderOscillatorSample(voice.harmonyPhases[harmonyIndex]);
     float sample = oscSample * env;
 
@@ -1247,10 +1264,6 @@ void editNoise(){
 }
 
 void editHarmonist() {
-    if (abs(p1 - lastP1) > 1) {
-        harmonyVolume = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
-    }
-
     if (abs(p2 - lastP2) > 1) {
         harmonyCount = std::clamp(iMap(p2, 0, 1023, 0, MAX_HARMONIES), 0, MAX_HARMONIES);
     }
@@ -1258,6 +1271,9 @@ void editHarmonist() {
     if (harmonyCount <= 0) return;
 
     int currentHarmony = getCurrentHarmonyIndex();
+    if (abs(p1 - lastP1) > 1) {
+        harmonySettings[currentHarmony].level = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
+    }
     if (abs(p3 - lastP3) > 1) {
         harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, 1023, -24, 24), -24, 24);
     }
@@ -1467,22 +1483,16 @@ void drawHarmonist() {
         drawCircle(64, 32, 10);
     }
     else if (harmonyCount == 1) {
-        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 32, 10);
+        drawFilledCircleSparse((harmonySettings[0].interval+24)*(128/48), 32, 8+std::abs(harmonySettings[0].level*3), std::abs(harmonySettings[0].detune));
     }
     else if (harmonyCount == 2) {
-        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 20, 8);
-        drawFilledCircle((harmonySettings[1].interval+24)*(128/48), 46, 8);
+        drawFilledCircleSparse((harmonySettings[0].interval+24)*(128/48), 20, 6+std::abs(harmonySettings[0].level*3), std::abs(harmonySettings[0].detune));
+        drawFilledCircleSparse((harmonySettings[1].interval+24)*(128/48), 46, 6+std::abs(harmonySettings[1].level*3), std::abs(harmonySettings[1].detune));
     }
     else if (harmonyCount == 3) {
-        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 18, 6);
-        drawFilledCircle((harmonySettings[1].interval+24)*(128/48), 32, 6);
-        drawFilledCircle((harmonySettings[2].interval+24)*(128/48), 46, 6);
-    }
-    else if (harmonyCount == 4) {
-        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 14, 4);
-        drawFilledCircle((harmonySettings[1].interval+24)*(128/48), 26, 4);
-        drawFilledCircle((harmonySettings[2].interval+24)*(128/48), 38, 4);
-        drawFilledCircle((harmonySettings[3].interval+24)*(128/48), 50, 4);
+        drawFilledCircleSparse((harmonySettings[0].interval+24)*(128/48), 18, 4+std::abs(harmonySettings[0].level*3), std::abs(harmonySettings[0].detune));
+        drawFilledCircleSparse((harmonySettings[1].interval+24)*(128/48), 32, 4+std::abs(harmonySettings[1].level*3), std::abs(harmonySettings[1].detune));
+        drawFilledCircleSparse((harmonySettings[2].interval+24)*(128/48), 46, 4+std::abs(harmonySettings[2].level*3), std::abs(harmonySettings[2].detune));
     }
     
 }
