@@ -1,11 +1,22 @@
 #!/bin/bash
-gpioset 0 26=1
+
+blink=True
 gpioset 0 27=0
 gpioset 0 21=0
+
+while $blink; do
+    gpioset 0 26=1
+    sleep 0.5
+    gpioset 0 26=0
+    sleep 0.5
+done &
 git pull
 g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread
 sudo ./load_synth_program &
 LOADER_PID=$!
+blink=False
+
+gpioset 0 26=1
 
 
 
