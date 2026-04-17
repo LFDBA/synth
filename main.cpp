@@ -1495,21 +1495,21 @@ void drawHarmonist() {
     }
     else if (harmonyCount == 1) {
         int radius = 7 + std::abs(harmonySettings[0].level * 5);
-        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[0].interval, radius), 32, radius, std::abs(harmonySettings[0].detune*100));
+        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[0].interval, radius), 32, radius, std::abs(harmonySettings[0].detune*1000));
     }
     else if (harmonyCount == 2) {
         int radius0 = 4 + std::abs(harmonySettings[0].level * 5);
         int radius1 = 4 + std::abs(harmonySettings[1].level * 5);
-        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[0].interval, radius0), 20, radius0, std::abs(harmonySettings[0].detune*100));
-        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[1].interval, radius1), 46, radius1, std::abs(harmonySettings[1].detune*100));
+        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[0].interval, radius0), 20, radius0, std::abs(harmonySettings[0].detune*1000));
+        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[1].interval, radius1), 46, radius1, std::abs(harmonySettings[1].detune*1000));
     }
     else if (harmonyCount == 3) {
         int radius0 = 3 + std::abs(harmonySettings[0].level * 5);
         int radius1 = 3 + std::abs(harmonySettings[1].level * 5);
         int radius2 = 3 + std::abs(harmonySettings[2].level * 5);
-        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[0].interval, radius0), 18, radius0, std::abs(harmonySettings[0].detune*100));
-        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[1].interval, radius1), 32, radius1, std::abs(harmonySettings[1].detune*100));
-        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[2].interval, radius2), 46, radius2, std::abs(harmonySettings[2].detune*100));
+        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[0].interval, radius0), 18, radius0, std::abs(harmonySettings[0].detune*1000));
+        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[1].interval, radius1), 32, radius1, std::abs(harmonySettings[1].detune*1000));
+        drawFilledCircleSparse(harmonyIntervalToX(harmonySettings[2].interval, radius2), 46, radius2, std::abs(harmonySettings[2].detune*1000));
     }
     
 }
