@@ -827,28 +827,6 @@ inline int iMap(int val,int inMin,int inMax,int outMin,int outMax){
     return (val - inMin)*(outMax - outMin)/(inMax - inMin) + outMin;
 }
 
-int findWaveTriggerIndex(const std::vector<float>& samples, float threshold) {
-    int len = static_cast<int>(samples.size());
-    if (len < 2) return 0;
-
-    int searchStart = len / 4;
-    auto isRisingTrigger = [&](int i) {
-        return samples[i] <= -threshold && samples[i + 1] >= threshold;
-    };
-
-    for (int i = searchStart; i < len - 1; ++i) {
-        if (isRisingTrigger(i)) return i + 1;
-    }
-    for (int i = 0; i < searchStart && i < len - 1; ++i) {
-        if (isRisingTrigger(i)) return i + 1;
-    }
-    for (int i = searchStart; i < len - 1; ++i) {
-        if (samples[i] <= 0.0f && samples[i + 1] > 0.0f) return i + 1;
-    }
-
-    return 0;
-}
-
 // Draw waveform to OLED
 void drawOutput() {
     clearBuffer();
@@ -862,34 +840,22 @@ void drawOutput() {
     // If writePos points to next write position, oldest sample is writePos % len
     int start = (writePos) % len; // oldest
 
-    std::vector<float> snapshot(len);
-    for (int i = 0; i < len; ++i) {
-        snapshot[i] = sampleBuffer[(start + i) % len];
-    }
-
     // Find max absolute value for normalization (scan logical length)
     float maxVal = 1e-6f;
     for (int i = 0; i < len; ++i) {
-        float v = snapshot[i];
+        float v = sampleBuffer[(start + i) % len];
         float av = fabsf(v);
         if (av > maxVal) maxVal = av;
     }
 
-    static float displayScale = 0.1f;
-    float scaleAttack = 0.35f;
-    float scaleRelease = 0.08f;
-    float smoothing = (maxVal > displayScale) ? scaleAttack : scaleRelease;
-    displayScale += (maxVal - displayScale) * smoothing;
-    if (displayScale < 1e-4f) displayScale = 1e-4f;
-
-    int triggerIndex = findWaveTriggerIndex(snapshot, std::max(displayScale * 0.08f, 1e-4f));
-
     // Draw line across screen mapping DISPLAY X -> buffer samples
     for (int x = 0; x < DRAW_WIDTH; ++x) {
+        // Map x to a sample index within len: newest should appear at right
+        // We map x in 0..DRAW_WIDTH-1 to buffer positions from oldest -> newest
         int bufPos = iMap(x, 0, DRAW_WIDTH - 1, 0, len - 1);
-        int idx = (triggerIndex + bufPos) % len;
-        float sample = snapshot[idx];
-        float normSample = sample / displayScale; // -1..1
+        int idx = (start + bufPos) % len;
+        float sample = sampleBuffer[idx];
+        float normSample = sample / maxVal; // -1..1
 
         // clip to [-1,1] just in case
         if (normSample > clipLevel) normSample = clipLevel;
@@ -900,9 +866,9 @@ void drawOutput() {
         if (x > 0) {
             // previous sample
             int prevBufPos = iMap(x - 1, 0, DRAW_WIDTH - 1, 0, len - 1);
-            int prevIdx = (triggerIndex + prevBufPos) % len;
-            float prevSample = snapshot[prevIdx];
-            float prevNorm = prevSample / displayScale;
+            int prevIdx = (start + prevBufPos) % len;
+            float prevSample = sampleBuffer[prevIdx];
+            float prevNorm = prevSample / maxVal;
             if (prevNorm > clipLevel) prevNorm = clipLevel;
             if (prevNorm < -clipLevel) prevNorm = -clipLevel;
             int y0 = HEIGHT/2 - int(prevNorm * (HEIGHT/2 - 1));
@@ -1673,6 +1639,7 @@ int main() {
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
         // menu edits
         if (menu==MAIN_MENU) {
+            edit = false;
             selectMenu();
             drawMenu();
         }
