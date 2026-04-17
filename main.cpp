@@ -567,8 +567,8 @@ int mapKeyNumber(int k) {
 //                     Constants
 // ======================================================
 
-const int numVoices = 7;
-float outputLevel = 0.5f;
+const int numVoices = 24;
+float outputLevel = 0.25f;
 bool normVoices = true; // Normalize by active voices
 int fd;
 int editIndex = 0;
@@ -607,6 +607,7 @@ struct Voice {
 
 
 Voice voices[numVoices];
+Voice harmonies[numVoices];
 int noteMapping[numVoices] = {48, 52, 55, 60, 64, 67, 72}; // MIDI notes
 bool custom = false;
 
@@ -683,6 +684,10 @@ void initWavePoints() {
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
     return fC0*pow(2.0f,float(noteNumber+24)/12.0f);
+}
+float hzToNote(float freq) {
+    float fC0 = 16.35f;
+    return 12.0f*log2f(freq/fC0)-24.0f;
 }
 
 // ======================================================
@@ -866,7 +871,27 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
                 }
             }
 
-            
+            for(int h = 0; h < numVoices; h++){
+                Voice &harmony = harmonies[h];
+                if(harmony.active || harmony.releasing){
+                    float hSample = 0.0f;
+                    float hEnv = ADSR(attack, decay, sustain, release, harmony.active, harmony.envTime, harmony.oscVolume)[0];
+                    int idx = int(harmony.phase * TABLE_SIZE);
+                    if(idx >= TABLE_SIZE) idx = TABLE_SIZE-1;
+                    hSample = customTable[idx] * hEnv;
+
+                    harmony.phase += harmony.frequency/sampleRate;
+                    if(harmony.phase >= 1.0f) harmony.phase -= 1.0f;
+
+                    if(harmony.releasing && harmony.envTime >= release){
+                        harmony.releasing = false;
+                        harmony.envTime = 0.0f;
+                        harmony.phase = 0.0f;
+                    }
+
+                    sample += hSample;
+                }
+            }
             mix += sample;
         }
 
@@ -1521,7 +1546,25 @@ int main() {
             if(edit) editNoise();
             drawNoise();
         }
-    
+        if(menu==HARMONIST_MENU) {
+            // if(edit) editHarmonist();
+            // drawHarmonist();
+            for (int i = 0; i < numVoices; i++) {
+                Voice &voice = voices[i];
+                for (int v = 0; v < numVoices; v++) {
+                    if (!harmonies[v].active) {
+                        harmonies[v].active = voice.active;
+                        harmonies[v].releasing = voice.releasing;
+                        harmonies[v].keyID = voice.keyID+7; 
+                        harmonies[v].envTime = voice.envTime;
+                        harmonies[v].phase = voice.phase;
+                        harmonies[v].frequency =  noteToHz(voice.keyID+7); // simple semitone steps
+                        break; 
+                    }
+                }
+            }
+        }
+
         updateDisplay(global_spi_handle);
 
 
