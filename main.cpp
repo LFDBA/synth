@@ -616,7 +616,7 @@ struct Voice {
 };
 struct Harmony {
     int interval = -12;   // semitone offset from root
-    Voice& voice;
+    Voice* voice = nullptr;
     float detune = 0;   // small frequency offset for chorus effect
     float level = 1;    // volume level of this harmony voice
 };
@@ -854,84 +854,67 @@ void drawOutput() {
 
 NoiseGenerator noise(noiseType);
 
-void sendToOutput(Voice& voice){
+float renderVoiceSample(Voice& voice) {
+    float sample = 0.0f;
 
-        // compute raw mix from all voices
-        mix = 0.0f;
-        int activeVoices = 0;
+    if (voice.active || voice.releasing) {
+        voice.envTime += 1.0f / sampleRate;
+        float env = ADSR(
+            attack,
+            decay,
+            sustain,
+            release,
+            voice.active,
+            voice.envTime,
+            voice.oscVolume,
+            voice.releaseStartLevel
+        )[0];
 
-        
-        float sample = 0.0f;
-
-        if(voice.active || voice.releasing){
-            activeVoices++;
-            voice.envTime += 1.0f/sampleRate;
-            float env = ADSR(attack, decay, sustain, release, voice.active, voice.envTime, voice.oscVolume, sample)[0];
-
-            // oscillator blending (same as your code)
-            float oscSample;
-            if(custom){
-                int idx = int(voice.phase * TABLE_SIZE);
-                if(idx >= TABLE_SIZE) idx = TABLE_SIZE-1;
-                oscSample = customTable[idx];
-            } else {
-                float seg = knobPosition * 4.0f;
-                int idx = int(seg);
-                float blend = seg - idx;
-                float w1, w2;
-                switch(idx){
-                    case 0: w1=sineWave(voice.phase); w2=squareWave(voice.phase); break;
-                    case 1: w1=squareWave(voice.phase); w2=sawWave(voice.phase); break;
-                    case 2: w1=sawWave(voice.phase); w2=triangleWave(voice.phase); break;
-                    case 3: w1=triangleWave(voice.phase); w2=sineWave(voice.phase); break;
-                    default: w1=w2=0.0f;
-                }
-                oscSample = ((1.0f-blend)*w1 + blend*w2);
+        float oscSample;
+        if (custom) {
+            int idx = int(voice.phase * TABLE_SIZE);
+            if (idx >= TABLE_SIZE) idx = TABLE_SIZE - 1;
+            oscSample = customTable[idx];
+        } else {
+            float seg = knobPosition * 4.0f;
+            int idx = int(seg);
+            float blend = seg - idx;
+            float w1, w2;
+            switch (idx) {
+                case 0: w1 = sineWave(voice.phase); w2 = squareWave(voice.phase); break;
+                case 1: w1 = squareWave(voice.phase); w2 = sawWave(voice.phase); break;
+                case 2: w1 = sawWave(voice.phase); w2 = triangleWave(voice.phase); break;
+                case 3: w1 = triangleWave(voice.phase); w2 = sineWave(voice.phase); break;
+                default: w1 = w2 = 0.0f;
             }
-            
-
-            for(int i = 0; i < 100; i++) {
-                oscSample += noise.next();
-                // send sample to buffer, plot, or DAC
-            }
-
-            sample = oscSample * env;
-
-            voice.phase += voice.frequency/sampleRate;
-            if(voice.phase >= 1.0f) voice.phase -= 1.0f;
-
-            if(voice.releasing && voice.envTime >= release){
-                voice.releasing = false;
-                voice.envTime = 0.0f;
-                voice.phase = 0.0f;
-            }
+            oscSample = ((1.0f - blend) * w1 + blend * w2);
         }
 
-        
-        mix += sample;
-        
+        for (int n = 0; n < 100; n++) {
+            oscSample += noise.next();
+        }
 
-        if (normVoices && activeVoices > 1)
-            mix /= activeVoices/1.7f;
+        sample = oscSample * env;
 
-        mix = softClip(mix * outputLevel);
-        mix = reverb.process(mix);
+        voice.phase += voice.frequency / sampleRate;
+        if (voice.phase >= 1.0f) voice.phase -= 1.0f;
 
-        // push and output
-        pushSample(mix);
-        output[2*i]     = mix;
-        output[2*i + 1] = mix;
-
-
-
-        
+        if (voice.releasing && voice.envTime >= release) {
+            voice.releasing = false;
+            voice.envTime = 0.0f;
+            voice.phase = 0.0f;
+            voice.releaseStartTime = 0.0f;
+            voice.releaseStartLevel = 0.0f;
+        }
     }
+
+    return sample;
 }
 // ======================================================
 //                  Audio Callback
 // ======================================================
 
-float mix;
+float mix = 0.0f;
 int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBufferFrames,
                   double /*streamTime*/, RtAudioStreamStatus /*status*/, void* /*userData*/) 
 {
@@ -939,19 +922,37 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
     if(custom && waveNeedsRebuild) rebuildWaveTable();
 
+    for (unsigned int i = 0; i < nBufferFrames; i++) {
+        mix = 0.0f;
+        int activeVoices = 0;
 
-    for(int v = 0; v < numVoices; v++){
-        sendToOutput(voices[v]);
-    }
-    for(int h = 0; h < numVoices*3; h++){
-        if(harmonies[h].voice.active || harmonies[h].voice.releasing){
-            Voice v = harmonies[h].voice;
-            v.frequency = noteToHz(noteMapping[v.keyID] + harmonies[h].interval) * (1.0f + harmonies[h].detune);
-            v.oscVolume = harmonies[h].level;
-            sendToOutput(v);
+        for (int v = 0; v < numVoices; v++) {
+            if (voices[v].active || voices[v].releasing) {
+                activeVoices++;
+            }
+            mix += renderVoiceSample(voices[v]);
         }
-    }
 
+        for (int h = 0; h < numVoices * 3; h++) {
+            Voice* harmonySource = harmonies[h].voice;
+            if (harmonySource && (harmonySource->active || harmonySource->releasing)) {
+                Voice harmonyVoice = *harmonySource;
+                harmonyVoice.frequency = noteToHz(noteMapping[harmonyVoice.keyID] + harmonies[h].interval) * (1.0f + harmonies[h].detune);
+                harmonyVoice.oscVolume = harmonies[h].level;
+                mix += renderVoiceSample(harmonyVoice);
+            }
+        }
+
+        if (normVoices && activeVoices > 1)
+            mix /= activeVoices / 1.7f;
+
+        mix = softClip(mix * outputLevel);
+        mix = reverb.process(mix);
+
+        pushSample(mix);
+        output[2 * i] = mix;
+        output[2 * i + 1] = mix;
+    }
 
     return 0;
 }
@@ -1622,8 +1623,8 @@ int main() {
                 if (voices[i].active) {
                     Voice &voice = voices[i];
                     for(int i = 0; i < numVoices * 3; i++) {
-                        if(!harmonies[i].voice.active) {
-                            harmonies[i].voice = voice;
+                        if(!harmonies[i].voice || !harmonies[i].voice->active) {
+                            harmonies[i].voice = &voice;
                             harmonies[i].interval = 7;
                             break;
                         }
@@ -1661,6 +1662,3 @@ int main() {
     clearScreen();
     return 0;
 }
-
-
-
