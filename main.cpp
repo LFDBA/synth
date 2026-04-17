@@ -609,7 +609,6 @@ struct Voice {
     bool active = false;        // key held
     bool releasing = false;     // is in release phase
     float envTime = 0.0f;       // time since note-on or release start
-    float releaseStartTime = 0.0f;
     float releaseStartLevel = 0.0f;
     float oscVolume = 1.0f;
     int keyID = -1;             // store which key triggered this voice
@@ -633,7 +632,6 @@ float attack = 0.5f;
 float decay = 0.5f;
 float sustain = 0.8f;
 float release = 0.0f;
-int adsrDisplayVoiceIndex = -1;
 
 // ======================================================
 //                  Basic Oscillators
@@ -747,23 +745,22 @@ float sampleAdsrPreview(float t) {
     return ADSR(attack, decay, sustain, release, false, t - triggerTime, 1.0f, sustain)[0];
 }
 
-Voice* getAdsrDisplayVoice() {
-    if (adsrDisplayVoiceIndex >= 0 && adsrDisplayVoiceIndex < numVoices) {
-        Voice& tracked = voices[adsrDisplayVoiceIndex];
-        if (tracked.active || tracked.releasing) {
-            return &tracked;
-        }
+bool getAdsrMarkerPosition(const Voice& voice, float totalTime, int& markerX, int& markerY) {
+    if (!voice.active && !voice.releasing) return false;
+
+    float triggerViewTime = attack + decay + ADSR_DISPLAY_SUSTAIN_TIME;
+    float markerTime = 0.0f;
+
+    if (voice.releasing) {
+        markerTime = std::min(triggerViewTime + voice.envTime, totalTime);
+    } else {
+        markerTime = std::min(voice.envTime, triggerViewTime);
     }
 
-    for (int v = 0; v < numVoices; v++) {
-        if (voices[v].active || voices[v].releasing) {
-            adsrDisplayVoiceIndex = v;
-            return &voices[v];
-        }
-    }
-
-    adsrDisplayVoiceIndex = -1;
-    return nullptr;
+    float markerEnv = std::clamp(sampleAdsrPreview(markerTime), 0.0f, 1.0f);
+    markerX = std::clamp(int((markerTime / totalTime) * (WIDTH - 1)), 0, WIDTH - 1);
+    markerY = HEIGHT - 1 - int(markerEnv * (HEIGHT - 1));
+    return true;
 }
 
 
@@ -903,7 +900,6 @@ float renderVoiceSample(Voice& voice) {
             voice.releasing = false;
             voice.envTime = 0.0f;
             voice.phase = 0.0f;
-            voice.releaseStartTime = 0.0f;
             voice.releaseStartLevel = 0.0f;
         }
     }
@@ -992,11 +988,9 @@ void onKeyPress(int keyID) {
             voices[v].releasing = false;
             voices[v].keyID = keyID;
             voices[v].envTime = 0.0f;
-            voices[v].releaseStartTime = 0.0f;
             voices[v].releaseStartLevel = 0.0f;
             voices[v].phase = (float)rand() / RAND_MAX;
             voices[v].frequency = noteToHz(keyID);
-            adsrDisplayVoiceIndex = v;
             break; 
         }
     }
@@ -1008,7 +1002,6 @@ void onKeyRelease(int keyID) {
         if (voices[v].keyID == keyID && voices[v].active) {
             voices[v].active = false;
             voices[v].releasing = true;
-            voices[v].releaseStartTime = voices[v].envTime;
             voices[v].releaseStartLevel = ADSR(
                 attack,
                 decay,
@@ -1020,7 +1013,6 @@ void onKeyRelease(int keyID) {
                 sustain
             )[0];
             voices[v].envTime = 0.0f;
-            adsrDisplayVoiceIndex = v;
         }
     }
 }   
@@ -1217,35 +1209,13 @@ void drawADSR() {
         lastY = y;
     }
 
-    Voice* markerVoice = getAdsrDisplayVoice();
-    if (!markerVoice) return;
-
-    float markerTime = 0.0f;
-    float markerEnv = 0.0f;
-    float triggerViewTime = attack + decay + ADSR_DISPLAY_SUSTAIN_TIME;
-
-    if (markerVoice->active) {
-        markerTime = std::min(markerVoice->envTime, triggerViewTime);
-        markerEnv = ADSR(attack, decay, sustain, release, true, markerVoice->envTime, 1.0f, sustain)[0];
-    } else if (markerVoice->releasing) {
-        float releaseStartTime = std::min(markerVoice->releaseStartTime, triggerViewTime);
-        markerTime = std::min(releaseStartTime + markerVoice->envTime, totalTime);
-        markerEnv = ADSR(
-            attack,
-            decay,
-            sustain,
-            release,
-            false,
-            markerVoice->envTime,
-            1.0f,
-            markerVoice->releaseStartLevel
-        )[0];
+    for (int v = 0; v < numVoices; v++) {
+        int markerX = 0;
+        int markerY = 0;
+        if (getAdsrMarkerPosition(voices[v], totalTime, markerX, markerY)) {
+            drawFilledCircle(markerX, markerY, 2);
+        }
     }
-
-    markerEnv = std::clamp(markerEnv, 0.0f, 1.0f);
-    int markerX = std::clamp(int((markerTime / totalTime) * (WIDTH - 1)), 0, WIDTH - 1);
-    int markerY = HEIGHT - 1 - int(markerEnv * (HEIGHT - 1));
-    drawFilledCircle(markerX, markerY, 2);
 }
 
 
