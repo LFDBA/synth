@@ -106,7 +106,7 @@ void drawPixel(int x, int y) {
 static const uint8_t GLYPH_P[5]    = { 0x7F, 0x09, 0x09, 0x09, 0x06 };
 static const uint8_t GLYPH_X[5]    = { 0x63, 0x14, 0x08, 0x14, 0x63 };
 static const uint8_t GLYPH_DASH[5] = { 0x08, 0x08, 0x08, 0x08, 0x08 };
-static const uint8_t GLYPH_1[5]    = { 0x00, 0x21, 0x7F, 0x01, 0x00 };
+static const uint8_t GLYPH_1[5]    = { 0x00, 0x42, 0x7F, 0x40, 0x00 };
 
 void drawBigGlyph(int x, int y, const uint8_t* glyph, int S) {
     for (int col = 0; col < 5; col++) {
