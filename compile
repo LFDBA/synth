@@ -21,6 +21,8 @@ g++ \
   -O3 -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
 
+g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread
+
 sudo kill -9 $LOADER_PID 2>/dev/null
 sudo killall pigpiod 2>/dev/null
 sudo fuser -k 8888/tcp 2>/dev/null

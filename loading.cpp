@@ -1,11 +1,11 @@
-// rx2_loading_standalone.cpp
-// Standalone RX-2 loading screen — run this WHILE your main project compiles.
+// px1_loading_standalone.cpp
+// Standalone PX-1 loading screen — run this WHILE your main project compiles.
 //
 // Compile:
-//   g++ rx2_loading_standalone.cpp -o rx2_loading -lpigpio -lrt -lpthread
+//   g++ px1_loading_standalone.cpp -o px1_loading -lpigpio -lrt -lpthread
 //
 // Usage (run alongside your build):
-//   ./rx2_loading &
+//   ./px1_loading &
 //   make
 //   kill %1
 //
@@ -103,10 +103,10 @@ void drawPixel(int x, int y) {
 // -----------------------------------------------------------------------
 //  Glyphs  (5×7 column-major bitmaps, LSB = top row)
 // -----------------------------------------------------------------------
-static const uint8_t GLYPH_R[5]    = { 0x7F, 0x09, 0x09, 0x09, 0x76 };
+static const uint8_t GLYPH_P[5]    = { 0x7F, 0x09, 0x09, 0x09, 0x06 };
 static const uint8_t GLYPH_X[5]    = { 0x63, 0x14, 0x08, 0x14, 0x63 };
 static const uint8_t GLYPH_DASH[5] = { 0x08, 0x08, 0x08, 0x08, 0x08 };
-static const uint8_t GLYPH_2[5]    = { 0x62, 0x51, 0x49, 0x49, 0x46 };
+static const uint8_t GLYPH_1[5]    = { 0x00, 0x21, 0x7F, 0x01, 0x00 };
 
 void drawBigGlyph(int x, int y, const uint8_t* glyph, int S) {
     for (int col = 0; col < 5; col++) {
@@ -121,12 +121,12 @@ void drawBigGlyph(int x, int y, const uint8_t* glyph, int S) {
     }
 }
 
-void drawRX2(int centerX, int topY) {
+void drawPX1(int centerX, int topY) {
     const int S   = 3;
     const int GW  = 5 * S;
     const int GAP = S;
 
-    const uint8_t* glyphs[] = { GLYPH_R, GLYPH_X, GLYPH_DASH, GLYPH_2 };
+    const uint8_t* glyphs[] = { GLYPH_P, GLYPH_X, GLYPH_DASH, GLYPH_1 };
     const int n = 4;
 
     int totalW = n * GW + (n - 1) * GAP;
@@ -197,7 +197,7 @@ int main() {
     while (running) {
         clearBuffer();
 
-        drawRX2(CX, 10);
+        drawPX1(CX, 10);
 
         for (int d = 0; d < 3; d++) {
             phases[d] += SPEED;

@@ -313,6 +313,15 @@ void drawCircle(int cx, int cy, int radius) {
     }
 }
 
+void drawFilledCircle(int cx, int cy, int radius) {
+    for (int px = -radius; px <= radius; px++) {
+        int half = static_cast<int>(sqrtf(float(radius * radius - px * px)));
+        for (int py = -half; py <= half; py++) {
+            drawPixel(cx + px, cy + py);
+        }
+    }
+}
+
 // Draw a single character at (x, y)
 void drawChar(int x, int y, char c) {
     if (c < 'A' || c > 'Z') return; // ignore non-capitals
@@ -600,6 +609,8 @@ struct Voice {
     bool active = false;        // key held
     bool releasing = false;     // is in release phase
     float envTime = 0.0f;       // time since note-on or release start
+    float releaseStartTime = 0.0f;
+    float releaseStartLevel = 0.0f;
     float oscVolume = 1.0f;
     int keyID = -1;             // store which key triggered this voice
 };
@@ -622,6 +633,7 @@ float attack = 0.5f;
 float decay = 0.5f;
 float sustain = 0.8f;
 float release = 0.0f;
+int adsrDisplayVoiceIndex = -1;
 
 // ======================================================
 //                  Basic Oscillators
@@ -723,6 +735,35 @@ std::array<float, 2> ADSR(float attack,float decay,float sustain,float release,b
             
         }
     }
+}
+
+constexpr float ADSR_DISPLAY_SUSTAIN_TIME = 0.2f;
+
+float sampleAdsrPreview(float t) {
+    float triggerTime = attack + decay + ADSR_DISPLAY_SUSTAIN_TIME;
+    if (t < triggerTime) {
+        return ADSR(attack, decay, sustain, release, true, t, 1.0f, sustain)[0];
+    }
+    return ADSR(attack, decay, sustain, release, false, t - triggerTime, 1.0f, sustain)[0];
+}
+
+Voice* getAdsrDisplayVoice() {
+    if (adsrDisplayVoiceIndex >= 0 && adsrDisplayVoiceIndex < numVoices) {
+        Voice& tracked = voices[adsrDisplayVoiceIndex];
+        if (tracked.active || tracked.releasing) {
+            return &tracked;
+        }
+    }
+
+    for (int v = 0; v < numVoices; v++) {
+        if (voices[v].active || voices[v].releasing) {
+            adsrDisplayVoiceIndex = v;
+            return &voices[v];
+        }
+    }
+
+    adsrDisplayVoiceIndex = -1;
+    return nullptr;
 }
 
 
@@ -950,8 +991,11 @@ void onKeyPress(int keyID) {
             voices[v].releasing = false;
             voices[v].keyID = keyID;
             voices[v].envTime = 0.0f;
+            voices[v].releaseStartTime = 0.0f;
+            voices[v].releaseStartLevel = 0.0f;
             voices[v].phase = (float)rand() / RAND_MAX;
             voices[v].frequency = noteToHz(keyID);
+            adsrDisplayVoiceIndex = v;
             break; 
         }
     }
@@ -963,7 +1007,19 @@ void onKeyRelease(int keyID) {
         if (voices[v].keyID == keyID && voices[v].active) {
             voices[v].active = false;
             voices[v].releasing = true;
+            voices[v].releaseStartTime = voices[v].envTime;
+            voices[v].releaseStartLevel = ADSR(
+                attack,
+                decay,
+                sustain,
+                release,
+                true,
+                voices[v].envTime,
+                1.0f,
+                sustain
+            )[0];
             voices[v].envTime = 0.0f;
+            adsrDisplayVoiceIndex = v;
         }
     }
 }   
@@ -1149,34 +1205,46 @@ void selectMenu() {
 void drawADSR() {
     clearBuffer();
 
-    float sustainView = 0.2;
-    float totalTime = attack + decay + sustainView + release;
+    float totalTime = std::max(attack + decay + ADSR_DISPLAY_SUSTAIN_TIME + release, 0.001f);
     int lastY = -1;
     for (int x = 0; x < WIDTH; x++) {
-        float t = (float)x / WIDTH * totalTime;
-
-        float env;
-
-        //============================ TEST ==============================//
-        //if (t < attack + decay + sustainView)
-        //     env = ADSR(attack, decay, sustain, release, true, t, 1.0, sustain); //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
-        // else
-        //     env = ADSR(attack, decay, sustain, release, false,
-        //                t - (attack + decay + sustainView),
-        //                1.0, sustain);  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
-
-                       
-        if (t < attack + decay + sustainView)
-            env = ADSR(attack, decay, sustain, release, true, voices[numVoices-1].envTime, 1.0, sustain)[0]; //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
-        else
-            env = ADSR(attack, decay, sustain, release, false,
-                       voices[numVoices-1].envTime - (attack + decay + sustainView),
-                       1.0, sustain)[0];  //lookout: we pass sustain as "current" level for release phase to visualize it better, may cause issues
+        float t = (float)x / (WIDTH - 1) * totalTime;
+        float env = sampleAdsrPreview(t);
 
         int y = HEIGHT - 1 - int(env * (HEIGHT - 1));
         if (lastY >= 0) drawLine(x-1, lastY, x, y);
         lastY = y;
     }
+
+    Voice* markerVoice = getAdsrDisplayVoice();
+    if (!markerVoice) return;
+
+    float markerTime = 0.0f;
+    float markerEnv = 0.0f;
+    float triggerViewTime = attack + decay + ADSR_DISPLAY_SUSTAIN_TIME;
+
+    if (markerVoice->active) {
+        markerTime = std::min(markerVoice->envTime, triggerViewTime);
+        markerEnv = ADSR(attack, decay, sustain, release, true, markerVoice->envTime, 1.0f, sustain)[0];
+    } else if (markerVoice->releasing) {
+        float releaseStartTime = std::min(markerVoice->releaseStartTime, triggerViewTime);
+        markerTime = std::min(releaseStartTime + markerVoice->envTime, totalTime);
+        markerEnv = ADSR(
+            attack,
+            decay,
+            sustain,
+            release,
+            false,
+            markerVoice->envTime,
+            1.0f,
+            markerVoice->releaseStartLevel
+        )[0];
+    }
+
+    markerEnv = std::clamp(markerEnv, 0.0f, 1.0f);
+    int markerX = std::clamp(int((markerTime / totalTime) * (WIDTH - 1)), 0, WIDTH - 1);
+    int markerY = HEIGHT - 1 - int(markerEnv * (HEIGHT - 1));
+    drawFilledCircle(markerX, markerY, 2);
 }
 
 
@@ -1593,7 +1661,6 @@ int main() {
     clearScreen();
     return 0;
 }
-
 
 
 
