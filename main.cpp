@@ -167,7 +167,8 @@ enum Mode {
     WAVE_MENU,
     ADSR_MENU,
     REVERB_MENU,
-    NOISE_MENU
+    NOISE_MENU,
+    HARMONIST_MENU
 };
 Mode menu = TONE_MENU;
 int lastMenuRead = 0;
@@ -1114,7 +1115,7 @@ void editNoise(){
 }
 
 void selectMenu() {
-    menuSelection = norm(p4, 0, 1023, 1, 5);
+    menuSelection = norm(p4, 0, 1023, 1, 6);
 }
 
 
