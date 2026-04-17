@@ -912,6 +912,7 @@ int getKeyPress() {
 
 void onKeyPress(int keyID) {
     // Find an available voice or one that matches this key
+    std::cout << "Key Pressed: " << keyID << std::endl;
     keyID = mapKeyNumber(keyID);
     for (int v = 0; v < numVoices; v++) {
         if (!voices[v].active) {
