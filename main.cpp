@@ -600,6 +600,7 @@ int mapKeyNumber(int k) {
 // ======================================================
 
 const int numVoices = 24;
+constexpr int MAX_HARMONIES = 3;
 float outputLevel = 0.1f;
 bool normVoices = true; // Normalize by active voices
 int fd;
@@ -635,19 +636,23 @@ struct Voice {
     float releaseStartLevel = 0.0f;
     float oscVolume = 1.0f;
     int keyID = -1;             // store which key triggered this voice
+    std::array<float, MAX_HARMONIES> harmonyPhases{};
 };
-struct Harmony {
-    int interval = -12;   // semitone offset from root
-    Voice* voice = nullptr;
+struct HarmonySetting {
+    int interval = 7;   // semitone offset from root
     float detune = 0;   // small frequency offset for chorus effect
-    float level = 1;    // volume level of this harmony voice
 };
 
 
 
 Voice voices[numVoices];
-Harmony harmonies[numVoices*3]; // up to 3 harmonies per voice
-int noteMapping[numVoices] = {48, 52, 55, 60, 64, 67, 72}; // MIDI notes
+HarmonySetting harmonySettings[MAX_HARMONIES] = {
+    {7, 0.0f},
+    {12, 0.0f},
+    {19, 0.0f}
+};
+float harmonyVolume = 0.35f;
+int harmonyCount = 0;
 bool custom = false;
 
 // ADSR
@@ -786,6 +791,10 @@ bool getAdsrMarkerPosition(const Voice& voice, float totalTime, int& markerX, in
     return true;
 }
 
+int getCurrentHarmonyIndex() {
+    return std::clamp(harmonyCount - 1, 0, MAX_HARMONIES - 1);
+}
+
 
 // ======================================
 //         Output Waveform Draw
@@ -874,46 +883,55 @@ void drawOutput() {
 
 NoiseGenerator noise(noiseType);
 
+float renderOscillatorSample(float phase) {
+    float oscSample;
+
+    if (custom) {
+        int idx = int(phase * TABLE_SIZE);
+        if (idx >= TABLE_SIZE) idx = TABLE_SIZE - 1;
+        oscSample = customTable[idx];
+    } else {
+        float seg = knobPosition * 4.0f;
+        int idx = int(seg);
+        float blend = seg - idx;
+        float w1, w2;
+        switch (idx) {
+            case 0: w1 = sineWave(phase); w2 = squareWave(phase); break;
+            case 1: w1 = squareWave(phase); w2 = sawWave(phase); break;
+            case 2: w1 = sawWave(phase); w2 = triangleWave(phase); break;
+            case 3: w1 = triangleWave(phase); w2 = sineWave(phase); break;
+            default: w1 = w2 = 0.0f;
+        }
+        oscSample = ((1.0f - blend) * w1 + blend * w2);
+    }
+
+    for (int n = 0; n < 100; n++) {
+        oscSample += noise.next();
+    }
+
+    return oscSample;
+}
+
+float getVoiceEnvelope(const Voice& voice, float level) {
+    return ADSR(
+        attack,
+        decay,
+        sustain,
+        release,
+        voice.active,
+        voice.envTime,
+        level,
+        voice.releaseStartLevel
+    )[0];
+}
+
 float renderVoiceSample(Voice& voice) {
     float sample = 0.0f;
 
     if (voice.active || voice.releasing) {
         voice.envTime += 1.0f / sampleRate;
-        float env = ADSR(
-            attack,
-            decay,
-            sustain,
-            release,
-            voice.active,
-            voice.envTime,
-            voice.oscVolume,
-            voice.releaseStartLevel
-        )[0];
-
-        float oscSample;
-        if (custom) {
-            int idx = int(voice.phase * TABLE_SIZE);
-            if (idx >= TABLE_SIZE) idx = TABLE_SIZE - 1;
-            oscSample = customTable[idx];
-        } else {
-            float seg = knobPosition * 4.0f;
-            int idx = int(seg);
-            float blend = seg - idx;
-            float w1, w2;
-            switch (idx) {
-                case 0: w1 = sineWave(voice.phase); w2 = squareWave(voice.phase); break;
-                case 1: w1 = squareWave(voice.phase); w2 = sawWave(voice.phase); break;
-                case 2: w1 = sawWave(voice.phase); w2 = triangleWave(voice.phase); break;
-                case 3: w1 = triangleWave(voice.phase); w2 = sineWave(voice.phase); break;
-                default: w1 = w2 = 0.0f;
-            }
-            oscSample = ((1.0f - blend) * w1 + blend * w2);
-        }
-
-        for (int n = 0; n < 100; n++) {
-            oscSample += noise.next();
-        }
-
+        float env = getVoiceEnvelope(voice, voice.oscVolume);
+        float oscSample = renderOscillatorSample(voice.phase);
         sample = oscSample * env;
 
         voice.phase += voice.frequency / sampleRate;
@@ -924,7 +942,27 @@ float renderVoiceSample(Voice& voice) {
             voice.envTime = 0.0f;
             voice.phase = 0.0f;
             voice.releaseStartLevel = 0.0f;
+            voice.harmonyPhases.fill(0.0f);
         }
+    }
+
+    return sample;
+}
+
+float renderHarmonySample(Voice& voice, int harmonyIndex) {
+    if (!(voice.active || voice.releasing)) return 0.0f;
+    if (harmonyIndex < 0 || harmonyIndex >= harmonyCount) return 0.0f;
+    if (harmonyVolume <= 0.0f) return 0.0f;
+
+    const HarmonySetting& setting = harmonySettings[harmonyIndex];
+    float env = getVoiceEnvelope(voice, voice.oscVolume * harmonyVolume);
+    float oscSample = renderOscillatorSample(voice.harmonyPhases[harmonyIndex]);
+    float sample = oscSample * env;
+
+    float harmonyFrequency = noteToHz(voice.keyID + setting.interval) * (1.0f + setting.detune);
+    voice.harmonyPhases[harmonyIndex] += harmonyFrequency / sampleRate;
+    if (voice.harmonyPhases[harmonyIndex] >= 1.0f) {
+        voice.harmonyPhases[harmonyIndex] -= 1.0f;
     }
 
     return sample;
@@ -950,15 +988,8 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
                 activeVoices++;
             }
             mix += renderVoiceSample(voices[v]);
-        }
-
-        for (int h = 0; h < numVoices * 3; h++) {
-            Voice* harmonySource = harmonies[h].voice;
-            if (harmonySource && (harmonySource->active || harmonySource->releasing)) {
-                Voice harmonyVoice = *harmonySource;
-                harmonyVoice.frequency = noteToHz(noteMapping[harmonyVoice.keyID] + harmonies[h].interval) * (1.0f + harmonies[h].detune);
-                harmonyVoice.oscVolume = harmonies[h].level;
-                mix += renderVoiceSample(harmonyVoice);
+            for (int h = 0; h < harmonyCount; h++) {
+                mix += renderHarmonySample(voices[v], h);
             }
         }
 
@@ -1013,6 +1044,9 @@ void onKeyPress(int keyID) {
             voices[v].envTime = 0.0f;
             voices[v].releaseStartLevel = 0.0f;
             voices[v].phase = (float)rand() / RAND_MAX;
+            for (int h = 0; h < MAX_HARMONIES; h++) {
+                voices[v].harmonyPhases[h] = (float)rand() / RAND_MAX;
+            }
             voices[v].frequency = noteToHz(keyID);
             break; 
         }
@@ -1210,6 +1244,26 @@ void editNoise(){
     noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 0.0f, 5.0f));
     noise.setType(noiseType);
 
+}
+
+void editHarmonist() {
+    if (abs(p1 - lastP1) > 1) {
+        harmonyVolume = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
+    }
+
+    if (abs(p2 - lastP2) > 1) {
+        harmonyCount = std::clamp(iMap(p2, 0, 1023, 0, MAX_HARMONIES), 0, MAX_HARMONIES);
+    }
+
+    if (harmonyCount <= 0) return;
+
+    int currentHarmony = getCurrentHarmonyIndex();
+    if (abs(p3 - lastP3) > 1) {
+        harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, 1023, -24, 24), -24, 24);
+    }
+    if (abs(p4 - lastP4) > 1) {
+        harmonySettings[currentHarmony].detune = norm(p4, 0.0f, 1023.0f, -0.03f, 0.03f);
+    }
 }
 
 void selectMenu() {
@@ -1610,20 +1664,8 @@ int main() {
             drawNoise();
         }
         if(menu==HARMONIST_MENU) {
-            // if(edit) editHarmonist();
-            // drawHarmonist();
-            for (int i = 0; i < numVoices; i++) {
-                if (voices[i].active) {
-                    Voice &voice = voices[i];
-                    for(int i = 0; i < numVoices * 3; i++) {
-                        if(!harmonies[i].voice || !harmonies[i].voice->active) {
-                            harmonies[i].voice = &voice;
-                            harmonies[i].interval = 7;
-                            break;
-                        }
-                    }
-                }
-            }
+            if(edit) editHarmonist();
+            drawOutput();
         }
 
         if (edit) {
