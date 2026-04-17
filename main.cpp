@@ -600,7 +600,7 @@ int mapKeyNumber(int k) {
 // ======================================================
 
 const int numVoices = 24;
-constexpr int MAX_HARMONIES = 3;
+constexpr int MAX_HARMONIES = 4;
 float outputLevel = 0.1f;
 bool normVoices = true; // Normalize by active voices
 int fd;
@@ -1464,14 +1464,14 @@ void drawHarmonist() {
     clearBuffer();
     
     if (harmonyCount == 0) {
-        drawCircle((harmonySettings[0].interval+24)*(128/48), 32, 10);
+        drawCircle(64, 32, 10);
     }
     else if (harmonyCount == 1) {
         drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 32, 10);
     }
     else if (harmonyCount == 2) {
-        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 25, 8);
-        drawFilledCircle((harmonySettings[1].interval+24)*(128/48), 39, 8);
+        drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 20, 8);
+        drawFilledCircle((harmonySettings[1].interval+24)*(128/48), 46, 8);
     }
     else if (harmonyCount == 3) {
         drawFilledCircle((harmonySettings[0].interval+24)*(128/48), 18, 6);
