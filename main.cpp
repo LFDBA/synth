@@ -577,7 +577,7 @@ int mapKeyNumber(int k) {
 // ======================================================
 
 const int numVoices = 24;
-float outputLevel = 0.25f;
+float outputLevel = 0.1f;
 bool normVoices = true; // Normalize by active voices
 int fd;
 int editIndex = 0;
