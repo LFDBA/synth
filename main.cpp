@@ -1491,7 +1491,7 @@ int jitter(int x, int amt) {
 }
 void drawHarmonist() {
     clearBuffer();
-    int amt = norm(mix, 0.0f, 0.1f, 0.0f, 1.5f);
+    int amt = norm(mix, 0.0f, 0.1f, 0.0f, 3.0f);
     
     if (harmonyCount == 0) {
         drawCircle(jitter(64, amt), jitter(32, amt), 10);
