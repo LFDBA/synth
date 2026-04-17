@@ -257,6 +257,11 @@ void drawPixel(int x, int y) {
     buffer[x + (y/8)*WIDTH] |= (1 << (y % 8));
 }
 
+void clearPixel(int x, int y) {
+    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+    buffer[x + (y/8)*WIDTH] &= ~(1 << (y % 8));
+}
+
 // Bresenham Line
 void drawLine(int x0, int y0, int x1, int y1) {
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
@@ -377,6 +382,24 @@ void drawRoundedRectFilled(int x, int y, int w, int h, int r) {
     drawCircle(x + w-r-1, y + r,     r);
     drawCircle(x + r,     y + h-r-1, r);
     drawCircle(x + w-r-1, y + h-r-1, r);
+}
+
+void drawEditIndicator() {
+    const int outerSize = 7;
+    const int innerSize = 3;
+    const int margin = 3;
+    const int x = WIDTH - outerSize - margin;
+    const int y = margin;
+
+    drawRectFilled(x, y, outerSize, outerSize);
+
+    int holeX = x + (outerSize - innerSize) / 2;
+    int holeY = y + (outerSize - innerSize) / 2;
+    for (int px = 0; px < innerSize; px++) {
+        for (int py = 0; py < innerSize; py++) {
+            clearPixel(holeX + px, holeY + py);
+        }
+    }
 }
 
 void drawSantaBelly(int cx, int cy, int size, float fatness) {
@@ -1601,6 +1624,10 @@ int main() {
                     }
                 }
             }
+        }
+
+        if (edit) {
+            drawEditIndicator();
         }
 
         updateDisplay(global_spi_handle);
