@@ -1355,7 +1355,7 @@ void startWritePlayback(unsigned long nowMs) {
 }
 
 void updateWriteTempo() {
-    writeTempoBpm = norm(p1, 0.0f, 1023.0f, WRITE_MIN_BPM, WRITE_MAX_BPM);
+    writeTempoBpm = norm(p1, 0.0f, 1023.0f, WRITE_MIN_BPM, WRITE_MAX_BPM*2.0f);
 }
 
 void updateWritePlayback(unsigned long nowMs) {
