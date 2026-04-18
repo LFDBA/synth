@@ -1787,6 +1787,10 @@ void handlePresetSingleClick() {
 void handlePresetNameKeyPress(int keyID) {
     if (presetScreen != PresetScreen::NAMING) return;
     if (keyID < 0 || keyID > 23) return;
+    if (keyID == 23) {
+        if (!presetNameInput.empty()) presetNameInput.pop_back();
+        return;
+    }
     if (int(presetNameInput.size()) >= MAX_PRESET_NAME_LEN) return;
     presetNameInput.push_back(char('A' + keyID));
 }
@@ -2070,10 +2074,11 @@ void drawPresetNaming() {
     drawTextCenteredX(WIDTH / 2, 4, "TYPE TITLE");
     drawRect(10, 18, 108, 14);
 
-    std::string displayName = presetNameInput.empty() ? "A TO X" : presetNameInput;
+    std::string displayName = presetNameInput.empty() ? "A TO W" : presetNameInput;
     drawTextCenteredX(WIDTH / 2, 22, displayName);
-    drawTextCenteredX(WIDTH / 2, 42, "PRESS BTN");
-    drawTextCenteredX(WIDTH / 2, 50, "TO ADD");
+    drawTextCenteredX(WIDTH / 2, 38, "X BACKSPACE");
+    drawTextCenteredX(WIDTH / 2, 46, "PRESS BTN");
+    drawTextCenteredX(WIDTH / 2, 54, "TO ADD");
 }
 
 void drawPresetOptions() {
