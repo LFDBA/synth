@@ -2,7 +2,7 @@
 
 gpioset 0 27=0
 gpioset 0 21=0
-git pull
+
 
 BLINK_PID=""
 
@@ -28,6 +28,7 @@ stop_blink() {
 
 gpioset 0 26=0
 start_blink
+git pull
 g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread
 LOADER_COMPILE_STATUS=$?
 if [ "$LOADER_COMPILE_STATUS" -ne 0 ]; then

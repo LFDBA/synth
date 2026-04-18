@@ -16,6 +16,8 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
+#include <chrono>
 #include <unistd.h>
 #include <iostream>
 #include <pigpio.h>
@@ -107,6 +109,13 @@ static const uint8_t GLYPH_P[5]    = { 0x7F, 0x09, 0x09, 0x09, 0x06 };
 static const uint8_t GLYPH_X[5]    = { 0x63, 0x14, 0x08, 0x14, 0x63 };
 static const uint8_t GLYPH_DASH[5] = { 0x08, 0x08, 0x08, 0x08, 0x08 };
 static const uint8_t GLYPH_1[5]    = { 0x00, 0x42, 0x7F, 0x40, 0x00 };
+static const uint8_t GLYPH_C[5]    = { 0x3E, 0x41, 0x41, 0x41, 0x22 };
+static const uint8_t GLYPH_D[5]    = { 0x7F, 0x41, 0x41, 0x22, 0x1C };
+static const uint8_t GLYPH_E[5]    = { 0x7F, 0x49, 0x49, 0x49, 0x41 };
+static const uint8_t GLYPH_M[5]    = { 0x7F, 0x02, 0x0C, 0x02, 0x7F };
+static const uint8_t GLYPH_N[5]    = { 0x7F, 0x04, 0x08, 0x10, 0x7F };
+static const uint8_t GLYPH_O[5]    = { 0x3E, 0x41, 0x41, 0x41, 0x3E };
+static const uint8_t GLYPH_R[5]    = { 0x7F, 0x09, 0x19, 0x29, 0x46 };
 
 void drawBigGlyph(int x, int y, const uint8_t* glyph, int S) {
     for (int col = 0; col < 5; col++) {
@@ -136,6 +145,90 @@ void drawPX1(int centerX, int topY) {
         drawBigGlyph(startX + i * (GW + GAP), topY, glyphs[i], S);
 }
 
+void drawLine(int x0, int y0, int x1, int y1) {
+    int dx = std::abs(x1 - x0);
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = -std::abs(y1 - y0);
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    while (true) {
+        drawPixel(x0, y0);
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = err * 2;
+        if (e2 >= dy) {
+            err += dy;
+            x0 += sx;
+        }
+        if (e2 <= dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
+
+void drawRect(int x, int y, int w, int h) {
+    for (int i = 0; i < w; i++) {
+        drawPixel(x + i, y);
+        drawPixel(x + i, y + h - 1);
+    }
+    for (int i = 0; i < h; i++) {
+        drawPixel(x, y + i);
+        drawPixel(x + w - 1, y + i);
+    }
+}
+
+void drawArc(int cx, int cy, int radius, float startDeg, float endDeg, int thickness) {
+    const float pi = 3.14159265f;
+    for (int t = 0; t < thickness; t++) {
+        int r = radius - t;
+        for (float deg = startDeg; deg <= endDeg; deg += 1.5f) {
+            float rad = deg * pi / 180.0f;
+            int x = cx + int(std::cos(rad) * r);
+            int y = cy + int(std::sin(rad) * r);
+            drawPixel(x, y);
+        }
+    }
+}
+
+void drawRecommendedText(int centerX, int y) {
+    const uint8_t* glyphs[] = {
+        GLYPH_R, GLYPH_E, GLYPH_C, GLYPH_O, GLYPH_M, GLYPH_M,
+        GLYPH_E, GLYPH_N, GLYPH_D, GLYPH_E, GLYPH_D
+    };
+    const int glyphCount = sizeof(glyphs) / sizeof(glyphs[0]);
+    const int scale = 1;
+    const int glyphWidth = 5 * scale;
+    const int gap = 1;
+    int totalWidth = glyphCount * glyphWidth + (glyphCount - 1) * gap;
+    int startX = centerX - totalWidth / 2;
+
+    for (int i = 0; i < glyphCount; i++) {
+        drawBigGlyph(startX + i * (glyphWidth + gap), y, glyphs[i], scale);
+    }
+}
+
+void drawHeadphonesPanel() {
+    const int cx = WIDTH / 2;
+    const int cy = 28;
+
+    drawArc(cx, cy, 21, 205.0f, 335.0f, 3);
+    drawLine(cx - 18, cy - 4, cx - 18, cy + 12);
+    drawLine(cx + 18, cy - 4, cx + 18, cy + 12);
+
+    drawRect(cx - 29, cy + 4, 11, 18);
+    drawRect(cx - 27, cy + 6, 7, 14);
+    drawRect(cx + 18, cy + 4, 11, 18);
+    drawRect(cx + 20, cy + 6, 7, 14);
+
+    drawLine(cx - 8, cy - 11, cx + 8, cy - 11);
+    drawRecommendedText(cx, 54);
+}
+
+int randomRangeMs(int minMs, int maxMs) {
+    return minMs + (std::rand() % (maxMs - minMs + 1));
+}
+
 // -----------------------------------------------------------------------
 //  Bouncing dots
 // -----------------------------------------------------------------------
@@ -160,6 +253,8 @@ void onSignal(int) {
 //  Main
 // -----------------------------------------------------------------------
 int main() {
+    std::srand(static_cast<unsigned>(std::time(nullptr)) ^ static_cast<unsigned>(getpid()));
+
     if (gpioInitialise() < 0) {
         std::cerr << "pigpio init failed\n";
         return 1;
@@ -193,16 +288,30 @@ int main() {
     const int   CX      = 63;
 
     const int dotX[3] = { CX - DOT_GAP, CX, CX + DOT_GAP };
+    bool showHeadphones = false;
+    auto nextFlashToggle =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(randomRangeMs(3000, 5000));
 
     while (running) {
+        auto now = std::chrono::steady_clock::now();
+        if (now >= nextFlashToggle) {
+            showHeadphones = !showHeadphones;
+            int delayMs = showHeadphones ? randomRangeMs(2000, 3000) : randomRangeMs(3000, 5000);
+            nextFlashToggle = now + std::chrono::milliseconds(delayMs);
+        }
+
         clearBuffer();
 
-        drawPX1(CX, 10);
+        if (showHeadphones) {
+            drawHeadphonesPanel();
+        } else {
+            drawPX1(CX, 10);
 
-        for (int d = 0; d < 3; d++) {
-            phases[d] += SPEED;
-            int cy = BASE_Y - (int)(sinf(phases[d]) * BOUNCE);
-            drawFilledCircle(dotX[d], cy, DOT_R);
+            for (int d = 0; d < 3; d++) {
+                phases[d] += SPEED;
+                int cy = BASE_Y - (int)(sinf(phases[d]) * BOUNCE);
+                drawFilledCircle(dotX[d], cy, DOT_R);
+            }
         }
 
         updateDisplay();
