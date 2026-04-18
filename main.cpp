@@ -674,7 +674,7 @@ int mapKeyNumber(int k) {
 
 const int numVoices = 24;
 constexpr int MAX_HARMONIES = 4;
-float outputLevel = 2.0f;
+float outputLevel = 3.0f;
 bool normVoices = true; // Normalize by active voices
 int fd;
 int editIndex = 0;
@@ -801,11 +801,25 @@ void initWavePoints() {
 // ======================================================
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
-    return fC0*pow(2.0f,float(noteNumber+(octave*24))/12.0f);
+    return fC0*pow(2.0f,float(noteNumber+(octave+1)*24)/12.0f);
 }
 float hzToNote(float freq) {
     float fC0 = 16.35f;
     return 12.0f*log2f(freq/fC0)-24.0f;
+}
+
+void refreshPlayingVoiceFrequencies() {
+    for (int v = 0; v < numVoices; v++) {
+        if ((voices[v].active || voices[v].releasing) && voices[v].keyID >= 0) {
+            voices[v].frequency = noteToHz(voices[v].keyID);
+        }
+    }
+}
+
+void setOctave(int newOctave) {
+    if (newOctave == octave) return;
+    octave = newOctave;
+    refreshPlayingVoiceFrequencies();
 }
 
 // ======================================================
@@ -1299,8 +1313,8 @@ void editReverb() {
 //                     Tone Edit
 // ======================================================
 void editTone(){
-    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.5f);
-    if(abs(p2-lastP2)>1) octave = int(norm(p2,0.0f,1023.0f,0.0f,3.0f));
+    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,3.0f);
+    if(abs(p2-lastP2)>1) setOctave(int(norm(p2,0.0f,1023.0f,0.0f,3.0f)));
     if(abs(p3-lastP3)>1) {
         // compute the desired length, clamp to allowed range
         int newLen = iMap(p3, 0, 1023, 1, 2048);
