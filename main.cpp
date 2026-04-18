@@ -57,9 +57,9 @@ float noiseFilterCutoff = 20000.0f;
 float noiseAdsrAmount = 1.0f;
 float maxOutputLevel = 0.5f;
 float outputLevel = maxOutputLevel;
-float clipLevel = maxOutputLevel * 2.0f;
-constexpr float MIN_CLIP_LEVEL = 0.08f;
-constexpr float MAX_CLIP_LEVEL = 1.0f;
+float clipAmount = 0.0f;
+constexpr float MIN_CLIP_DRIVE = 1.0f;
+constexpr float MAX_CLIP_DRIVE = 10.0f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -765,24 +765,29 @@ float getMorphValue(int knobPos) {
 }
 
 float softClip(float x) {
-    float threshold = std::clamp(clipLevel, MIN_CLIP_LEVEL, MAX_CLIP_LEVEL);
-    float magnitude = std::fabs(x);
-    if (magnitude <= threshold) return x;
+    float amount = std::clamp(clipAmount, 0.0f, 1.0f);
+    if (amount <= 0.001f) return x;
 
-    float knee = std::max(1.0f - threshold, 0.001f);
-    float over = magnitude - threshold;
-    float shaped = threshold + knee * (1.0f - std::exp(-over / knee));
-    return std::copysign(shaped, x);
+    float drive = MIN_CLIP_DRIVE + std::pow(amount, 1.2f) * (MAX_CLIP_DRIVE - MIN_CLIP_DRIVE);
+    float wet = std::clamp(amount * 1.1f, 0.0f, 1.0f);
+    float shaped = std::tanh(x * drive);
+    float outputTrim = 1.0f / (1.0f + amount * 0.35f);
+    return lerp(x, shaped, wet) * outputTrim;
 }
 
 float getOctaveClipDrive() {
     float lowOctaveAmount = float(std::clamp(3 - octave, 0, 3));
-    return 1.0f + lowOctaveAmount * 0.15f;
+    return 1.0f + lowOctaveAmount * 0.05f;
 }
 
-float getClipLevelFromKnob(int knobValue) {
-    float clipAmount = std::clamp(norm(knobValue, 0.0f, 1023.0f, 0.0f, 1.0f), 0.0f, 1.0f);
-    return MIN_CLIP_LEVEL + std::pow(1.0f - clipAmount, 1.8f) * (MAX_CLIP_LEVEL - MIN_CLIP_LEVEL);
+float getOctaveOutputBoost() {
+    float lowOctaveAmount = float(std::clamp(3 - octave, 0, 3));
+    return 1.0f + lowOctaveAmount * 0.12f;
+}
+
+float getClipAmountFromKnob(int knobValue) {
+    float rawAmount = std::clamp(norm(knobValue, 0.0f, 1023.0f, 0.0f, 1.0f), 0.0f, 1.0f);
+    return std::pow(rawAmount, 0.85f);
 }
 
 // ======================================================
@@ -1109,7 +1114,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             mix /= activeVoices / 1.7f;
 
         mix = softClip(mix * outputLevel * getOctaveClipDrive());
-        mix = reverb.process(mix);
+        mix = reverb.process(mix) * getOctaveOutputBoost();
         mix = sanitizeDisplaySample(mix);
 
         pushSample(mix);
@@ -1348,7 +1353,7 @@ void editTone(){
             BUF_LEN.store(newLen, std::memory_order_release);
         }
     }
-    if(abs(p4-lastP4)>1) clipLevel = getClipLevelFromKnob(p4);
+    if(abs(p4-lastP4)>1) clipAmount = getClipAmountFromKnob(p4);
 }
 
 
