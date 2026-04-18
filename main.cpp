@@ -22,6 +22,7 @@
 #include <map>
 #include <cstdlib> 
 #include <ctime>
+#include <fstream>
 using namespace std::chrono;
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
@@ -68,6 +69,11 @@ const int debounceScans = 8;
 
 
 int selectedPreset = 0;
+int presetListSelection = 0;
+int presetOptionSelection = 0;
+constexpr int MAX_PRESET_NAME_LEN = 12;
+std::string presetNameInput;
+const char* PRESET_FILE_PATH = "presets.dat";
 
 // Global audio objects
 RtAudio dac;
@@ -227,6 +233,7 @@ int global_spi_handle = -1;   // Needed for safe exit
 void clearBuffer();
 void updateDisplay(int spi);
 void gracefulExit(int signum);
+void handlePresetNameKeyPress(int keyID);
 
 // --------------------------------------
 //  SPI Send Helpers
@@ -421,6 +428,14 @@ void drawText(int x, int y, const char* text) {
         drawChar(cursorX, cursorY, c);
         cursorX += 6;      // 5px glyph + 1px spacing
     }
+}
+
+int getTextWidth(const std::string& text) {
+    return int(text.size()) * 6;
+}
+
+void drawTextCenteredX(int centerX, int y, const std::string& text) {
+    drawText(centerX - getTextWidth(text) / 2, y, text.c_str());
 }
 
 void drawPixelInverse(int x, int y) {
@@ -746,6 +761,42 @@ HarmonySetting harmonySettings[MAX_HARMONIES] = {
 };
 int harmonyCount = 0;
 bool custom = false;
+
+struct Preset {
+    std::string name;
+    float outputLevel = 0.0f;
+    int octave = 0;
+    int bufferLength = 512;
+    float clipAmount = 0.0f;
+    float knobPosition = 0.0f;
+    bool custom = false;
+    float curvature = 1.0f;
+    std::array<float, WAVE_RES> wavePoints{};
+    float attack = 0.0f;
+    float decay = 0.0f;
+    float sustain = 0.0f;
+    float release = 0.0f;
+    float rDry = 1.0f;
+    float rWet = 0.0f;
+    float rSize = 1.0f;
+    float rDecay = 0.5f;
+    float noiseVolume = 0.0f;
+    float noiseFilterCutoff = 20000.0f;
+    float noiseAdsrAmount = 1.0f;
+    NoiseType noiseType = NOISE_NONE;
+    int harmonyCount = 0;
+    std::array<HarmonySetting, MAX_HARMONIES> harmonySettings{};
+};
+
+std::vector<Preset> presets;
+
+enum class PresetScreen {
+    LIST,
+    OPTIONS,
+    NAMING
+};
+
+PresetScreen presetScreen = PresetScreen::LIST;
 
 // ADSR
 float attack = 0.5f;
@@ -1260,7 +1311,8 @@ void updateKeyStates() {
                 } else if (!keyStates[keyID].pressed) {
                     // KEY PRESS EVENT
                     keyStates[keyID].pressed = true;
-                    onKeyPress(keyID); 
+                    if (menu == PRESET_MENU && presetScreen == PresetScreen::NAMING) handlePresetNameKeyPress(keyID);
+                    else onKeyPress(keyID); 
                 }
             } else {
                 if (keyStates[keyID].count > 0) {
@@ -1268,7 +1320,7 @@ void updateKeyStates() {
                 } else if (keyStates[keyID].pressed) {
                     // KEY RELEASE EVENT
                     keyStates[keyID].pressed = false;
-                    onKeyRelease(keyID);
+                    if (!(menu == PRESET_MENU && presetScreen == PresetScreen::NAMING)) onKeyRelease(keyID);
                 }
             }
         }
@@ -1451,6 +1503,225 @@ void editHarmonist() {
 
 void selectMenu() {
     menuSelection = norm(p4, 0, 1023, 1, 7);
+}
+
+int knobIndex(int itemCount) {
+    if (itemCount <= 1) return 0;
+    return std::clamp(int(norm(p4, 0.0f, 1023.0f, 0.0f, float(itemCount))), 0, itemCount - 1);
+}
+
+void setBufferLength(int newLen) {
+    if (newLen < 32) newLen = 32;
+    if (newLen > MAX_BUF_LEN) newLen = MAX_BUF_LEN;
+
+    int oldLen = BUF_LEN.load(std::memory_order_acquire);
+    if (newLen == oldLen) return;
+
+    int currentPos = bufIndex.load(std::memory_order_acquire) % newLen;
+    bufIndex.store(currentPos, std::memory_order_release);
+    BUF_LEN.store(newLen, std::memory_order_release);
+}
+
+Preset captureCurrentPreset(const std::string& name) {
+    Preset preset;
+    preset.name = name;
+    preset.outputLevel = outputLevel;
+    preset.octave = octave;
+    preset.bufferLength = BUF_LEN.load(std::memory_order_acquire);
+    preset.clipAmount = clipAmount;
+    preset.knobPosition = knobPosition;
+    preset.custom = custom;
+    preset.curvature = curvature;
+    for (int i = 0; i < WAVE_RES; i++) {
+        preset.wavePoints[i] = wavePoints[i];
+    }
+    preset.attack = attack;
+    preset.decay = decay;
+    preset.sustain = sustain;
+    preset.release = release;
+    preset.rDry = rDry;
+    preset.rWet = rWet;
+    preset.rSize = rSize;
+    preset.rDecay = rDecay;
+    preset.noiseVolume = noiseVolume;
+    preset.noiseFilterCutoff = noiseFilterCutoff;
+    preset.noiseAdsrAmount = noiseAdsrAmount;
+    preset.noiseType = noiseType;
+    preset.harmonyCount = harmonyCount;
+    for (int i = 0; i < MAX_HARMONIES; i++) {
+        preset.harmonySettings[i] = harmonySettings[i];
+    }
+    return preset;
+}
+
+void applyPreset(const Preset& preset) {
+    outputLevel = preset.outputLevel;
+    octave = preset.octave;
+    setBufferLength(preset.bufferLength);
+    clipAmount = preset.clipAmount;
+    knobPosition = preset.knobPosition;
+    custom = preset.custom;
+    curvature = preset.curvature;
+    for (int i = 0; i < WAVE_RES; i++) {
+        wavePoints[i] = preset.wavePoints[i];
+    }
+    waveNeedsRebuild = true;
+
+    attack = preset.attack;
+    decay = preset.decay;
+    sustain = preset.sustain;
+    release = preset.release;
+
+    rDry = preset.rDry;
+    rWet = preset.rWet;
+    rSize = preset.rSize;
+    rDecay = preset.rDecay;
+    reverb.setDryWet(rWet, rDry);
+    reverb.setRoomSize(rSize);
+    reverb.setDecay(rDecay);
+
+    noiseVolume = preset.noiseVolume;
+    noiseFilterCutoff = preset.noiseFilterCutoff;
+    noiseAdsrAmount = preset.noiseAdsrAmount;
+    noiseType = preset.noiseType;
+    noise.setCutoff(noiseFilterCutoff);
+    noise.setType(noiseType);
+
+    harmonyCount = preset.harmonyCount;
+    for (int i = 0; i < MAX_HARMONIES; i++) {
+        harmonySettings[i] = preset.harmonySettings[i];
+    }
+    refreshPlayingVoiceFrequencies();
+}
+
+void savePresetsToFile() {
+    std::ofstream out(PRESET_FILE_PATH, std::ios::trunc);
+    if (!out) return;
+
+    out << presets.size() << "\n";
+    for (const Preset& preset : presets) {
+        out << preset.name << "\n";
+        out << preset.outputLevel << " " << preset.octave << " " << preset.bufferLength << " "
+            << preset.clipAmount << " " << preset.knobPosition << " " << preset.custom << " "
+            << preset.curvature << "\n";
+        for (int i = 0; i < WAVE_RES; i++) {
+            if (i > 0) out << " ";
+            out << preset.wavePoints[i];
+        }
+        out << "\n";
+        out << preset.attack << " " << preset.decay << " " << preset.sustain << " " << preset.release << "\n";
+        out << preset.rDry << " " << preset.rWet << " " << preset.rSize << " " << preset.rDecay << "\n";
+        out << preset.noiseVolume << " " << preset.noiseFilterCutoff << " " << preset.noiseAdsrAmount << " "
+            << int(preset.noiseType) << "\n";
+        out << preset.harmonyCount << "\n";
+        for (int i = 0; i < MAX_HARMONIES; i++) {
+            out << preset.harmonySettings[i].interval << " "
+                << preset.harmonySettings[i].detune << " "
+                << preset.harmonySettings[i].level << "\n";
+        }
+    }
+}
+
+void loadPresetsFromFile() {
+    presets.clear();
+
+    std::ifstream in(PRESET_FILE_PATH);
+    if (!in) return;
+
+    int presetCount = 0;
+    if (!(in >> presetCount)) return;
+
+    for (int p = 0; p < presetCount; p++) {
+        Preset preset;
+        if (!(in >> preset.name)) break;
+        int customFlag = 0;
+        int noiseTypeValue = 0;
+
+        if (!(in >> preset.outputLevel >> preset.octave >> preset.bufferLength
+              >> preset.clipAmount >> preset.knobPosition >> customFlag >> preset.curvature)) break;
+        preset.custom = (customFlag != 0);
+
+        for (int i = 0; i < WAVE_RES; i++) {
+            if (!(in >> preset.wavePoints[i])) return;
+        }
+
+        if (!(in >> preset.attack >> preset.decay >> preset.sustain >> preset.release)) break;
+        if (!(in >> preset.rDry >> preset.rWet >> preset.rSize >> preset.rDecay)) break;
+        if (!(in >> preset.noiseVolume >> preset.noiseFilterCutoff >> preset.noiseAdsrAmount >> noiseTypeValue)) break;
+        preset.noiseType = static_cast<NoiseType>(noiseTypeValue);
+        if (!(in >> preset.harmonyCount)) break;
+
+        for (int i = 0; i < MAX_HARMONIES; i++) {
+            if (!(in >> preset.harmonySettings[i].interval
+                  >> preset.harmonySettings[i].detune
+                  >> preset.harmonySettings[i].level)) return;
+        }
+
+        preset.harmonyCount = std::clamp(preset.harmonyCount, 0, MAX_HARMONIES);
+        presets.push_back(preset);
+    }
+}
+
+std::string defaultPresetName() {
+    return std::string("PRESET") + char('A' + (int(presets.size()) % 24));
+}
+
+void beginPresetNaming() {
+    presetNameInput.clear();
+    presetScreen = PresetScreen::NAMING;
+}
+
+void finishPresetNaming() {
+    std::string name = presetNameInput.empty() ? defaultPresetName() : presetNameInput;
+    presets.push_back(captureCurrentPreset(name));
+    savePresetsToFile();
+    selectedPreset = int(presets.size()) - 1;
+    presetListSelection = selectedPreset;
+    presetScreen = PresetScreen::LIST;
+}
+
+void loadSelectedPreset() {
+    if (selectedPreset < 0 || selectedPreset >= int(presets.size())) return;
+    applyPreset(presets[selectedPreset]);
+    presetListSelection = selectedPreset;
+    presetScreen = PresetScreen::LIST;
+}
+
+void deleteSelectedPreset() {
+    if (selectedPreset < 0 || selectedPreset >= int(presets.size())) return;
+    presets.erase(presets.begin() + selectedPreset);
+    savePresetsToFile();
+    if (selectedPreset >= int(presets.size())) {
+        selectedPreset = std::max(0, int(presets.size()) - 1);
+    }
+    presetListSelection = std::min(presetListSelection, int(presets.size()));
+    presetScreen = PresetScreen::LIST;
+}
+
+void handlePresetSingleClick() {
+    if (presetScreen == PresetScreen::LIST) {
+        selectedPreset = presetListSelection;
+        if (selectedPreset >= int(presets.size())) beginPresetNaming();
+        else presetScreen = PresetScreen::OPTIONS;
+        return;
+    }
+
+    if (presetScreen == PresetScreen::OPTIONS) {
+        if (presetOptionSelection == 0) deleteSelectedPreset();
+        else loadSelectedPreset();
+        return;
+    }
+
+    if (presetScreen == PresetScreen::NAMING) {
+        finishPresetNaming();
+    }
+}
+
+void handlePresetNameKeyPress(int keyID) {
+    if (presetScreen != PresetScreen::NAMING) return;
+    if (keyID < 0 || keyID > 23) return;
+    if (int(presetNameInput.size()) >= MAX_PRESET_NAME_LEN) return;
+    presetNameInput.push_back(char('A' + keyID));
 }
 
 
@@ -1697,21 +1968,64 @@ void drawHarmonist() {
     
 }
 
+void drawPresetList() {
+    clearBuffer();
 
+    int itemCount = int(presets.size()) + 1;
+    presetListSelection = knobIndex(itemCount);
+
+    drawTextCenteredX(WIDTH / 2, 2, "PRESETS");
+
+    const int visibleItems = 4;
+    const int menuX = 10;
+    const int menuY = 14;
+    const int menuW = 108;
+    const int menuH = 11;
+    const int gap = 2;
+    int firstVisible = 0;
+
+    if (presetListSelection >= visibleItems) {
+        firstVisible = presetListSelection - visibleItems + 1;
+    }
+
+    for (int row = 0; row < visibleItems; row++) {
+        int index = firstVisible + row;
+        if (index >= itemCount) break;
+
+        std::string label = (index < int(presets.size())) ? presets[index].name : "ADD";
+        drawMenuItem(menuX, menuY + row * (menuH + gap), menuW, menuH, label.c_str(), index == presetListSelection);
+    }
+}
+
+void drawPresetNaming() {
+    clearBuffer();
+
+    drawTextCenteredX(WIDTH / 2, 4, "TYPE TITLE");
+    drawRect(10, 18, 108, 14);
+
+    std::string displayName = presetNameInput.empty() ? "A TO X" : presetNameInput;
+    drawTextCenteredX(WIDTH / 2, 22, displayName);
+    drawTextCenteredX(WIDTH / 2, 42, "PRESS BTN");
+    drawTextCenteredX(WIDTH / 2, 50, "TO ADD");
+}
 
 void drawPresetOptions() {
     clearBuffer();
-    std::string presetName = "Preset 1"; //example
-    drawText(strlen(presetName.c_str())*3, 10, presetName.c_str());
-    if(norm(p4, 0, 1023, 0, 1) < 0.5f) {
+    if (selectedPreset < 0 || selectedPreset >= int(presets.size())) {
+        presetScreen = PresetScreen::LIST;
+        drawPresetList();
+        return;
+    }
+
+    presetOptionSelection = knobIndex(2);
+    drawTextCenteredX(WIDTH / 2, 10, presets[selectedPreset].name);
+    if (presetOptionSelection == 0) {
         drawMenuItem(8, 29, 53, 14, "DELETE", true);
         drawMenuItem(72, 29, 53, 14, "ENTER");
     } else {
         drawMenuItem(8, 29, 53, 14, "DELETE");
         drawMenuItem(72, 29, 53, 14, "ENTER", true);
     }
-
-    //if (gpioRead(16) == 1)
 }
 
 // ======================================================
@@ -1808,6 +2122,11 @@ int main() {
     reverb.setDecay(0.9f);
 
     initWavePoints();
+    loadPresetsFromFile();
+    if (presets.empty()) {
+        presets.push_back(captureCurrentPreset("DEFAULT"));
+        savePresetsToFile();
+    }
 
 
     if (gpioInitialise() < 0) {
@@ -1878,6 +2197,8 @@ int main() {
                 std::cout << "Double click detected!" << std::endl;
                 // TODO: Handle double click (e.g., special menu)
                 menu = static_cast<Mode>(MAIN_MENU); 
+                presetScreen = PresetScreen::LIST;
+                presetNameInput.clear();
 
             } else {
                 // First click, maybe a single click
@@ -1921,8 +2242,10 @@ int main() {
             drawHarmonist();
         }
         if(menu==PRESET_MENU) {
-            // drawSelectMenu();
-            drawPresetOptions();
+            edit = false;
+            if (presetScreen == PresetScreen::LIST) drawPresetList();
+            else if (presetScreen == PresetScreen::NAMING) drawPresetNaming();
+            else drawPresetOptions();
         }
 
         if (edit) {
@@ -1944,7 +2267,12 @@ int main() {
                 if(menu == MAIN_MENU) {
                     edit = false;
                     menu = static_cast<Mode>(menuSelection+1);
+                    if (menu == PRESET_MENU) {
+                        presetScreen = PresetScreen::LIST;
+                        presetListSelection = std::min(presetListSelection, int(presets.size()));
+                    }
                 }
+                else if (menu == PRESET_MENU) handlePresetSingleClick();
                 else edit = !edit;
 
                 std::cout << "Single click detected!" << std::endl;
