@@ -55,8 +55,9 @@ float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
 float noiseFilterCutoff = 20000.0f;
 float noiseAdsrAmount = 1.0f;
-float outputLevel = 3.0f;
-float clipLevel = outputLevel * 1.5f;
+float maxOutputLevel = 3.0f;
+float outputLevel = maxOutputLevel;
+float clipLevel = maxOutputLevel * 1.5f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -1090,7 +1091,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         if (normVoices && activeVoices > 1)
             mix /= activeVoices / 1.7f;
 
-        mix = softClip(mix * (outputLevel*(-octave+4)/3.0f)); 
+        mix = softClip(mix * (outputLevel*(-octave+4)/2.0f)); 
         mix = reverb.process(mix);
         mix = sanitizeDisplaySample(mix);
 
@@ -1314,7 +1315,7 @@ void editReverb() {
 //                     Tone Edit
 // ======================================================
 void editTone(){
-    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,3.0f);
+    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f, maxOutputLevel);
     if(abs(p2-lastP2)>1) setOctave(int(norm(p2,0.0f,1023.0f,0.0f,4.0f)));
     if(abs(p3-lastP3)>1) {
         // compute the desired length, clamp to allowed range
