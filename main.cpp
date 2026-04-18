@@ -66,6 +66,9 @@ float lowPolyLowpassState = 0.0f;
 // Debounce in consecutive scans
 const int debounceScans = 8;
 
+
+int selectedPreset = 0;
+
 // Global audio objects
 RtAudio dac;
 RtAudio::StreamParameters oParams;
@@ -1694,8 +1697,12 @@ void drawHarmonist() {
     
 }
 
+
+
 void drawPresetOptions() {
     clearBuffer();
+    std::string presetName = "Preset 1"; //example
+    drawText(strlen(presetName.c_str())*3, 10, presetName.c_str());
     if(norm(p4, 0, 1023, 0, 1) < 0.5f) {
         drawMenuItem(8, 29, 53, 14, "DELETE", true);
         drawMenuItem(72, 29, 53, 14, "ENTER");
