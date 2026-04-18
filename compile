@@ -30,7 +30,7 @@ gpioset 0 26=0
 start_blink
 git stash
 git pull
-g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread
+g++ loading.cpp -o load_synth_program -lpigpio -lpng16 -lrt -lpthread
 LOADER_COMPILE_STATUS=$?
 if [ "$LOADER_COMPILE_STATUS" -ne 0 ]; then
     stop_blink
