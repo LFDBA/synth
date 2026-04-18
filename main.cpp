@@ -55,7 +55,7 @@ float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
 float noiseFilterCutoff = 20000.0f;
 float noiseAdsrAmount = 1.0f;
-float clipLevel = 2.0f;
+float clipLevel = outputLevel * 1.5f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -674,7 +674,7 @@ int mapKeyNumber(int k) {
 
 const int numVoices = 24;
 constexpr int MAX_HARMONIES = 4;
-float outputLevel = 1.0f;
+float outputLevel = 2.0f;
 bool normVoices = true; // Normalize by active voices
 int fd;
 int editIndex = 0;
