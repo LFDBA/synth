@@ -678,7 +678,7 @@ int mapKeyNumber(int k) {
 //                     Constants
 // ======================================================
 
-const int numVoices = 24;
+const int numVoices = 4;
 constexpr int MAX_HARMONIES = 4;
 
 bool normVoices = true; // Normalize by active voices
@@ -881,8 +881,8 @@ std::array<float, 2> ADSR(float attack,float decay,float sustain,float release,b
         }
     }else{
         if(t<release) {
-
-            return { (1.0f - powf(t/release,1.0f/curvature))*(current*lvl), 0.0f };
+            float releaseProgress = std::clamp(t / std::max(release, 0.0001f), 0.0f, 1.0f);
+            return { (1.0f - releaseProgress) * (current * lvl), 0.0f };
         
             // return (1.0f - powf(t/release,1.0f/curvature))*(sustain*lvl);
         }
