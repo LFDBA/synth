@@ -55,7 +55,7 @@ float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
 float noiseFilterCutoff = 20000.0f;
 float noiseAdsrAmount = 1.0f;
-float maxOutputLevel = 2.0f;
+float maxOutputLevel = 1.0f;
 float outputLevel = maxOutputLevel;
 float clipLevel = maxOutputLevel * 1.5f;
 
@@ -803,7 +803,7 @@ void initWavePoints() {
 // ======================================================
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
-    return fC0*pow(2.0f,float(noteNumber+(octave)*24)/12.0f);
+    return fC0*pow(2.0f,float(noteNumber+(octave+1)*24)/12.0f);
 }
 float hzToNote(float freq) {
     float fC0 = 16.35f;
@@ -1316,7 +1316,7 @@ void editReverb() {
 // ======================================================
 void editTone(){
     if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f, maxOutputLevel);
-    if(abs(p2-lastP2)>1) setOctave(int(norm(p2,0.0f,1023.0f,0.0f,4.0f)));
+    if(abs(p2-lastP2)>1) setOctave(int(norm(p2,0.0f,1023.0f,0.0f, 3.0f)));
     if(abs(p3-lastP3)>1) {
         // compute the desired length, clamp to allowed range
         int newLen = iMap(p3, 0, 1023, 1, 2048);
