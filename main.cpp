@@ -674,7 +674,7 @@ int mapKeyNumber(int k) {
 
 const int numVoices = 24;
 constexpr int MAX_HARMONIES = 4;
-float outputLevel = 0.1f;
+float outputLevel = 1.0f;
 bool normVoices = true; // Normalize by active voices
 int fd;
 int editIndex = 0;
