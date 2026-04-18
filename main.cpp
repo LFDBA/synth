@@ -1515,10 +1515,10 @@ void updateWritePlayback(unsigned long nowMs) {
 
     writePlaybackIndex++;
     if (writePlaybackIndex >= writeNotes.size()) {
-        if (!writePlaybackLooping) {
-            stopWritePlayback();
-            return;
-        }
+        // if (!writePlaybackLooping) {
+        //     stopWritePlayback();
+        //     return;
+        // }
         writePlaybackIndex = 0;
     }
 
