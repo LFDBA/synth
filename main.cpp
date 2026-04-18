@@ -54,6 +54,7 @@ bool singleClickPending = false;
 unsigned long buttonPressStartTime = 0;
 bool writeHoldTriggered = false;
 constexpr unsigned long WRITE_HOLD_DELAY_MS = 300;
+int writePendingClickCount = 0;
 float fatness;
 float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
@@ -89,6 +90,7 @@ const char* PRESET_FILE_PATH = "../presets.dat";
 std::vector<int> writeNotes;
 float writeTempoBpm = 120.0f;
 bool writePlaybackActive = false;
+bool writePlaybackLooping = false;
 size_t writePlaybackIndex = 0;
 unsigned long writePlaybackStepStartMs = 0;
 int writePlaybackVoiceIndex = -1;
@@ -256,11 +258,15 @@ const int HEIGHT = 64;
 uint8_t buffer[WIDTH * (HEIGHT / 8)];
 int global_spi_handle = -1;   // Needed for safe exit
 
+struct Preset;
+
 void clearBuffer();
 void updateDisplay(int spi);
 void gracefulExit(int signum);
 void handlePresetNameKeyPress(int keyID);
 void savePresetsToFile();
+Preset captureCurrentPreset(const std::string& name);
+void configureWritePatchEngines();
 
 // --------------------------------------
 //  SPI Send Helpers
@@ -774,6 +780,7 @@ struct Voice {
     float frequency = 261.63f;
     bool active = false;        // key held
     bool releasing = false;     // is in release phase
+    bool usesWritePatch = false;
     float envTime = 0.0f;       // time since note-on or release start
     float releaseStartLevel = 0.0f;
     float oscVolume = 1.0f;
@@ -825,6 +832,12 @@ struct Preset {
 };
 
 std::vector<Preset> presets;
+Preset writePatch;
+bool writePatchCaptured = false;
+std::vector<float> writeCustomTable;
+Reverb writeReverb(sampleRate);
+NoiseGenerator writeNoise(NOISE_NONE);
+float writeLowPolyLowpassState = 0.0f;
 
 enum class PresetScreen {
     LIST,
@@ -916,16 +929,23 @@ inline float curveInterp(float a, float b, float t, float curv) {
     return lerp(a,b,t);
 }
 
-void rebuildWaveTable() {
-    for(int i=0;i<TABLE_SIZE;i++){
-        float t = float(i)/(TABLE_SIZE-1);
-        float idxF = t*(WAVE_RES-1);
+void rebuildCustomTableFromPoints(const std::array<float, WAVE_RES>& points, float patchCurvature, std::vector<float>& table) {
+    table.resize(TABLE_SIZE);
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        float t = float(i) / (TABLE_SIZE - 1);
+        float idxF = t * (WAVE_RES - 1);
         int idx = int(idxF);
-        float frac = idxF-idx;
-        float v1 = wavePoints[idx];
-        float v2 = wavePoints[std::min(idx+1,WAVE_RES-1)];
-        customTable[i] = curveInterp(v1,v2,frac,curvature);
+        float frac = idxF - idx;
+        float v1 = points[idx];
+        float v2 = points[std::min(idx + 1, WAVE_RES - 1)];
+        table[i] = curveInterp(v1, v2, frac, patchCurvature);
     }
+}
+
+void rebuildWaveTable() {
+    std::array<float, WAVE_RES> points{};
+    for (int i = 0; i < WAVE_RES; i++) points[i] = wavePoints[i];
+    rebuildCustomTableFromPoints(points, curvature, customTable);
     waveNeedsRebuild=false;
 }
 
@@ -944,6 +964,11 @@ float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
     return fC0*pow(2.0f,float((noteNumber-8)+(octave+2)*12)/12.0f);
 }
+
+float noteToHzForOctave(int noteNumber, int octaveValue) {
+    float fC0 = 16.35f;
+    return fC0 * pow(2.0f, float((noteNumber - 8) + (octaveValue + 2) * 12) / 12.0f);
+}
 float hzToNote(float freq) {
     float fC0 = 16.35f;
     return 12.0f*log2f(freq/fC0)-24.0f;
@@ -952,16 +977,19 @@ float hzToNote(float freq) {
 void refreshVoicePitchCache(Voice& voice) {
     if (voice.keyID < 0) return;
 
-    voice.frequency = noteToHz(voice.keyID);
+    const bool useWritePatch = voice.usesWritePatch && writePatchCaptured;
+    const int voiceOctave = useWritePatch ? writePatch.octave : octave;
+    const HarmonySetting* settings = useWritePatch ? writePatch.harmonySettings.data() : harmonySettings;
+    voice.frequency = noteToHzForOctave(voice.keyID, voiceOctave);
     for (int h = 0; h < MAX_HARMONIES; h++) {
-        const HarmonySetting& setting = harmonySettings[h];
-        voice.harmonyFrequencies[h] = noteToHz(voice.keyID + setting.interval) * (1.0f + setting.detune);
+        const HarmonySetting& setting = settings[h];
+        voice.harmonyFrequencies[h] = noteToHzForOctave(voice.keyID + setting.interval, voiceOctave) * (1.0f + setting.detune);
     }
 }
 
 void refreshPlayingVoiceFrequencies() {
     for (int v = 0; v < numVoices; v++) {
-        if ((voices[v].active || voices[v].releasing) && voices[v].keyID >= 0) {
+        if (!voices[v].usesWritePatch && (voices[v].active || voices[v].releasing) && voices[v].keyID >= 0) {
             refreshVoicePitchCache(voices[v]);
         }
     }
@@ -1119,31 +1147,93 @@ void drawOutput() {
 
 NoiseGenerator noise(noiseType);
 
-float getNoiseEnvelope(float env) {
-    if (noiseType == NOISE_NONE || noiseVolume <= 0.0f) return 0.0f;
-    return lerp(1.0f, env, std::clamp(noiseAdsrAmount, 0.0f, 1.0f));
+float softClipWithAmount(float x, float amount) {
+    amount = std::clamp(amount, 0.0f, 1.0f);
+    if (amount <= 0.001f) return x;
+
+    float drive = MIN_CLIP_DRIVE + std::pow(amount, 1.2f) * (MAX_CLIP_DRIVE - MIN_CLIP_DRIVE);
+    float wet = std::clamp(amount * 1.1f, 0.0f, 1.0f);
+    float shaped = std::tanh(x * drive);
+    float outputTrim = 1.0f / (1.0f + amount * 0.35f);
+    return (x + (shaped - x) * wet) * outputTrim;
 }
 
-void accumulateNoiseEnergy(float& noiseEnergy, float env) {
-    float noiseEnv = getNoiseEnvelope(env);
+float getOctaveClipDriveForValue(int octaveValue) {
+    float lowOctaveAmount = float(std::clamp(3 - octaveValue, 0, 3));
+    return 1.0f + lowOctaveAmount * 0.05f;
+}
+
+float getOctaveOutputBoostForValue(int octaveValue, int lowVoiceCount) {
+    float lowOctaveAmount = float(std::clamp(3 - octaveValue, 0, 3));
+    float boost = 1.0f + lowOctaveAmount * 0.12f;
+    if (lowVoiceCount <= 1) return boost;
+    return 1.0f + (boost - 1.0f) / (1.0f + 0.75f * float(lowVoiceCount - 1));
+}
+
+float applyPolyBassCleanupWithState(float input, int lowVoiceCount, float& lowpassState) {
+    float cleanupAmount = std::clamp(0.22f * float(lowVoiceCount - 1), 0.0f, 0.65f);
+    float cutoff = 55.0f + 18.0f * float(std::max(lowVoiceCount - 1, 0));
+    float alpha = 1.0f - std::exp((-2.0f * float(M_PI) * cutoff) / sampleRate);
+    lowpassState += alpha * (input - lowpassState);
+    float highPassed = input - lowpassState;
+    return input + (highPassed - input) * cleanupAmount;
+}
+
+float getPatchOutputLevel(const Preset* patch) {
+    return patch ? patch->outputLevel : outputLevel;
+}
+
+float getPatchClipAmount(const Preset* patch) {
+    return patch ? patch->clipAmount : clipAmount;
+}
+
+int getPatchOctave(const Preset* patch) {
+    return patch ? patch->octave : octave;
+}
+
+float getPatchReleaseTime(const Preset* patch) {
+    return patch ? patch->release : release;
+}
+
+int getPatchHarmonyCount(const Preset* patch) {
+    return patch ? patch->harmonyCount : harmonyCount;
+}
+
+const HarmonySetting& getPatchHarmonySetting(const Preset* patch, int harmonyIndex) {
+    return patch ? patch->harmonySettings[harmonyIndex] : harmonySettings[harmonyIndex];
+}
+
+float getNoiseEnvelopeForPatch(float env, const Preset* patch) {
+    NoiseType patchNoiseType = patch ? patch->noiseType : noiseType;
+    float patchNoiseVolume = patch ? patch->noiseVolume : noiseVolume;
+    float patchNoiseAdsrAmount = patch ? patch->noiseAdsrAmount : noiseAdsrAmount;
+    if (patchNoiseType == NOISE_NONE || patchNoiseVolume <= 0.0f) return 0.0f;
+    return lerp(1.0f, env, std::clamp(patchNoiseAdsrAmount, 0.0f, 1.0f));
+}
+
+void accumulateNoiseEnergy(float& noiseEnergy, float env, const Preset* patch) {
+    float noiseEnv = getNoiseEnvelopeForPatch(env, patch);
     if (noiseEnv <= 0.0f) return;
     noiseEnergy += noiseEnv * noiseEnv;
 }
 
-float renderNoiseMix(float noiseEnergy) {
+float renderNoiseMix(float noiseEnergy, const Preset* patch, NoiseGenerator& generator) {
     if (noiseEnergy <= 0.0f) return 0.0f;
-    return noise.next() * std::sqrt(noiseEnergy) * NOISE_RENDER_GAIN;
+    return generator.next() * std::sqrt(noiseEnergy) * NOISE_RENDER_GAIN;
 }
 
-float renderOscillatorSample(float phase) {
+float renderOscillatorSample(float phase, const Preset* patch) {
     float oscSample;
+    bool patchCustom = patch ? patch->custom : custom;
 
-    if (custom) {
+    if (patchCustom) {
         int idx = int(phase * TABLE_SIZE);
         if (idx >= TABLE_SIZE) idx = TABLE_SIZE - 1;
-        oscSample = customTable[idx];
+        const std::vector<float>& table = patch ? writeCustomTable : customTable;
+        if (table.empty()) return 0.0f;
+        oscSample = table[idx];
     } else {
-        float seg = knobPosition * 4.0f;
+        float seg = (patch ? patch->knobPosition : knobPosition) * 4.0f;
         int idx = int(seg);
         float blend = seg - idx;
         float w1, w2;
@@ -1160,12 +1250,12 @@ float renderOscillatorSample(float phase) {
     return oscSample;
 }
 
-float getVoiceEnvelope(const Voice& voice, float level) {
+float getVoiceEnvelope(const Voice& voice, float level, const Preset* patch) {
     return ADSR(
-        attack,
-        decay,
-        sustain,
-        release,
+        patch ? patch->attack : attack,
+        patch ? patch->decay : decay,
+        patch ? patch->sustain : sustain,
+        patch ? patch->release : release,
         voice.active,
         voice.envTime,
         level,
@@ -1179,15 +1269,17 @@ float renderVoiceSample(Voice& voice, float& voiceEnv) {
 
     if (voice.active || voice.releasing) {
         voice.envTime += 1.0f / sampleRate;
-        voiceEnv = getVoiceEnvelope(voice, voice.oscVolume);
-        float oscSample = renderOscillatorSample(voice.phase);
+        const Preset* patch = (voice.usesWritePatch && writePatchCaptured) ? &writePatch : nullptr;
+        voiceEnv = getVoiceEnvelope(voice, voice.oscVolume, patch);
+        float oscSample = renderOscillatorSample(voice.phase, patch);
         sample = oscSample * voiceEnv;
 
         voice.phase += voice.frequency / sampleRate;
         if (voice.phase >= 1.0f) voice.phase -= 1.0f;
 
-        if (voice.releasing && voice.envTime >= release) {
+        if (voice.releasing && voice.envTime >= getPatchReleaseTime(patch)) {
             voice.releasing = false;
+            voice.usesWritePatch = false;
             voice.envTime = 0.0f;
             voice.phase = 0.0f;
             voice.releaseStartLevel = 0.0f;
@@ -1200,13 +1292,14 @@ float renderVoiceSample(Voice& voice, float& voiceEnv) {
 
 float renderHarmonySample(Voice& voice, int harmonyIndex, float voiceEnv) {
     if (!(voice.active || voice.releasing)) return 0.0f;
-    if (harmonyIndex < 0 || harmonyIndex >= harmonyCount) return 0.0f;
+    const Preset* patch = (voice.usesWritePatch && writePatchCaptured) ? &writePatch : nullptr;
+    if (harmonyIndex < 0 || harmonyIndex >= getPatchHarmonyCount(patch)) return 0.0f;
 
-    const HarmonySetting& setting = harmonySettings[harmonyIndex];
+    const HarmonySetting& setting = getPatchHarmonySetting(patch, harmonyIndex);
     if (setting.level <= 0.0f) return 0.0f;
 
     float env = voiceEnv * setting.level;
-    float oscSample = renderOscillatorSample(voice.harmonyPhases[harmonyIndex]);
+    float oscSample = renderOscillatorSample(voice.harmonyPhases[harmonyIndex], patch);
     float sample = oscSample * env;
 
     voice.harmonyPhases[harmonyIndex] += voice.harmonyFrequencies[harmonyIndex] / sampleRate;
@@ -1215,6 +1308,24 @@ float renderHarmonySample(Voice& voice, int harmonyIndex, float voiceEnv) {
     }
 
     return sample;
+}
+
+float processPatchMix(float patchMix, int activeVoices, int lowVoiceCount, float noiseEnergy,
+                      const Preset* patch, NoiseGenerator& generator, Reverb& patchReverb,
+                      float& lowpassState) {
+    patchMix += renderNoiseMix(noiseEnergy, patch, generator);
+
+    if (normVoices && activeVoices > 1) {
+        patchMix /= activeVoices / 1.7f;
+    }
+
+    patchMix *= getLowVoiceMixCompensation(lowVoiceCount);
+    patchMix = applyPolyBassCleanupWithState(patchMix, lowVoiceCount, lowpassState);
+    patchMix = softClipWithAmount(
+        patchMix * getPatchOutputLevel(patch) * getOctaveClipDriveForValue(getPatchOctave(patch)),
+        getPatchClipAmount(patch)
+    );
+    return patchReverb.process(patchMix) * getOctaveOutputBoostForValue(getPatchOctave(patch), lowVoiceCount);
 }
 // ======================================================
 //                  Audio Callback
@@ -1229,38 +1340,63 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
     if(custom && waveNeedsRebuild) rebuildWaveTable();
 
     for (unsigned int i = 0; i < nBufferFrames; i++) {
-        mix = 0.0f;
-        int activeVoices = 0;
-        int lowVoiceCount = 0;
-        float noiseEnergy = 0.0f;
+        float liveMix = 0.0f;
+        float writeMix = 0.0f;
+        int liveActiveVoices = 0;
+        int liveLowVoiceCount = 0;
+        float liveNoiseEnergy = 0.0f;
+        int writeActiveVoices = 0;
+        int writeLowVoiceCount = 0;
+        float writeNoiseEnergy = 0.0f;
 
         for (int v = 0; v < numVoices; v++) {
             Voice& voice = voices[v];
             if (!(voice.active || voice.releasing)) continue;
+            const bool useWritePatch = voice.usesWritePatch && writePatchCaptured;
 
-            activeVoices++;
-            if (voice.frequency < LOW_POLY_VOICE_HZ) {
-                lowVoiceCount++;
+            if (useWritePatch) {
+                writeActiveVoices++;
+                if (voice.frequency < LOW_POLY_VOICE_HZ) writeLowVoiceCount++;
+            } else {
+                liveActiveVoices++;
+                if (voice.frequency < LOW_POLY_VOICE_HZ) liveLowVoiceCount++;
             }
 
             float voiceEnv = 0.0f;
-            mix += renderVoiceSample(voice, voiceEnv);
-            accumulateNoiseEnergy(noiseEnergy, voiceEnv);
-            for (int h = 0; h < harmonyCount; h++) {
-                mix += renderHarmonySample(voice, h, voiceEnv);
-                accumulateNoiseEnergy(noiseEnergy, voiceEnv * harmonySettings[h].level);
+            float voiceSample = renderVoiceSample(voice, voiceEnv);
+            const Preset* patch = useWritePatch ? &writePatch : nullptr;
+
+            if (useWritePatch) {
+                writeMix += voiceSample;
+                accumulateNoiseEnergy(writeNoiseEnergy, voiceEnv, patch);
+            } else {
+                liveMix += voiceSample;
+                accumulateNoiseEnergy(liveNoiseEnergy, voiceEnv, patch);
+            }
+
+            for (int h = 0; h < getPatchHarmonyCount(patch); h++) {
+                float harmonySample = renderHarmonySample(voice, h, voiceEnv);
+                float harmonyEnv = voiceEnv * getPatchHarmonySetting(patch, h).level;
+                if (useWritePatch) {
+                    writeMix += harmonySample;
+                    accumulateNoiseEnergy(writeNoiseEnergy, harmonyEnv, patch);
+                } else {
+                    liveMix += harmonySample;
+                    accumulateNoiseEnergy(liveNoiseEnergy, harmonyEnv, patch);
+                }
             }
         }
 
-        mix += renderNoiseMix(noiseEnergy);
+        float processedLiveMix = processPatchMix(
+            liveMix, liveActiveVoices, liveLowVoiceCount, liveNoiseEnergy,
+            nullptr, noise, reverb, lowPolyLowpassState
+        );
+        float processedWriteMix = processPatchMix(
+            writeMix, writeActiveVoices, writeLowVoiceCount, writeNoiseEnergy,
+            writePatchCaptured ? &writePatch : nullptr, writeNoise, writeReverb, writeLowPolyLowpassState
+        );
 
-        if (normVoices && activeVoices > 1)
-            mix /= activeVoices / 1.7f;
-
-        mix *= getLowVoiceMixCompensation(lowVoiceCount);
-        mix = applyPolyBassCleanup(mix, lowVoiceCount);
-        mix = softClip(mix * outputLevel * getOctaveClipDrive());
-        mix = reverb.process(mix) * getOctaveOutputBoost(lowVoiceCount);
+        mix = processedLiveMix + processedWriteMix;
         mix = sanitizeDisplaySample(mix);
 
         pushSample(mix);
@@ -1293,11 +1429,12 @@ int getKeyPress() {
     return -1;
 }
 
-int startVoiceForMappedKey(int mappedKeyID) {
+int startVoiceForMappedKey(int mappedKeyID, bool useWritePatch = false) {
     for (int v = 0; v < numVoices; v++) {
         if (!voices[v].active && !voices[v].releasing) {
             voices[v].active = true;
             voices[v].releasing = false;
+            voices[v].usesWritePatch = useWritePatch;
             voices[v].keyID = mappedKeyID;
             voices[v].envTime = 0.0f;
             voices[v].releaseStartLevel = 0.0f;
@@ -1319,17 +1456,18 @@ void releaseVoiceByIndex(int voiceIndex) {
     Voice& voice = voices[voiceIndex];
     if (!voice.active) return;
 
+    const Preset* patch = (voice.usesWritePatch && writePatchCaptured) ? &writePatch : nullptr;
     voice.active = false;
     voice.releasing = true;
     voice.releaseStartLevel = ADSR(
-        attack,
-        decay,
-        sustain,
-        release,
+        patch ? patch->attack : attack,
+        patch ? patch->decay : decay,
+        patch ? patch->sustain : sustain,
+        patch ? patch->release : release,
         true,
         voice.envTime,
         1.0f,
-        sustain
+        patch ? patch->sustain : sustain
     )[0];
     voice.envTime = 0.0f;
 }
@@ -1341,21 +1479,24 @@ void stopWritePlayback() {
     }
 
     writePlaybackActive = false;
+    writePlaybackLooping = false;
     writePlaybackIndex = 0;
 }
 
-void startWritePlayback(unsigned long nowMs) {
+void startWritePlayback(unsigned long nowMs, bool loopPlayback = false) {
     stopWritePlayback();
-    if (writeNotes.empty()) return;
+    if (writeNotes.empty() || !writePatchCaptured) return;
 
+    configureWritePatchEngines();
     writePlaybackActive = true;
+    writePlaybackLooping = loopPlayback;
     writePlaybackIndex = 0;
     writePlaybackStepStartMs = nowMs;
-    writePlaybackVoiceIndex = startVoiceForMappedKey(mapKeyNumber(writeNotes[writePlaybackIndex]));
+    writePlaybackVoiceIndex = startVoiceForMappedKey(mapKeyNumber(writeNotes[writePlaybackIndex]), true);
 }
 
 void updateWriteTempo() {
-    writeTempoBpm = norm(p1, 0.0f, 1023.0f, WRITE_MIN_BPM, WRITE_MAX_BPM*2.0f);
+    writeTempoBpm = norm(p1, 0.0f, 1023.0f, WRITE_MIN_BPM, WRITE_MAX_BPM*2.5f);
 }
 
 void updateWritePlayback(unsigned long nowMs) {
@@ -1374,21 +1515,53 @@ void updateWritePlayback(unsigned long nowMs) {
 
     writePlaybackIndex++;
     if (writePlaybackIndex >= writeNotes.size()) {
-        // stopWritePlayback();
-        // return;
+        if (!writePlaybackLooping) {
+            stopWritePlayback();
+            return;
+        }
         writePlaybackIndex = 0;
     }
 
     writePlaybackStepStartMs = nowMs;
-    writePlaybackVoiceIndex = startVoiceForMappedKey(mapKeyNumber(writeNotes[writePlaybackIndex]));
+    writePlaybackVoiceIndex = startVoiceForMappedKey(mapKeyNumber(writeNotes[writePlaybackIndex]), true);
+}
+
+void configureWritePatchEngines() {
+    if (!writePatchCaptured) return;
+
+    writeReverb.simple = SimpleReverb(0.08f, 0.7f, sampleRate);
+    writeReverb.schroeder = SchroederReverb(sampleRate);
+    writeReverb.mode = reverb.mode;
+    writeReverb.setDryWet(writePatch.rDry, writePatch.rWet);
+    writeReverb.setRoomSize(writePatch.rSize);
+    writeReverb.setDecay(writePatch.rDecay);
+
+    writeNoise = NoiseGenerator(writePatch.noiseType);
+    writeNoise.setType(writePatch.noiseType);
+    writeNoise.setCutoff(writePatch.noiseFilterCutoff);
+    writeLowPolyLowpassState = 0.0f;
+
+    rebuildCustomTableFromPoints(writePatch.wavePoints, writePatch.curvature, writeCustomTable);
+}
+
+void captureWritePatch() {
+    writePatch = captureCurrentPreset("WRITE");
+    writePatchCaptured = true;
+    configureWritePatchEngines();
 }
 
 void handleWriteSingleClick() {
     if (!edit) {
         writeNotes.clear();
         stopWritePlayback();
+        captureWritePatch();
     }
     edit = !edit;
+}
+
+void handleWriteTripleClick(unsigned long nowMs) {
+    if (edit || writeNotes.empty()) return;
+    startWritePlayback(nowMs, true);
 }
 
 void drawWrite() {
@@ -1403,13 +1576,13 @@ void onKeyPress(int keyID) {
     if (menu == WRITE_MENU && edit && int(writeNotes.size()) < MAX_WRITE_NOTES) {
         writeNotes.push_back(keyID);
     }
-    startVoiceForMappedKey(mapKeyNumber(keyID));
+    startVoiceForMappedKey(mapKeyNumber(keyID), false);
 }
 
 void onKeyRelease(int keyID) {
     keyID = mapKeyNumber(keyID);
     for (int v = 0; v < numVoices; v++) {
-        if (voices[v].keyID == keyID && voices[v].active) {
+        if (!voices[v].usesWritePatch && voices[v].keyID == keyID && voices[v].active) {
             voices[v].active = false;
             voices[v].releasing = true;
             voices[v].releaseStartLevel = ADSR(
@@ -2389,23 +2562,34 @@ int main() {
             buttonPressStartTime = now;
             writeHoldTriggered = false;
 
-            if (singleClickPending && (now - lastClickTime <= doubleClickDelay)) {
-                // Double click detected
-                singleClickPending = false;
-                lastClickTime = 0;
-                stopWritePlayback();
-                writeHoldTriggered = false;
-
-                std::cout << "Double click detected!" << std::endl;
-                // TODO: Handle double click (e.g., special menu)
-                menu = static_cast<Mode>(MAIN_MENU); 
-                presetScreen = PresetScreen::LIST;
-                presetNameInput.clear();
-
+            if (menu == WRITE_MENU) {
+                if (singleClickPending && (now - lastClickTime <= doubleClickDelay)) {
+                    writePendingClickCount = std::min(writePendingClickCount + 1, 3);
+                    lastClickTime = now;
+                } else {
+                    singleClickPending = true;
+                    writePendingClickCount = 1;
+                    lastClickTime = now;
+                }
             } else {
-                // First click, maybe a single click
-                singleClickPending = true;
-                lastClickTime = now;
+                if (singleClickPending && (now - lastClickTime <= doubleClickDelay)) {
+                    // Double click detected
+                    singleClickPending = false;
+                    lastClickTime = 0;
+                    writeHoldTriggered = false;
+                    writePendingClickCount = 0;
+
+                    std::cout << "Double click detected!" << std::endl;
+                    // TODO: Handle double click (e.g., special menu)
+                    menu = static_cast<Mode>(MAIN_MENU); 
+                    presetScreen = PresetScreen::LIST;
+                    presetNameInput.clear();
+
+                } else {
+                    // First click, maybe a single click
+                    singleClickPending = true;
+                    lastClickTime = now;
+                }
             }
         }
 
@@ -2419,16 +2603,18 @@ int main() {
         if (menu == WRITE_MENU) {
             updateWriteTempo();
             if (!edit && !writeNotes.empty() && currentRead == 1 && singleClickPending &&
-                !writeHoldTriggered && (now - buttonPressStartTime >= WRITE_HOLD_DELAY_MS)) {
+                writePendingClickCount <= 1 && !writeHoldTriggered && !writePlaybackLooping &&
+                (now - buttonPressStartTime >= WRITE_HOLD_DELAY_MS)) {
                 singleClickPending = false;
+                writePendingClickCount = 0;
                 writeHoldTriggered = true;
-                startWritePlayback(now);
+                startWritePlayback(now, false);
             }
-            updateWritePlayback(now);
         } else {
-            stopWritePlayback();
             writeHoldTriggered = false;
+            writePendingClickCount = 0;
         }
+        updateWritePlayback(now);
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
         // menu edits
@@ -2498,7 +2684,23 @@ int main() {
                     }
                 }
                 else if (menu == PRESET_MENU) handlePresetSingleClick();
-                else if (menu == WRITE_MENU) handleWriteSingleClick();
+                else if (menu == WRITE_MENU) {
+                    if (writePendingClickCount >= 3) {
+                        if (!writePlaybackLooping) handleWriteTripleClick(now);
+                    }
+                    else if (writePendingClickCount == 2) {
+                        writeHoldTriggered = false;
+                        std::cout << "Double click detected!" << std::endl;
+                        menu = static_cast<Mode>(MAIN_MENU);
+                        presetScreen = PresetScreen::LIST;
+                        presetNameInput.clear();
+                    } else if (writePlaybackLooping) {
+                        stopWritePlayback();
+                    } else {
+                        handleWriteSingleClick();
+                    }
+                    writePendingClickCount = 0;
+                }
                 else edit = !edit;
 
                 std::cout << "Single click detected!" << std::endl;
