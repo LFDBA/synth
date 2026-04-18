@@ -102,6 +102,11 @@ void drawPixel(int x, int y) {
     buffer[x + (y / 8) * WIDTH] |= (1 << (y % 8));
 }
 
+void clearPixel(int x, int y) {
+    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+    buffer[x + (y / 8) * WIDTH] &= ~(1 << (y % 8));
+}
+
 // -----------------------------------------------------------------------
 //  Glyphs  (5×7 column-major bitmaps, LSB = top row)
 // -----------------------------------------------------------------------
@@ -191,6 +196,67 @@ void drawArc(int cx, int cy, int radius, float startDeg, float endDeg, int thick
     }
 }
 
+void clearArc(int cx, int cy, int radius, float startDeg, float endDeg, int thickness) {
+    const float pi = 3.14159265f;
+    for (int t = 0; t < thickness; t++) {
+        int r = radius - t;
+        for (float deg = startDeg; deg <= endDeg; deg += 1.5f) {
+            float rad = deg * pi / 180.0f;
+            int x = cx + int(std::cos(rad) * r);
+            int y = cy + int(std::sin(rad) * r);
+            clearPixel(x, y);
+        }
+    }
+}
+
+void drawFilledRoundedRect(int x, int y, int w, int h, int radius) {
+    radius = std::max(0, std::min(radius, std::min(w, h) / 2));
+    int right = x + w - 1;
+    int bottom = y + h - 1;
+    int r2 = radius * radius;
+
+    for (int py = y; py <= bottom; py++) {
+        for (int px = x; px <= right; px++) {
+            int dx = 0;
+            int dy = 0;
+
+            if (px < x + radius) dx = (x + radius) - px;
+            else if (px > right - radius) dx = px - (right - radius);
+
+            if (py < y + radius) dy = (y + radius) - py;
+            else if (py > bottom - radius) dy = py - (bottom - radius);
+
+            if (dx == 0 || dy == 0 || (dx * dx + dy * dy <= r2)) {
+                drawPixel(px, py);
+            }
+        }
+    }
+}
+
+void clearFilledRoundedRect(int x, int y, int w, int h, int radius) {
+    radius = std::max(0, std::min(radius, std::min(w, h) / 2));
+    int right = x + w - 1;
+    int bottom = y + h - 1;
+    int r2 = radius * radius;
+
+    for (int py = y; py <= bottom; py++) {
+        for (int px = x; px <= right; px++) {
+            int dx = 0;
+            int dy = 0;
+
+            if (px < x + radius) dx = (x + radius) - px;
+            else if (px > right - radius) dx = px - (right - radius);
+
+            if (py < y + radius) dy = (y + radius) - py;
+            else if (py > bottom - radius) dy = py - (bottom - radius);
+
+            if (dx == 0 || dy == 0 || (dx * dx + dy * dy <= r2)) {
+                clearPixel(px, py);
+            }
+        }
+    }
+}
+
 void drawRecommendedText(int centerX, int y) {
     const uint8_t* glyphs[] = {
         GLYPH_R, GLYPH_E, GLYPH_C, GLYPH_O, GLYPH_M, GLYPH_M,
@@ -210,18 +276,25 @@ void drawRecommendedText(int centerX, int y) {
 
 void drawHeadphonesPanel() {
     const int cx = WIDTH / 2;
-    const int cy = 28;
+    const int bandCy = 33;
+    const int cupY = 24;
+    const int cupW = 14;
+    const int cupH = 22;
 
-    drawArc(cx, cy, 21, 205.0f, 335.0f, 3);
-    drawLine(cx - 18, cy - 4, cx - 18, cy + 12);
-    drawLine(cx + 18, cy - 4, cx + 18, cy + 12);
+    drawArc(cx, bandCy, 24, 202.0f, 338.0f, 7);
+    clearArc(cx, bandCy, 18, 206.0f, 334.0f, 4);
 
-    drawRect(cx - 29, cy + 4, 11, 18);
-    drawRect(cx - 27, cy + 6, 7, 14);
-    drawRect(cx + 18, cy + 4, 11, 18);
-    drawRect(cx + 20, cy + 6, 7, 14);
+    drawLine(cx - 18, 22, cx - 18, cupY + 5);
+    drawLine(cx + 18, 22, cx + 18, cupY + 5);
 
-    drawLine(cx - 8, cy - 11, cx + 8, cy - 11);
+    drawFilledRoundedRect(cx - 31, cupY, cupW, cupH, 5);
+    drawFilledRoundedRect(cx + 17, cupY, cupW, cupH, 5);
+    clearFilledRoundedRect(cx - 28, cupY + 5, 8, 12, 3);
+    clearFilledRoundedRect(cx + 20, cupY + 5, 8, 12, 3);
+
+    drawFilledRoundedRect(cx - 24, cupY + 3, 3, 16, 1);
+    drawFilledRoundedRect(cx + 22, cupY + 3, 3, 16, 1);
+
     drawRecommendedText(cx, 54);
 }
 

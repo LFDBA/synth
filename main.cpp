@@ -772,7 +772,7 @@ float softClip(float x) {
     float wet = std::clamp(amount * 1.1f, 0.0f, 1.0f);
     float shaped = std::tanh(x * drive);
     float outputTrim = 1.0f / (1.0f + amount * 0.35f);
-    return lerp(x, shaped, wet) * outputTrim;
+    return (x + (shaped - x) * wet) * outputTrim;
 }
 
 float getOctaveClipDrive() {
