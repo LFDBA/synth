@@ -1539,6 +1539,8 @@ void drawNoise() {
             drawPixel(int(x), int(y));
         }
     }
+    float cuttoffT = std::clamp(norm(p2, 0.0f, 1023.0f, 0.0f, 100.0f), 0.0f, 100.0f);
+    drawFilledCircleSparse(int(cx), int(cy), 15, cuttoffT);
 
     stbi_image_free(img);
     img = nullptr;
