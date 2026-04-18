@@ -1374,8 +1374,9 @@ void updateWritePlayback(unsigned long nowMs) {
 
     writePlaybackIndex++;
     if (writePlaybackIndex >= writeNotes.size()) {
-        stopWritePlayback();
-        return;
+        // stopWritePlayback();
+        // return;
+        writePlaybackIndex = 0;
     }
 
     writePlaybackStepStartMs = nowMs;
