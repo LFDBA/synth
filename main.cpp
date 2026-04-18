@@ -92,19 +92,19 @@ public:
 
         switch(type) {
             case WHITE_NOISE:
-                sample = randFloat(-1.0f, 1.0f) * (noiseVolume / 8);
+                sample = randFloat(-1.0f, 1.0f) * (noiseVolume / 12);
                 break;
 
             case PINK_NOISE:
-                sample = nextPink() * (noiseVolume / 30);
+                sample = nextPink() * (noiseVolume / 60);
                 break;
 
             case BROWN_NOISE:
-                sample = nextBrown() * (noiseVolume / 20);
+                sample = nextBrown() * (noiseVolume / 40);
                 break;
 
             case RED_NOISE:
-                sample = nextBrown() * (noiseVolume / 20); // treat same as brown for simplicity
+                sample = nextBrown() * (noiseVolume / 40); // treat same as brown for simplicity
                 break;
 
             case BLACK_NOISE:
@@ -1508,7 +1508,7 @@ void drawNoise() {
     float cx = WIDTH / 2.0f;
     float cy = HEIGHT / 2.0f;
     float R = 20.0f;          // base circle radius
-    float scale = 10.0f;     // scale factor for sample amplitudes
+    float scale = 30.0f;     // scale factor for sample amplitudes
     float maxR = std::min(std::min(cx, float(WIDTH - 1) - cx), std::min(cy, float(HEIGHT - 1) - cy));
     
     for (int i = 0; i < DRAW_WIDTH; ++i) {
