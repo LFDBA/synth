@@ -60,6 +60,8 @@ float outputLevel = maxOutputLevel;
 float clipAmount = 0.0f;
 constexpr float MIN_CLIP_DRIVE = 1.0f;
 constexpr float MAX_CLIP_DRIVE = 10.0f;
+constexpr float LOW_POLY_VOICE_HZ = 150.0f;
+float lowPolyLowpassState = 0.0f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -780,14 +782,30 @@ float getOctaveClipDrive() {
     return 1.0f + lowOctaveAmount * 0.05f;
 }
 
-float getOctaveOutputBoost() {
+float getOctaveOutputBoost(int lowVoiceCount) {
     float lowOctaveAmount = float(std::clamp(3 - octave, 0, 3));
-    return 1.0f + lowOctaveAmount * 0.12f;
+    float boost = 1.0f + lowOctaveAmount * 0.12f;
+    if (lowVoiceCount <= 1) return boost;
+    return 1.0f + (boost - 1.0f) / (1.0f + 0.75f * float(lowVoiceCount - 1));
 }
 
 float getClipAmountFromKnob(int knobValue) {
     float rawAmount = std::clamp(norm(knobValue, 0.0f, 1023.0f, 0.0f, 1.0f), 0.0f, 1.0f);
     return std::pow(rawAmount, 0.85f);
+}
+
+float getLowVoiceMixCompensation(int lowVoiceCount) {
+    if (lowVoiceCount <= 1) return 1.0f;
+    return 1.0f / (1.0f + 0.16f * float(lowVoiceCount - 1));
+}
+
+float applyPolyBassCleanup(float input, int lowVoiceCount) {
+    float cleanupAmount = std::clamp(0.22f * float(lowVoiceCount - 1), 0.0f, 0.65f);
+    float cutoff = 55.0f + 18.0f * float(std::max(lowVoiceCount - 1, 0));
+    float alpha = 1.0f - std::exp((-2.0f * float(M_PI) * cutoff) / sampleRate);
+    lowPolyLowpassState += alpha * (input - lowPolyLowpassState);
+    float highPassed = input - lowPolyLowpassState;
+    return input + (highPassed - input) * cleanupAmount;
 }
 
 // ======================================================
@@ -1099,10 +1117,14 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
     for (unsigned int i = 0; i < nBufferFrames; i++) {
         mix = 0.0f;
         int activeVoices = 0;
+        int lowVoiceCount = 0;
 
         for (int v = 0; v < numVoices; v++) {
             if (voices[v].active || voices[v].releasing) {
                 activeVoices++;
+                if (voices[v].frequency < LOW_POLY_VOICE_HZ) {
+                    lowVoiceCount++;
+                }
             }
             mix += renderVoiceSample(voices[v]);
             for (int h = 0; h < harmonyCount; h++) {
@@ -1113,8 +1135,10 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         if (normVoices && activeVoices > 1)
             mix /= activeVoices / 1.7f;
 
+        mix *= getLowVoiceMixCompensation(lowVoiceCount);
+        mix = applyPolyBassCleanup(mix, lowVoiceCount);
         mix = softClip(mix * outputLevel * getOctaveClipDrive());
-        mix = reverb.process(mix) * getOctaveOutputBoost();
+        mix = reverb.process(mix) * getOctaveOutputBoost(lowVoiceCount);
         mix = sanitizeDisplaySample(mix);
 
         pushSample(mix);
@@ -1381,7 +1405,7 @@ void editHarmonist() {
         harmonySettings[currentHarmony].level = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
     }
     if (abs(p3 - lastP3) > 1) {
-        harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, 1023, -24, 24), -24, 24);
+        harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, 1023, -12, 12), -12, 12);
     }
     if (abs(p4 - lastP4) > 1) {
         harmonySettings[currentHarmony].detune = norm(p4, 0.0f, 1023.0f, -0.03f, 0.03f);
