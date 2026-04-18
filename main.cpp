@@ -55,7 +55,7 @@ float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
 float noiseFilterCutoff = 20000.0f;
 float noiseAdsrAmount = 1.0f;
-float maxOutputLevel = 1.0f;
+float maxOutputLevel = 0.5f;
 float outputLevel = maxOutputLevel;
 float clipLevel = maxOutputLevel * 1.5f;
 
@@ -803,7 +803,7 @@ void initWavePoints() {
 // ======================================================
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
-    return fC0*pow(2.0f,float(noteNumber+(octave+1)*24)/12.0f);
+    return fC0*pow(2.0f,float((noteNumber-8)+octave*12)/12.0f);
 }
 float hzToNote(float freq) {
     float fC0 = 16.35f;
@@ -1091,7 +1091,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         if (normVoices && activeVoices > 1)
             mix /= activeVoices / 1.7f;
 
-        mix = softClip(mix * (outputLevel*(-octave+4)/2.0f)); 
+        mix = softClip(mix * (outputLevel*(-octave+4))); 
         mix = reverb.process(mix);
         mix = sanitizeDisplaySample(mix);
 
