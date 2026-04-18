@@ -801,7 +801,7 @@ void initWavePoints() {
 // ======================================================
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
-    return fC0*pow(2.0f,float(noteNumber+(octave*12))/12.0f);
+    return fC0*pow(2.0f,float(noteNumber+(octave*24))/12.0f);
 }
 float hzToNote(float freq) {
     float fC0 = 16.35f;
