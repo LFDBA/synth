@@ -678,7 +678,7 @@ int mapKeyNumber(int k) {
 //                     Constants
 // ======================================================
 
-const int numVoices = 4;
+const int numVoices = 24;
 constexpr int MAX_HARMONIES = 4;
 
 bool normVoices = true; // Normalize by active voices
@@ -717,6 +717,7 @@ struct Voice {
     float oscVolume = 1.0f;
     int keyID = -1;             // store which key triggered this voice
     std::array<float, MAX_HARMONIES> harmonyPhases{};
+    std::array<float, MAX_HARMONIES> harmonyFrequencies{};
 };
 struct HarmonySetting {
     int interval = 7;   // semitone offset from root
@@ -850,10 +851,20 @@ float hzToNote(float freq) {
     return 12.0f*log2f(freq/fC0)-24.0f;
 }
 
+void refreshVoicePitchCache(Voice& voice) {
+    if (voice.keyID < 0) return;
+
+    voice.frequency = noteToHz(voice.keyID);
+    for (int h = 0; h < MAX_HARMONIES; h++) {
+        const HarmonySetting& setting = harmonySettings[h];
+        voice.harmonyFrequencies[h] = noteToHz(voice.keyID + setting.interval) * (1.0f + setting.detune);
+    }
+}
+
 void refreshPlayingVoiceFrequencies() {
     for (int v = 0; v < numVoices; v++) {
         if ((voices[v].active || voices[v].releasing) && voices[v].keyID >= 0) {
-            voices[v].frequency = noteToHz(voices[v].keyID);
+            refreshVoicePitchCache(voices[v]);
         }
     }
 }
@@ -881,8 +892,8 @@ std::array<float, 2> ADSR(float attack,float decay,float sustain,float release,b
         }
     }else{
         if(t<release) {
-            float releaseProgress = std::clamp(t / std::max(release, 0.0001f), 0.0f, 1.0f);
-            return { (1.0f - releaseProgress) * (current * lvl), 0.0f };
+
+            return { (1.0f - powf(t/release,1.0f/curvature))*(current*lvl), 0.0f };
         
             // return (1.0f - powf(t/release,1.0f/curvature))*(sustain*lvl);
         }
@@ -1011,7 +1022,11 @@ void drawOutput() {
 NoiseGenerator noise(noiseType);
 
 float renderNoiseSample(float env) {
+    if (noiseType == NOISE_NONE || noiseVolume <= 0.0f) return 0.0f;
+
     float noiseEnv = lerp(1.0f, env, std::clamp(noiseAdsrAmount, 0.0f, 1.0f));
+    if (noiseEnv <= 0.0f) return 0.0f;
+
     float sample = 0.0f;
 
     for (int n = 0; n < 100; n++) {
@@ -1059,14 +1074,15 @@ float getVoiceEnvelope(const Voice& voice, float level) {
     )[0];
 }
 
-float renderVoiceSample(Voice& voice) {
+float renderVoiceSample(Voice& voice, float& voiceEnv) {
     float sample = 0.0f;
+    voiceEnv = 0.0f;
 
     if (voice.active || voice.releasing) {
         voice.envTime += 1.0f / sampleRate;
-        float env = getVoiceEnvelope(voice, voice.oscVolume);
+        voiceEnv = getVoiceEnvelope(voice, voice.oscVolume);
         float oscSample = renderOscillatorSample(voice.phase);
-        sample = oscSample * env + renderNoiseSample(env);
+        sample = oscSample * voiceEnv + renderNoiseSample(voiceEnv);
 
         voice.phase += voice.frequency / sampleRate;
         if (voice.phase >= 1.0f) voice.phase -= 1.0f;
@@ -1083,19 +1099,18 @@ float renderVoiceSample(Voice& voice) {
     return sample;
 }
 
-float renderHarmonySample(Voice& voice, int harmonyIndex) {
+float renderHarmonySample(Voice& voice, int harmonyIndex, float voiceEnv) {
     if (!(voice.active || voice.releasing)) return 0.0f;
     if (harmonyIndex < 0 || harmonyIndex >= harmonyCount) return 0.0f;
 
     const HarmonySetting& setting = harmonySettings[harmonyIndex];
     if (setting.level <= 0.0f) return 0.0f;
 
-    float env = getVoiceEnvelope(voice, voice.oscVolume * setting.level);
+    float env = voiceEnv * setting.level;
     float oscSample = renderOscillatorSample(voice.harmonyPhases[harmonyIndex]);
     float sample = oscSample * env + renderNoiseSample(env);
 
-    float harmonyFrequency = noteToHz(voice.keyID + setting.interval) * (1.0f + setting.detune);
-    voice.harmonyPhases[harmonyIndex] += harmonyFrequency / sampleRate;
+    voice.harmonyPhases[harmonyIndex] += voice.harmonyFrequencies[harmonyIndex] / sampleRate;
     if (voice.harmonyPhases[harmonyIndex] >= 1.0f) {
         voice.harmonyPhases[harmonyIndex] -= 1.0f;
     }
@@ -1120,15 +1135,18 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         int lowVoiceCount = 0;
 
         for (int v = 0; v < numVoices; v++) {
-            if (voices[v].active || voices[v].releasing) {
-                activeVoices++;
-                if (voices[v].frequency < LOW_POLY_VOICE_HZ) {
-                    lowVoiceCount++;
-                }
+            Voice& voice = voices[v];
+            if (!(voice.active || voice.releasing)) continue;
+
+            activeVoices++;
+            if (voice.frequency < LOW_POLY_VOICE_HZ) {
+                lowVoiceCount++;
             }
-            mix += renderVoiceSample(voices[v]);
+
+            float voiceEnv = 0.0f;
+            mix += renderVoiceSample(voice, voiceEnv);
             for (int h = 0; h < harmonyCount; h++) {
-                mix += renderHarmonySample(voices[v], h);
+                mix += renderHarmonySample(voice, h, voiceEnv);
             }
         }
 
@@ -1189,7 +1207,7 @@ void onKeyPress(int keyID) {
             for (int h = 0; h < MAX_HARMONIES; h++) {
                 voices[v].harmonyPhases[h] = (float)rand() / RAND_MAX;
             }
-            voices[v].frequency = noteToHz(keyID);
+            refreshVoicePitchCache(voices[v]);
             break; 
         }
     }
@@ -1394,6 +1412,8 @@ void editNoise(){
 }
 
 void editHarmonist() {
+    bool pitchChanged = false;
+
     if (abs(p2 - lastP2) > 1) {
         harmonyCount = std::clamp(iMap(p2, 0, 1023, 0, MAX_HARMONIES), 0, MAX_HARMONIES);
     }
@@ -1406,9 +1426,15 @@ void editHarmonist() {
     }
     if (abs(p3 - lastP3) > 1) {
         harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, 1023, -12, 12), -12, 12);
+        pitchChanged = true;
     }
     if (abs(p4 - lastP4) > 1) {
         harmonySettings[currentHarmony].detune = norm(p4, 0.0f, 1023.0f, -0.03f, 0.03f);
+        pitchChanged = true;
+    }
+
+    if (pitchChanged) {
+        refreshPlayingVoiceFrequencies();
     }
 }
 
