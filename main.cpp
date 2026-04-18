@@ -62,6 +62,7 @@ float clipAmount = 0.0f;
 constexpr float MIN_CLIP_DRIVE = 1.0f;
 constexpr float MAX_CLIP_DRIVE = 10.0f;
 constexpr float LOW_POLY_VOICE_HZ = 150.0f;
+constexpr float NOISE_RENDER_GAIN = 10.0f;
 float lowPolyLowpassState = 0.0f;
 
 // Debounce in consecutive scans
@@ -77,7 +78,7 @@ int presetReorderAccumulator = 0;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 constexpr int PRESET_REORDER_KNOB_STEP = 40;
 std::string presetNameInput;
-const char* PRESET_FILE_PATH = "presets.dat";
+const char* PRESET_FILE_PATH = "../presets.dat";
 
 // Global audio objects
 RtAudio dac;
@@ -104,7 +105,9 @@ NoiseType noiseType = NOISE_NONE;
 class NoiseGenerator {
 public:
     NoiseGenerator(NoiseType type = NOISE_NONE) 
-        : type(type), lastBrown(0.0f), pinkStore{0}, filteredSample(0.0f), cutoffHz(20000.0f) {}
+        : type(type), lastBrown(0.0f), pinkStore{0}, filteredSample(0.0f), cutoffHz(20000.0f), lowPassAlpha(1.0f) {
+        updateLowPassAlpha();
+    }
 
     float next() {
         float sample = 0.0f;
@@ -142,6 +145,7 @@ public:
     void setType(NoiseType t) { type = t; }
     void setCutoff(float cutoff) {
         cutoffHz = std::clamp(cutoff, 20.0f, sampleRate * 0.45f);
+        updateLowPassAlpha();
     }
 
 private:
@@ -150,6 +154,7 @@ private:
     float pinkStore[7]; // simple pink filter
     float filteredSample;
     float cutoffHz;
+    float lowPassAlpha;
 
     // helper: uniform float -1..1
     float randFloat(float min, float max) {
@@ -191,9 +196,12 @@ private:
     }
 
     float applyLowPass(float input) {
-        float alpha = 1.0f - std::exp((-2.0f * float(M_PI) * cutoffHz) / sampleRate);
-        filteredSample += alpha * (input - filteredSample);
+        filteredSample += lowPassAlpha * (input - filteredSample);
         return filteredSample;
+    }
+
+    void updateLowPassAlpha() {
+        lowPassAlpha = 1.0f - std::exp((-2.0f * float(M_PI) * cutoffHz) / sampleRate);
     }
 };
 
@@ -1088,19 +1096,20 @@ void drawOutput() {
 
 NoiseGenerator noise(noiseType);
 
-float renderNoiseSample(float env) {
+float getNoiseEnvelope(float env) {
     if (noiseType == NOISE_NONE || noiseVolume <= 0.0f) return 0.0f;
+    return lerp(1.0f, env, std::clamp(noiseAdsrAmount, 0.0f, 1.0f));
+}
 
-    float noiseEnv = lerp(1.0f, env, std::clamp(noiseAdsrAmount, 0.0f, 1.0f));
-    if (noiseEnv <= 0.0f) return 0.0f;
+void accumulateNoiseEnergy(float& noiseEnergy, float env) {
+    float noiseEnv = getNoiseEnvelope(env);
+    if (noiseEnv <= 0.0f) return;
+    noiseEnergy += noiseEnv * noiseEnv;
+}
 
-    float sample = 0.0f;
-
-    for (int n = 0; n < 100; n++) {
-        sample += noise.next();
-    }
-
-    return sample * noiseEnv;
+float renderNoiseMix(float noiseEnergy) {
+    if (noiseEnergy <= 0.0f) return 0.0f;
+    return noise.next() * std::sqrt(noiseEnergy) * NOISE_RENDER_GAIN;
 }
 
 float renderOscillatorSample(float phase) {
@@ -1149,7 +1158,7 @@ float renderVoiceSample(Voice& voice, float& voiceEnv) {
         voice.envTime += 1.0f / sampleRate;
         voiceEnv = getVoiceEnvelope(voice, voice.oscVolume);
         float oscSample = renderOscillatorSample(voice.phase);
-        sample = oscSample * voiceEnv + renderNoiseSample(voiceEnv);
+        sample = oscSample * voiceEnv;
 
         voice.phase += voice.frequency / sampleRate;
         if (voice.phase >= 1.0f) voice.phase -= 1.0f;
@@ -1175,7 +1184,7 @@ float renderHarmonySample(Voice& voice, int harmonyIndex, float voiceEnv) {
 
     float env = voiceEnv * setting.level;
     float oscSample = renderOscillatorSample(voice.harmonyPhases[harmonyIndex]);
-    float sample = oscSample * env + renderNoiseSample(env);
+    float sample = oscSample * env;
 
     voice.harmonyPhases[harmonyIndex] += voice.harmonyFrequencies[harmonyIndex] / sampleRate;
     if (voice.harmonyPhases[harmonyIndex] >= 1.0f) {
@@ -1200,6 +1209,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         mix = 0.0f;
         int activeVoices = 0;
         int lowVoiceCount = 0;
+        float noiseEnergy = 0.0f;
 
         for (int v = 0; v < numVoices; v++) {
             Voice& voice = voices[v];
@@ -1212,10 +1222,14 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
 
             float voiceEnv = 0.0f;
             mix += renderVoiceSample(voice, voiceEnv);
+            accumulateNoiseEnergy(noiseEnergy, voiceEnv);
             for (int h = 0; h < harmonyCount; h++) {
                 mix += renderHarmonySample(voice, h, voiceEnv);
+                accumulateNoiseEnergy(noiseEnergy, voiceEnv * harmonySettings[h].level);
             }
         }
+
+        mix += renderNoiseMix(noiseEnergy);
 
         if (normVoices && activeVoices > 1)
             mix /= activeVoices / 1.7f;
@@ -1431,7 +1445,7 @@ void editReverb() {
     if(abs(p1-lastP1)>1){
         rDry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
         rWet = 1.0f - rDry;
-        reverb.setDryWet(rWet,rDry);
+        reverb.setDryWet(rDry,rWet);
     }
     if(abs(p2-lastP2)>1){
         rSize = norm(p2,0.0f,1023.0f,0.1f,1.5f);
@@ -1642,7 +1656,7 @@ void applyPreset(const Preset& preset) {
     rWet = preset.rWet;
     rSize = preset.rSize;
     rDecay = preset.rDecay;
-    reverb.setDryWet(rWet, rDry);
+    reverb.setDryWet(rDry, rWet);
     reverb.setRoomSize(rSize);
     reverb.setDecay(rDecay);
 
