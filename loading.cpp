@@ -2,7 +2,7 @@
 // Standalone PX-1 loading screen — run this WHILE your main project compiles.
 //
 // Compile:
-//   g++ px1_loading_standalone.cpp -o px1_loading -lpigpio -lpng16 -lrt -lpthread
+//   g++ px1_loading_standalone.cpp -o px1_loading -lpigpio -lrt -lpthread
 //
 // Usage (run alongside your build):
 //   ./px1_loading &
@@ -18,11 +18,11 @@
 #include <cstdlib>
 #include <ctime>
 #include <chrono>
-#include <vector>
-#include <cstdio>
 #include <unistd.h>
 #include <iostream>
 #include <pigpio.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
 
 // -----------------------------------------------------------------------
 //  SH1106 SPI config — match your existing setup
@@ -37,19 +37,10 @@ const int HEIGHT = 64;
 
 uint8_t buffer[WIDTH * (HEIGHT / 8)];
 int spi;
-
-struct MonoSprite {
-    int width = 0;
-    int height = 0;
-    int minX = 0;
-    int minY = 0;
-    int maxX = -1;
-    int maxY = -1;
-    bool loaded = false;
-    std::vector<uint8_t> mask;
-};
-
-MonoSprite headphonesSprite;
+unsigned char* headphonesImg = nullptr;
+int headphonesWidth = 0;
+int headphonesHeight = 0;
+int headphonesChannels = 0;
 
 // -----------------------------------------------------------------------
 //  SPI helpers
@@ -206,132 +197,6 @@ void drawArc(int cx, int cy, int radius, float startDeg, float endDeg, int thick
     }
 }
 
-bool loadPngSprite(const char* filename, MonoSprite& sprite) {
-    FILE* fp = std::fopen(filename, "rb");
-    if (!fp) {
-        std::cerr << "Failed to open " << filename << "\n";
-        return false;
-    }
-
-    png_byte header[8];
-    if (std::fread(header, 1, sizeof(header), fp) != sizeof(header) ||
-        png_sig_cmp(header, 0, sizeof(header))) {
-        std::fclose(fp);
-        std::cerr << "Invalid PNG: " << filename << "\n";
-        return false;
-    }
-
-    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png) {
-        std::fclose(fp);
-        return false;
-    }
-
-    png_infop info = png_create_info_struct(png);
-    if (!info) {
-        png_destroy_read_struct(&png, nullptr, nullptr);
-        std::fclose(fp);
-        return false;
-    }
-
-    if (setjmp(png_jmpbuf(png))) {
-        png_destroy_read_struct(&png, &info, nullptr);
-        std::fclose(fp);
-        std::cerr << "Failed reading PNG: " << filename << "\n";
-        return false;
-    }
-
-    png_init_io(png, fp);
-    png_set_sig_bytes(png, sizeof(header));
-    png_read_info(png, info);
-
-    int width = static_cast<int>(png_get_image_width(png, info));
-    int height = static_cast<int>(png_get_image_height(png, info));
-    png_byte colorType = png_get_color_type(png, info);
-    png_byte bitDepth = png_get_bit_depth(png, info);
-
-    if (bitDepth == 16) png_set_strip_16(png);
-    if (colorType == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png);
-    if (colorType == PNG_COLOR_TYPE_GRAY && bitDepth < 8) png_set_expand_gray_1_2_4_to_8(png);
-    if (png_get_valid(png, info, PNG_INFO_tRNS)) png_set_tRNS_to_alpha(png);
-    if (colorType == PNG_COLOR_TYPE_RGB ||
-        colorType == PNG_COLOR_TYPE_GRAY ||
-        colorType == PNG_COLOR_TYPE_PALETTE) {
-        png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
-    }
-    if (colorType == PNG_COLOR_TYPE_GRAY || colorType == PNG_COLOR_TYPE_GRAY_ALPHA) {
-        png_set_gray_to_rgb(png);
-    }
-
-    png_read_update_info(png, info);
-
-    std::vector<uint8_t> rgba(width * height * 4);
-    std::vector<png_bytep> rows(height);
-    for (int y = 0; y < height; y++) {
-        rows[y] = reinterpret_cast<png_bytep>(rgba.data() + y * width * 4);
-    }
-    png_read_image(png, rows.data());
-
-    png_destroy_read_struct(&png, &info, nullptr);
-    std::fclose(fp);
-
-    sprite.width = width;
-    sprite.height = height;
-    sprite.minX = width;
-    sprite.minY = height;
-    sprite.maxX = -1;
-    sprite.maxY = -1;
-    sprite.loaded = false;
-    sprite.mask.assign(width * height, 0);
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int idx = (y * width + x) * 4;
-            uint8_t r = rgba[idx + 0];
-            uint8_t g = rgba[idx + 1];
-            uint8_t b = rgba[idx + 2];
-            uint8_t a = rgba[idx + 3];
-            int luminance = (299 * r + 587 * g + 114 * b) / 1000;
-            bool isOn = a > 24 && luminance < 220;
-
-            if (!isOn) continue;
-
-            sprite.mask[y * width + x] = 1;
-            sprite.minX = std::min(sprite.minX, x);
-            sprite.minY = std::min(sprite.minY, y);
-            sprite.maxX = std::max(sprite.maxX, x);
-            sprite.maxY = std::max(sprite.maxY, y);
-        }
-    }
-
-    sprite.loaded = sprite.maxX >= sprite.minX && sprite.maxY >= sprite.minY;
-    if (!sprite.loaded) {
-        std::cerr << "PNG sprite had no visible pixels: " << filename << "\n";
-    }
-
-    return sprite.loaded;
-}
-
-void drawLoadedSpriteCentered(const MonoSprite& sprite, int centerX, int topY, int bottomY) {
-    if (!sprite.loaded) return;
-
-    int spriteWidth = sprite.maxX - sprite.minX + 1;
-    int spriteHeight = sprite.maxY - sprite.minY + 1;
-    int availableHeight = std::max(0, bottomY - topY);
-    int startX = centerX - spriteWidth / 2;
-    int startY = topY + std::max(0, (availableHeight - spriteHeight) / 2);
-
-    for (int y = 0; y < spriteHeight; y++) {
-        for (int x = 0; x < spriteWidth; x++) {
-            int srcX = sprite.minX + x;
-            int srcY = sprite.minY + y;
-            if (sprite.mask[srcY * sprite.width + srcX]) {
-                drawPixel(startX + x, startY + y);
-            }
-        }
-    }
-}
-
 void drawRecommendedText(int centerX, int y) {
     const uint8_t* glyphs[] = {
         GLYPH_R, GLYPH_E, GLYPH_C, GLYPH_O, GLYPH_M, GLYPH_M,
@@ -350,15 +215,21 @@ void drawRecommendedText(int centerX, int y) {
 }
 
 void drawHeadphonesPanel() {
-    const int centerX = WIDTH / 2;
-    const int spriteTop = 2;
-    const int textY = 54;
-
-    if (headphonesSprite.loaded) {
-        drawLoadedSpriteCentered(headphonesSprite, centerX, spriteTop, textY - 4);
+    if (headphonesImg) {
+        for (int page = 0; page < 8; page++) {
+            for (int x = 0; x < WIDTH; x++) {
+                uint8_t byte = 0;
+                for (int bit = 0; bit < 8; bit++) {
+                    int y = page * 8 + bit;
+                    if (x >= headphonesWidth || y >= headphonesHeight) continue;
+                    int pixel = headphonesImg[y * headphonesWidth + x];
+                    if (pixel < 128) byte |= (1 << bit);
+                }
+                buffer[page * WIDTH + x] = byte;
+            }
+        }
     }
-
-    drawRecommendedText(centerX, textY);
+    drawRecommendedText(WIDTH / 2, 54);
 }
 
 int randomRangeMs(int minMs, int maxMs) {
@@ -391,7 +262,10 @@ void onSignal(int) {
 int main() {
     std::srand(static_cast<unsigned>(std::time(nullptr)) ^ static_cast<unsigned>(getpid()));
 
-    loadPngSprite("headphones.png", headphonesSprite);
+    headphonesImg = stbi_load("headphones.png", &headphonesWidth, &headphonesHeight, &headphonesChannels, 1);
+    if (!headphonesImg) {
+        std::cerr << "Failed to load headphones.png\n";
+    }
 
     if (gpioInitialise() < 0) {
         std::cerr << "pigpio init failed\n";
@@ -460,6 +334,7 @@ int main() {
     clearBuffer();
     clearScreen();
     updateDisplay();
+    if (headphonesImg) stbi_image_free(headphonesImg);
     spiClose(spi);
     gpioTerminate();
     return 0;
