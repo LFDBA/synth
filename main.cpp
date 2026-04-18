@@ -588,15 +588,17 @@ void drawMenu() {
     else if(menuSelection == 5){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE", true);
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "PRESETS");
     }
     else if(menuSelection == 6){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "PRESETS");
     }
     else if(menuSelection == 7){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "PRESETS", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "PRESETS", true);
     }
 }
 
@@ -1695,11 +1697,11 @@ void drawHarmonist() {
 void drawPresetOptions() {
     clearBuffer();
     if(norm(p4, 0, 1023, 0, 1) < 0.5f) {
-        drawMenuItem(40, 32, 40, 11, "DELETE", true);
-        drawMenuItem(88, 32, 40, 11, "ENTER");
+        drawMenuItem(27, 32, 53, 14, "DELETE", true);
+        drawMenuItem(101, 32, 53, 14, "ENTER");
     } else {
-        drawMenuItem(40, 32, 40, 11, "DELETE");
-        drawMenuItem(88, 32, 40, 11, "ENTER", true);
+        drawMenuItem(27, 32, 53, 14, "DELETE");
+        drawMenuItem(101, 32, 53, 14, "ENTER", true);
     }
 
     //if (gpioRead(16) == 1)
