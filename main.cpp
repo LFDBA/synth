@@ -696,6 +696,7 @@ static std::vector<float> customTable;
 static bool waveNeedsRebuild = true;
 const int TABLE_SIZE = 8192;
 float curvature = 1.0f;
+int octave = 1;
 
 // ======================================================
 //                     Voice Struct
@@ -800,7 +801,7 @@ void initWavePoints() {
 // ======================================================
 float noteToHz(int noteNumber) {
     float fC0 = 16.35f;
-    return fC0*pow(2.0f,float(noteNumber+24)/12.0f);
+    return fC0*pow(2.0f,float(noteNumber+(octave*12))/12.0f);
 }
 float hzToNote(float freq) {
     float fC0 = 16.35f;
@@ -1299,7 +1300,7 @@ void editReverb() {
 // ======================================================
 void editTone(){
     if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f,0.5f);
-
+    if(abs(p2-lastP2)>1) octave = int(norm(p2,0.0f,1023.0f,0.0f,3.0f));
     if(abs(p3-lastP3)>1) {
         // compute the desired length, clamp to allowed range
         int newLen = iMap(p3, 0, 1023, 1, 2048);
