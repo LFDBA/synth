@@ -679,7 +679,7 @@ int mapKeyNumber(int k) {
 // ======================================================
 
 const int numVoices = 24;
-constexpr int MAX_HARMONIES = 4;
+constexpr int MAX_HARMONIES = 3;
 
 bool normVoices = true; // Normalize by active voices
 int fd;
