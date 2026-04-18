@@ -375,7 +375,7 @@ void drawFilledCircleSparse(int cx, int cy, int radius, float removePercent) {
 }
 
 int harmonyIntervalToX(int interval, int radius) {
-    interval = std::clamp(interval, -24, 24);
+    interval = std::clamp(interval, -12, 12);
     float t = float(interval + 24) / 48.0f;
     float x = float(radius) + t * float((WIDTH - 1 - radius) - radius);
     return std::clamp(
@@ -1197,7 +1197,7 @@ void onKeyPress(int keyID) {
     std::cout << "Key Pressed: " << keyID << std::endl;
     keyID = mapKeyNumber(keyID);
     for (int v = 0; v < numVoices; v++) {
-        if (!voices[v].active) {
+        if (!voices[v].active && !voices[v].releasing) {
             voices[v].active = true;
             voices[v].releasing = false;
             voices[v].keyID = keyID;
@@ -1425,7 +1425,7 @@ void editHarmonist() {
         harmonySettings[currentHarmony].level = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
     }
     if (abs(p3 - lastP3) > 1) {
-        harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, 1023, -12, 12), -12, 12);
+        harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, 1023, -13, 13), -13, 13);
         pitchChanged = true;
     }
     if (abs(p4 - lastP4) > 1) {
@@ -1663,6 +1663,14 @@ void drawHarmonist() {
         drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[0].interval, radius0), amt), jitter(18, amt), radius0, std::abs(harmonySettings[0].detune*3000));
         drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[1].interval, radius1), amt), jitter(32, amt), radius1, std::abs(harmonySettings[1].detune*3000));
         drawFilledCircleSparse(jitter(harmonyIntervalToX(harmonySettings[2].interval, radius2), amt), jitter(46, amt), radius2, std::abs(harmonySettings[2].detune*3000));
+    }
+
+    for(int i = 0; i < harmonyCount; i++) {
+        if(harmonySettings[i].interval == 3 || harmonySettings[i].inteval == 4 || harmonySettings[i].inteval == 5 || harmonySettings[i].interal == 7 || harmonySettings[i].interval == 12){
+            if(i == 0) drawLine(harmonyIntervalToX(harmonySettings[i].interval, 7), 32-5, harmonyIntervalToX(harmonySettings[i].interval, 7), 32+5);
+            if(i == 1) drawLine(harmonyIntervalToX(harmonySettings[i].interval, 6), 46-5, harmonyIntervalToX(harmonySettings[i].interval, 6), 46+5);
+            if(i == 2) drawLine(harmonyIntervalToX(harmonySettings[i].interval, 3), 46-5, harmonyIntervalToX(harmonySettings[i].interval, 3), 46+5);
+        }
     }
     
 }
