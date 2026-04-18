@@ -88,19 +88,19 @@ public:
     float next() {
         switch(type) {
             case WHITE_NOISE:
-                return randFloat(-1.0f, 1.0f)*noiseVolume;
+                return randFloat(-1.0f, 1.0f)*(noiseVolume/4);
 
             case PINK_NOISE:
-                return nextPink()*noiseVolume;
+                return nextPink()*(noiseVolume/15);
 
             case BROWN_NOISE:
-                return nextBrown()*noiseVolume;
+                return nextBrown()*(noiseVolume/10);
 
             case RED_NOISE:
-                return nextBrown()*noiseVolume; // treat same as brown for simplicity
+                return nextBrown()*(noiseVolume/10); // treat same as brown for simplicity
 
             case BLACK_NOISE:
-                return nextBlack()*noiseVolume;
+                return nextBlack()*(noiseVolume/1.8f;
         }
         return 0.0f;
     }
@@ -849,6 +849,7 @@ int getCurrentHarmonyIndex() {
 
 constexpr int MAX_BUF_LEN = 4096;   // upper limit (power-of-two not required)
 std::atomic<int> BUF_LEN{512};     // logical buffer length (adjustable at runtime)
+std::atomic<int> NOISE_DRAW_LEN{256};
 float sampleBuffer[MAX_BUF_LEN];   // physical storage (preallocated)
 std::atomic<int> bufIndex{0};      // next write position (atomic)
 const int DRAW_WIDTH = WIDTH;                   // current write position
@@ -1458,7 +1459,9 @@ void drawNoise() {
         }
     }
 
-    int len = BUF_LEN.load(std::memory_order_acquire);
+    int storedLen = BUF_LEN.load(std::memory_order_acquire);
+    int noiseLen = NOISE_DRAW_LEN.load(std::memory_order_acquire);
+    int len = std::min(storedLen, noiseLen);
     if (len <= 0) len = 1;
     if (len > MAX_BUF_LEN) len = MAX_BUF_LEN;
 
@@ -1470,7 +1473,7 @@ void drawNoise() {
     float R = 20.0f;          // base circle radius
     float scale = 10.0f;     // scale factor for sample amplitudes
     float maxR = std::min(std::min(cx, float(WIDTH - 1) - cx), std::min(cy, float(HEIGHT - 1) - cy));
-
+    
     for (int i = 0; i < DRAW_WIDTH; ++i) {
         // map x to buffer index
         int bufPos = iMap(i, 0, DRAW_WIDTH - 1, 0, len - 1);
