@@ -57,7 +57,7 @@ float noiseFilterCutoff = 20000.0f;
 float noiseAdsrAmount = 1.0f;
 float maxOutputLevel = 0.5f;
 float outputLevel = maxOutputLevel;
-float clipLevel = maxOutputLevel * 1.5f;
+float clipLevel = maxOutputLevel * 2.0f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
