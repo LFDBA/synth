@@ -23,7 +23,6 @@
 #include <unistd.h>
 #include <iostream>
 #include <pigpio.h>
-#include <png.h>
 
 // -----------------------------------------------------------------------
 //  SH1106 SPI config — match your existing setup
