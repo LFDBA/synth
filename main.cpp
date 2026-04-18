@@ -1666,7 +1666,7 @@ void drawHarmonist() {
     }
 
     for(int i = 0; i < harmonyCount; i++) {
-        if(harmonySettings[i].interval == 3 || harmonySettings[i].inteval == 4 || harmonySettings[i].inteval == 5 || harmonySettings[i].interal == 7 || harmonySettings[i].interval == 12){
+        if(harmonySettings[i].interval == 3 || harmonySettings[i].interval == 4 || harmonySettings[i].interval == 5 || harmonySettings[i].interval == 7 || harmonySettings[i].interval == 12){
             if(i == 0) drawLine(harmonyIntervalToX(harmonySettings[i].interval, 7), 32-5, harmonyIntervalToX(harmonySettings[i].interval, 7), 32+5);
             if(i == 1) drawLine(harmonyIntervalToX(harmonySettings[i].interval, 6), 46-5, harmonyIntervalToX(harmonySettings[i].interval, 6), 46+5);
             if(i == 2) drawLine(harmonyIntervalToX(harmonySettings[i].interval, 3), 46-5, harmonyIntervalToX(harmonySettings[i].interval, 3), 46+5);
