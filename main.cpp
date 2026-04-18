@@ -51,6 +51,9 @@ void initMatrix() {
 unsigned long lastClickTime = 0;
 const unsigned long doubleClickDelay = 400; // ms
 bool singleClickPending = false;
+unsigned long buttonPressStartTime = 0;
+bool writeHoldTriggered = false;
+constexpr unsigned long WRITE_HOLD_DELAY_MS = 300;
 float fatness;
 float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
@@ -77,8 +80,18 @@ int lastPresetListKnobSelection = -1;
 int presetReorderAccumulator = 0;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 constexpr int PRESET_REORDER_KNOB_STEP = 40;
+constexpr int MAX_WRITE_NOTES = 48;
+constexpr float WRITE_MIN_BPM = 40.0f;
+constexpr float WRITE_MAX_BPM = 240.0f;
+constexpr float WRITE_NOTE_GATE = 0.8f;
 std::string presetNameInput;
 const char* PRESET_FILE_PATH = "../presets.dat";
+std::vector<int> writeNotes;
+float writeTempoBpm = 120.0f;
+bool writePlaybackActive = false;
+size_t writePlaybackIndex = 0;
+unsigned long writePlaybackStepStartMs = 0;
+int writePlaybackVoiceIndex = -1;
 
 // Global audio objects
 RtAudio dac;
@@ -222,6 +235,7 @@ enum Mode {
     REVERB_MENU,
     NOISE_MENU,
     HARMONIST_MENU,
+    WRITE_MENU,
     PRESET_MENU
 };
 Mode menu = TONE_MENU;
@@ -619,17 +633,26 @@ void drawMenu() {
     else if(menuSelection == 5){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE", true);
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "PRESETS");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "WRITE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "PRESETS");
     }
     else if(menuSelection == 6){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST", true);
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "PRESETS");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "WRITE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "PRESETS");
     }
     else if(menuSelection == 7){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST");
-        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "PRESETS", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "WRITE", true);
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "PRESETS");
+    }
+    else if(menuSelection == 8){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "WRITE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "PRESETS", true);
     }
 }
 
@@ -1270,18 +1293,12 @@ int getKeyPress() {
     return -1;
 }
 
-
-
-
-void onKeyPress(int keyID) {
-    // Find an available voice or one that matches this key
-    std::cout << "Key Pressed: " << keyID << std::endl;
-    keyID = mapKeyNumber(keyID);
+int startVoiceForMappedKey(int mappedKeyID) {
     for (int v = 0; v < numVoices; v++) {
         if (!voices[v].active && !voices[v].releasing) {
             voices[v].active = true;
             voices[v].releasing = false;
-            voices[v].keyID = keyID;
+            voices[v].keyID = mappedKeyID;
             voices[v].envTime = 0.0f;
             voices[v].releaseStartLevel = 0.0f;
             voices[v].phase = (float)rand() / RAND_MAX;
@@ -1289,9 +1306,103 @@ void onKeyPress(int keyID) {
                 voices[v].harmonyPhases[h] = (float)rand() / RAND_MAX;
             }
             refreshVoicePitchCache(voices[v]);
-            break; 
+            return v;
         }
     }
+
+    return -1;
+}
+
+void releaseVoiceByIndex(int voiceIndex) {
+    if (voiceIndex < 0 || voiceIndex >= numVoices) return;
+
+    Voice& voice = voices[voiceIndex];
+    if (!voice.active) return;
+
+    voice.active = false;
+    voice.releasing = true;
+    voice.releaseStartLevel = ADSR(
+        attack,
+        decay,
+        sustain,
+        release,
+        true,
+        voice.envTime,
+        1.0f,
+        sustain
+    )[0];
+    voice.envTime = 0.0f;
+}
+
+void stopWritePlayback() {
+    if (writePlaybackVoiceIndex >= 0) {
+        releaseVoiceByIndex(writePlaybackVoiceIndex);
+        writePlaybackVoiceIndex = -1;
+    }
+
+    writePlaybackActive = false;
+    writePlaybackIndex = 0;
+}
+
+void startWritePlayback(unsigned long nowMs) {
+    stopWritePlayback();
+    if (writeNotes.empty()) return;
+
+    writePlaybackActive = true;
+    writePlaybackIndex = 0;
+    writePlaybackStepStartMs = nowMs;
+    writePlaybackVoiceIndex = startVoiceForMappedKey(mapKeyNumber(writeNotes[writePlaybackIndex]));
+}
+
+void updateWriteTempo() {
+    writeTempoBpm = norm(p1, 0.0f, 1023.0f, WRITE_MIN_BPM, WRITE_MAX_BPM);
+}
+
+void updateWritePlayback(unsigned long nowMs) {
+    if (!writePlaybackActive) return;
+
+    float stepMs = 60000.0f / std::max(writeTempoBpm, 1.0f);
+    float gateMs = stepMs * WRITE_NOTE_GATE;
+    float elapsedMs = float(nowMs - writePlaybackStepStartMs);
+
+    if (writePlaybackVoiceIndex >= 0 && elapsedMs >= gateMs) {
+        releaseVoiceByIndex(writePlaybackVoiceIndex);
+        writePlaybackVoiceIndex = -1;
+    }
+
+    if (elapsedMs < stepMs) return;
+
+    writePlaybackIndex++;
+    if (writePlaybackIndex >= writeNotes.size()) {
+        stopWritePlayback();
+        return;
+    }
+
+    writePlaybackStepStartMs = nowMs;
+    writePlaybackVoiceIndex = startVoiceForMappedKey(mapKeyNumber(writeNotes[writePlaybackIndex]));
+}
+
+void handleWriteSingleClick() {
+    if (!edit) {
+        writeNotes.clear();
+        stopWritePlayback();
+    }
+    edit = !edit;
+}
+
+void drawWrite() {
+    clearBuffer();
+}
+
+
+
+
+void onKeyPress(int keyID) {
+    std::cout << "Key Pressed: " << keyID << std::endl;
+    if (menu == WRITE_MENU && edit && int(writeNotes.size()) < MAX_WRITE_NOTES) {
+        writeNotes.push_back(keyID);
+    }
+    startVoiceForMappedKey(mapKeyNumber(keyID));
 }
 
 void onKeyRelease(int keyID) {
@@ -1521,7 +1632,7 @@ void editHarmonist() {
 }
 
 void selectMenu() {
-    menuSelection = norm(p4, 0, 1023, 1, 7);
+    menuSelection = norm(p4, 0, 1023, 1, 8);
 }
 
 int knobIndex(int itemCount) {
@@ -2269,16 +2380,20 @@ int main() {
 
     while(true){
         getInp(); // microcontroller input
+        unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 
         int currentRead = gpioRead(16);
 
         if (currentRead == 1 && lastMenuRead == 0) { // button pressed
-            unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            buttonPressStartTime = now;
+            writeHoldTriggered = false;
 
             if (singleClickPending && (now - lastClickTime <= doubleClickDelay)) {
                 // Double click detected
                 singleClickPending = false;
                 lastClickTime = 0;
+                stopWritePlayback();
+                writeHoldTriggered = false;
 
                 std::cout << "Double click detected!" << std::endl;
                 // TODO: Handle double click (e.g., special menu)
@@ -2293,7 +2408,26 @@ int main() {
             }
         }
 
+        if (currentRead == 0 && lastMenuRead == 1 && writeHoldTriggered) {
+            stopWritePlayback();
+            writeHoldTriggered = false;
+        }
+
         lastMenuRead = currentRead;
+
+        if (menu == WRITE_MENU) {
+            updateWriteTempo();
+            if (!edit && !writeNotes.empty() && currentRead == 1 && singleClickPending &&
+                !writeHoldTriggered && (now - buttonPressStartTime >= WRITE_HOLD_DELAY_MS)) {
+                singleClickPending = false;
+                writeHoldTriggered = true;
+                startWritePlayback(now);
+            }
+            updateWritePlayback(now);
+        } else {
+            stopWritePlayback();
+            writeHoldTriggered = false;
+        }
 
         if(lastP1==-1){ lastP1=p1; lastP2=p2; lastP3=p3; lastP4=p4; }
         // menu edits
@@ -2327,6 +2461,9 @@ int main() {
             if(edit) editHarmonist();
             drawHarmonist();
         }
+        if(menu==WRITE_MENU) {
+            drawWrite();
+        }
         if(menu==PRESET_MENU) {
             edit = false;
             editPresetListOrder();
@@ -2345,8 +2482,8 @@ int main() {
         updateKeyStates(); // scan keyboard matrix
 
         if (singleClickPending) {
-            unsigned long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-            if ((now - lastClickTime) > doubleClickDelay) {
+            bool waitingForWriteRelease = (menu == WRITE_MENU && currentRead == 1 && !writeHoldTriggered);
+            if (!waitingForWriteRelease && (now - lastClickTime) > doubleClickDelay) {
                 // Single click confirmed
                 singleClickPending = false;
 
@@ -2360,6 +2497,7 @@ int main() {
                     }
                 }
                 else if (menu == PRESET_MENU) handlePresetSingleClick();
+                else if (menu == WRITE_MENU) handleWriteSingleClick();
                 else edit = !edit;
 
                 std::cout << "Single click detected!" << std::endl;
