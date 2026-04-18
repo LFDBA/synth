@@ -58,6 +58,8 @@ float noiseAdsrAmount = 1.0f;
 float maxOutputLevel = 0.5f;
 float outputLevel = maxOutputLevel;
 float clipLevel = maxOutputLevel * 2.0f;
+constexpr float MIN_CLIP_LEVEL = 0.08f;
+constexpr float MAX_CLIP_LEVEL = 1.0f;
 
 // Debounce in consecutive scans
 const int debounceScans = 8;
@@ -763,9 +765,24 @@ float getMorphValue(int knobPos) {
 }
 
 float softClip(float x) {
-    if(x > clipLevel) return clipLevel - expf(-x);   // smooth limit
-    if(x < -clipLevel) return -clipLevel + expf(x);  // smooth limit
-    return x;
+    float threshold = std::clamp(clipLevel, MIN_CLIP_LEVEL, MAX_CLIP_LEVEL);
+    float magnitude = std::fabs(x);
+    if (magnitude <= threshold) return x;
+
+    float knee = std::max(1.0f - threshold, 0.001f);
+    float over = magnitude - threshold;
+    float shaped = threshold + knee * (1.0f - std::exp(-over / knee));
+    return std::copysign(shaped, x);
+}
+
+float getOctaveClipDrive() {
+    float lowOctaveAmount = float(std::clamp(3 - octave, 0, 3));
+    return 1.0f + lowOctaveAmount * 0.15f;
+}
+
+float getClipLevelFromKnob(int knobValue) {
+    float clipAmount = std::clamp(norm(knobValue, 0.0f, 1023.0f, 0.0f, 1.0f), 0.0f, 1.0f);
+    return MIN_CLIP_LEVEL + std::pow(1.0f - clipAmount, 1.8f) * (MAX_CLIP_LEVEL - MIN_CLIP_LEVEL);
 }
 
 // ======================================================
@@ -1091,7 +1108,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
         if (normVoices && activeVoices > 1)
             mix /= activeVoices / 1.7f;
 
-        mix = softClip(mix * (outputLevel*(-octave+4))); 
+        mix = softClip(mix * outputLevel * getOctaveClipDrive());
         mix = reverb.process(mix);
         mix = sanitizeDisplaySample(mix);
 
@@ -1331,7 +1348,7 @@ void editTone(){
             BUF_LEN.store(newLen, std::memory_order_release);
         }
     }
-    if(abs(p4-lastP4)>1) clipLevel = norm(p4, 0.0f, 1023.0f, 0.01f, maxOutputLevel * 2.0f);
+    if(abs(p4-lastP4)>1) clipLevel = getClipLevelFromKnob(p4);
 }
 
 
