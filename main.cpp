@@ -200,7 +200,8 @@ enum Mode {
     ADSR_MENU,
     REVERB_MENU,
     NOISE_MENU,
-    HARMONIST_MENU
+    HARMONIST_MENU,
+    PRESET_MENU
 };
 Mode menu = TONE_MENU;
 int lastMenuRead = 0;
@@ -591,6 +592,9 @@ void drawMenu() {
     else if(menuSelection == 6){
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST", true);
+    }
+    else if(menuSelection == 7){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "PRESETS", true);
     }
 }
 
@@ -1439,7 +1443,7 @@ void editHarmonist() {
 }
 
 void selectMenu() {
-    menuSelection = norm(p4, 0, 1023, 1, 6);
+    menuSelection = norm(p4, 0, 1023, 1, 7);
 }
 
 
@@ -1686,7 +1690,17 @@ void drawHarmonist() {
     
 }
 
+void drawPresetOptions() {
+    if(norm(p4, 0, 1023, 0, 1) < 0.5f) {
+        drawMenuItem(32, 32, 30, 11, "DELETE", true);
+        drawMenuItem(96, 32, 30, 11, "ENTER")
+    } else {
+        drawMenuItem(32, 32, 30, 11, "DELETE");
+        drawMenuItem(96, 32, 30, 11, "ENTER", true);
+    }
 
+    //if (gpioRead(16) == 1)
+}
 
 // ======================================================
 //                  Device Switching
@@ -1893,6 +1907,10 @@ int main() {
         if(menu==HARMONIST_MENU) {
             if(edit) editHarmonist();
             drawHarmonist();
+        }
+        if(menu==PRESET_MENU) {
+            // drawSelectMenu();
+            drawPresetOptions();
         }
 
         if (edit) {
