@@ -53,6 +53,8 @@ bool singleClickPending = false;
 float fatness;
 float sampleRate = 48000.0f;
 float noiseVolume = 0.5f;
+float noiseFilterCutoff = 20000.0f;
+float noiseAdsrAmount = 1.0f;
 float clipLevel = 2.0f;
 
 // Debounce in consecutive scans
@@ -83,34 +85,52 @@ NoiseType noiseType = NOISE_NONE;
 class NoiseGenerator {
 public:
     NoiseGenerator(NoiseType type = NOISE_NONE) 
-        : type(type), lastBrown(0.0f), pinkStore{0} {}
+        : type(type), lastBrown(0.0f), pinkStore{0}, filteredSample(0.0f), cutoffHz(20000.0f) {}
 
     float next() {
+        float sample = 0.0f;
+
         switch(type) {
             case WHITE_NOISE:
-                return randFloat(-1.0f, 1.0f)*(noiseVolume/4);
+                sample = randFloat(-1.0f, 1.0f) * (noiseVolume / 8);
+                break;
 
             case PINK_NOISE:
-                return nextPink()*(noiseVolume/15);
+                sample = nextPink() * (noiseVolume / 30);
+                break;
 
             case BROWN_NOISE:
-                return nextBrown()*(noiseVolume/10);
+                sample = nextBrown() * (noiseVolume / 20);
+                break;
 
             case RED_NOISE:
-                return nextBrown()*(noiseVolume/10); // treat same as brown for simplicity
+                sample = nextBrown() * (noiseVolume / 20); // treat same as brown for simplicity
+                break;
 
             case BLACK_NOISE:
-                return nextBlack()*(noiseVolume/1.8f;
+                sample = nextBlack() * (noiseVolume / 3.0f);
+                break;
+
+            case NOISE_NONE:
+            default:
+                sample = 0.0f;
+                break;
         }
-        return 0.0f;
+
+        return applyLowPass(sample);
     }
 
     void setType(NoiseType t) { type = t; }
+    void setCutoff(float cutoff) {
+        cutoffHz = std::clamp(cutoff, 20.0f, sampleRate * 0.45f);
+    }
 
 private:
     NoiseType type = NOISE_NONE;
     float lastBrown;
     float pinkStore[7]; // simple pink filter
+    float filteredSample;
+    float cutoffHz;
 
     // helper: uniform float -1..1
     float randFloat(float min, float max) {
@@ -149,6 +169,12 @@ private:
         if(rand() % 100 < 2)  // ~2% chance spike
             return randFloat(-1.0f, 1.0f);
         return 0.0f;
+    }
+
+    float applyLowPass(float input) {
+        float alpha = 1.0f - std::exp((-2.0f * float(M_PI) * cutoffHz) / sampleRate);
+        filteredSample += alpha * (input - filteredSample);
+        return filteredSample;
     }
 };
 
@@ -927,6 +953,17 @@ void drawOutput() {
 
 NoiseGenerator noise(noiseType);
 
+float renderNoiseSample(float env) {
+    float noiseEnv = lerp(1.0f, env, std::clamp(noiseAdsrAmount, 0.0f, 1.0f));
+    float sample = 0.0f;
+
+    for (int n = 0; n < 100; n++) {
+        sample += noise.next();
+    }
+
+    return sample * noiseEnv;
+}
+
 float renderOscillatorSample(float phase) {
     float oscSample;
 
@@ -947,10 +984,6 @@ float renderOscillatorSample(float phase) {
             default: w1 = w2 = 0.0f;
         }
         oscSample = ((1.0f - blend) * w1 + blend * w2);
-    }
-
-    for (int n = 0; n < 100; n++) {
-        oscSample += noise.next();
     }
 
     return oscSample;
@@ -976,7 +1009,7 @@ float renderVoiceSample(Voice& voice) {
         voice.envTime += 1.0f / sampleRate;
         float env = getVoiceEnvelope(voice, voice.oscVolume);
         float oscSample = renderOscillatorSample(voice.phase);
-        sample = oscSample * env;
+        sample = oscSample * env + renderNoiseSample(env);
 
         voice.phase += voice.frequency / sampleRate;
         if (voice.phase >= 1.0f) voice.phase -= 1.0f;
@@ -1002,7 +1035,7 @@ float renderHarmonySample(Voice& voice, int harmonyIndex) {
 
     float env = getVoiceEnvelope(voice, voice.oscVolume * setting.level);
     float oscSample = renderOscillatorSample(voice.harmonyPhases[harmonyIndex]);
-    float sample = oscSample * env;
+    float sample = oscSample * env + renderNoiseSample(env);
 
     float harmonyFrequency = noteToHz(voice.keyID + setting.interval) * (1.0f + setting.detune);
     voice.harmonyPhases[harmonyIndex] += harmonyFrequency / sampleRate;
@@ -1287,6 +1320,10 @@ void editTone(){
 
 void editNoise(){
     noiseVolume = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
+    float cutoffT = std::clamp(norm(p2, 0.0f, 1023.0f, 0.0f, 1.0f), 0.0f, 1.0f);
+    noiseFilterCutoff = 40.0f * std::pow((sampleRate * 0.45f) / 40.0f, cutoffT);
+    noise.setCutoff(noiseFilterCutoff);
+    noiseAdsrAmount = norm(p3, 0.0f, 1023.0f, 0.0f, 1.0f);
     noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 0.0f, 5.0f));
     noise.setType(noiseType);
 
@@ -1398,7 +1435,7 @@ void drawReverb() {
     int dWet = norm(rDecay, 0.1f, 1.0f, 0.0f, dSize);
     int jitterX = 0;
     int jitterY = 0;
-    int amt = visualJitterAmount(mix, outputLevel, 3.0f);
+    int amt = visualJitterAmount(mix, outputLevel, 10.0f);
     
     drawRectCentered(64, 32, dSize, dSize);
     drawCircle(64, 32, dWet/2);
