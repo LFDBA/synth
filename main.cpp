@@ -1697,11 +1697,11 @@ void drawHarmonist() {
 void drawPresetOptions() {
     clearBuffer();
     if(norm(p4, 0, 1023, 0, 1) < 0.5f) {
-        drawMenuItem(27, 32, 53, 14, "DELETE", true);
-        drawMenuItem(101, 32, 53, 14, "ENTER");
+        drawMenuItem(8, 29, 53, 14, "DELETE", true);
+        drawMenuItem(72, 29, 53, 14, "ENTER");
     } else {
-        drawMenuItem(27, 32, 53, 14, "DELETE");
-        drawMenuItem(101, 32, 53, 14, "ENTER", true);
+        drawMenuItem(8, 29, 53, 14, "DELETE");
+        drawMenuItem(72, 29, 53, 14, "ENTER", true);
     }
 
     //if (gpioRead(16) == 1)

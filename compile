@@ -73,6 +73,9 @@ while lsof -i :8888 > /dev/null; do
     fi
 
 done
+
+./clear_screen
+
 sleep 1
 
 gpioset 0 26=0
