@@ -1693,7 +1693,7 @@ void drawHarmonist() {
 void drawPresetOptions() {
     if(norm(p4, 0, 1023, 0, 1) < 0.5f) {
         drawMenuItem(32, 32, 30, 11, "DELETE", true);
-        drawMenuItem(96, 32, 30, 11, "ENTER")
+        drawMenuItem(96, 32, 30, 11, "ENTER");
     } else {
         drawMenuItem(32, 32, 30, 11, "DELETE");
         drawMenuItem(96, 32, 30, 11, "ENTER", true);
