@@ -594,6 +594,8 @@ void drawMenu() {
         drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST", true);
     }
     else if(menuSelection == 7){
+        drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "NOISE");
+        drawMenuItem(menuX, menuY + (menuH + gap) * 1, menuW, menuH, "HARMONIST");
         drawMenuItem(menuX, menuY + (menuH + gap) * 0, menuW, menuH, "PRESETS", true);
     }
 }
