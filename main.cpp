@@ -71,7 +71,11 @@ const int debounceScans = 8;
 int selectedPreset = 0;
 int presetListSelection = 0;
 int presetOptionSelection = 0;
+int presetListSelectionOffset = 0;
+int lastPresetListKnobSelection = -1;
+int presetReorderAccumulator = 0;
 constexpr int MAX_PRESET_NAME_LEN = 12;
+constexpr int PRESET_REORDER_KNOB_STEP = 40;
 std::string presetNameInput;
 const char* PRESET_FILE_PATH = "presets.dat";
 
@@ -234,6 +238,7 @@ void clearBuffer();
 void updateDisplay(int spi);
 void gracefulExit(int signum);
 void handlePresetNameKeyPress(int keyID);
+void savePresetsToFile();
 
 // --------------------------------------
 //  SPI Send Helpers
@@ -1510,6 +1515,67 @@ int knobIndex(int itemCount) {
     return std::clamp(int(norm(p4, 0.0f, 1023.0f, 0.0f, float(itemCount))), 0, itemCount - 1);
 }
 
+int getPresetListSelectionIndex() {
+    int itemCount = int(presets.size()) + 1;
+    int baseSelection = knobIndex(itemCount);
+    if (baseSelection != lastPresetListKnobSelection) {
+        presetListSelectionOffset = 0;
+        lastPresetListKnobSelection = baseSelection;
+    }
+
+    presetListSelection = std::clamp(baseSelection + presetListSelectionOffset, 0, itemCount - 1);
+    presetListSelectionOffset = presetListSelection - baseSelection;
+    return presetListSelection;
+}
+
+bool movePresetListSelection(int direction) {
+    if (direction == 0 || presets.empty()) return false;
+
+    int fromIndex = getPresetListSelectionIndex();
+    if (fromIndex < 0 || fromIndex >= int(presets.size())) return false;
+
+    int toIndex = std::clamp(fromIndex + direction, 0, int(presets.size()) - 1);
+    if (toIndex == fromIndex) return false;
+
+    std::swap(presets[fromIndex], presets[toIndex]);
+    savePresetsToFile();
+
+    int baseSelection = knobIndex(int(presets.size()) + 1);
+    presetListSelection = toIndex;
+    presetListSelectionOffset = presetListSelection - baseSelection;
+    lastPresetListKnobSelection = baseSelection;
+    selectedPreset = presetListSelection;
+    return true;
+}
+
+void editPresetListOrder() {
+    if (presetScreen != PresetScreen::LIST) {
+        presetReorderAccumulator = 0;
+        return;
+    }
+
+    int delta = p1 - lastP1;
+    if (std::abs(delta) <= 1) return;
+
+    presetReorderAccumulator += delta;
+
+    while (presetReorderAccumulator >= PRESET_REORDER_KNOB_STEP) {
+        if (!movePresetListSelection(1)) {
+            presetReorderAccumulator = 0;
+            return;
+        }
+        presetReorderAccumulator -= PRESET_REORDER_KNOB_STEP;
+    }
+
+    while (presetReorderAccumulator <= -PRESET_REORDER_KNOB_STEP) {
+        if (!movePresetListSelection(-1)) {
+            presetReorderAccumulator = 0;
+            return;
+        }
+        presetReorderAccumulator += PRESET_REORDER_KNOB_STEP;
+    }
+}
+
 void setBufferLength(int newLen) {
     if (newLen < 32) newLen = 32;
     if (newLen > MAX_BUF_LEN) newLen = MAX_BUF_LEN;
@@ -1683,6 +1749,7 @@ void finishPresetNaming() {
 void loadSelectedPreset() {
     if (selectedPreset < 0 || selectedPreset >= int(presets.size())) return;
     applyPreset(presets[selectedPreset]);
+    menu = MAIN_MENU;
     presetListSelection = selectedPreset;
     presetScreen = PresetScreen::LIST;
 }
@@ -1972,7 +2039,7 @@ void drawPresetList() {
     clearBuffer();
 
     int itemCount = int(presets.size()) + 1;
-    presetListSelection = knobIndex(itemCount);
+    presetListSelection = getPresetListSelectionIndex();
 
     drawTextCenteredX(WIDTH / 2, 2, "PRESETS");
 
@@ -2243,6 +2310,7 @@ int main() {
         }
         if(menu==PRESET_MENU) {
             edit = false;
+            editPresetListOrder();
             if (presetScreen == PresetScreen::LIST) drawPresetList();
             else if (presetScreen == PresetScreen::NAMING) drawPresetNaming();
             else drawPresetOptions();
