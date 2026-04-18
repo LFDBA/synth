@@ -1331,6 +1331,7 @@ void editTone(){
             BUF_LEN.store(newLen, std::memory_order_release);
         }
     }
+    if(abs(p4-lastP4)>1) clipLevel = norm(p4, 0.0f, 1023.0f, 0.01f, maxOutputLevel * 2.0f);
 }
 
 
