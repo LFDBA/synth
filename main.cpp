@@ -1715,6 +1715,7 @@ void getInp() {
                     std::string label;
                     int value;
                     ss >> label >> value;
+                    std::cout << "Received: " << label << " " << value << std::endl;
                     if(label=="p1") p1=(-value)+maxTurnVal;
                     else if(label=="p2") p2=(-value)+maxTurnVal;
                     else if(label=="p3") p3=(-value)+maxTurnVal;
