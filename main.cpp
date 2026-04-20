@@ -79,6 +79,7 @@ int presetOptionSelection = 0;
 int presetListSelectionOffset = 0;
 int lastPresetListKnobSelection = -1;
 int presetReorderAccumulator = 0;
+int maxTurnVal = 80;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 constexpr int PRESET_REORDER_KNOB_STEP = 40;
 constexpr int MAX_WRITE_NOTES = 48;
@@ -907,7 +908,7 @@ float getOctaveOutputBoost(int lowVoiceCount) {
 }
 
 float getClipAmountFromKnob(int knobValue) {
-    float rawAmount = std::clamp(norm(knobValue, 0.0f, 1023.0f, 0.0f, 1.0f), 0.0f, 1.0f);
+    float rawAmount = std::clamp(norm(knobValue, 0.0f, maxTurnVal, 0.0f, 1.0f), 0.0f, 1.0f);
     return std::pow(rawAmount, 0.85f);
 }
 
@@ -1332,6 +1333,27 @@ float processPatchMix(float patchMix, int activeVoices, int lowVoiceCount, float
     );
     return patchReverb.process(patchMix) * getOctaveOutputBoostForValue(getPatchOctave(patch), lowVoiceCount);
 }
+
+float applyWriteFilter(float input) {
+    float centered = std::clamp(writeFilterControl, 0.0f, 1.0f) - 0.5f;
+    if (std::fabs(centered) <= WRITE_FILTER_CENTER_WIDTH) {
+        return input;
+    }
+
+    if (centered < 0.0f) {
+        float t = std::clamp((writeFilterControl) / (0.5f - WRITE_FILTER_CENTER_WIDTH), 0.0f, 1.0f);
+        float cutoff = 30.0f * std::pow((sampleRate * 0.45f) / 30.0f, t);
+        float alpha = 1.0f - std::exp((-2.0f * float(M_PI) * cutoff) / sampleRate);
+        writeFilterLowpassState += alpha * (input - writeFilterLowpassState);
+        return writeFilterLowpassState;
+    }
+
+    float t = std::clamp((writeFilterControl - (0.5f + WRITE_FILTER_CENTER_WIDTH)) / (0.5f - WRITE_FILTER_CENTER_WIDTH), 0.0f, 1.0f);
+    float cutoff = 25.0f * std::pow((8000.0f) / 25.0f, t);
+    float alpha = 1.0f - std::exp((-2.0f * float(M_PI) * cutoff) / sampleRate);
+    writeFilterHighpassState += alpha * (input - writeFilterHighpassState);
+    return input - writeFilterHighpassState;
+}
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -1400,6 +1422,7 @@ int audioCallback(void *outputBuffer, void* /*inputBuffer*/, unsigned int nBuffe
             writeMix, writeActiveVoices, writeLowVoiceCount, writeNoiseEnergy,
             writePatchCaptured ? &writePatch : nullptr, writeNoise, writeReverb, writeLowPolyLowpassState
         );
+        processedWriteMix = applyWriteFilter(processedWriteMix) * writePlaybackVolume;
 
         mix = processedLiveMix + processedWriteMix;
         mix = sanitizeDisplaySample(mix);
@@ -1500,8 +1523,10 @@ void startWritePlayback(unsigned long nowMs, bool loopPlayback = false) {
     writePlaybackVoiceIndex = startVoiceForMappedKey(mapKeyNumber(writeNotes[writePlaybackIndex]), true);
 }
 
-void updateWriteTempo() {
-    writeTempoBpm = norm(p1, 0.0f, 1023.0f, WRITE_MIN_BPM, WRITE_MAX_BPM*2.5f);
+void updateWriteControls() {
+    writePlaybackVolume = norm(p1, 0.0f, maxTurnVal, 0.0f, 1.0f);
+    writeFilterControl = norm(p2, 0.0f, maxTurnVal, 0.0f, 1.0f);
+    writeTempoBpm = norm(p4, 0.0f, maxTurnVal, WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f);
 }
 
 void updateWritePlayback(unsigned long nowMs) {
@@ -1545,6 +1570,8 @@ void configureWritePatchEngines() {
     writeNoise.setType(writePatch.noiseType);
     writeNoise.setCutoff(writePatch.noiseFilterCutoff);
     writeLowPolyLowpassState = 0.0f;
+    writeFilterLowpassState = 0.0f;
+    writeFilterHighpassState = 0.0f;
 
     rebuildCustomTableFromPoints(writePatch.wavePoints, writePatch.curvature, writeCustomTable);
 }
@@ -1688,10 +1715,10 @@ void getInp() {
                     std::string label;
                     int value;
                     ss >> label >> value;
-                    if(label=="p1") p1=(-value)+1023;
-                    else if(label=="p2") p2=(-value)+1023;
-                    else if(label=="p3") p3=(-value)+1023;
-                    else if(label=="p4") p4=(-value)+1023;
+                    if(label=="p1") p1=(-value)+maxTurnVal;
+                    else if(label=="p2") p2=(-value)+maxTurnVal;
+                    else if(label=="p3") p3=(-value)+maxTurnVal;
+                    else if(label=="p4") p4=(-value)+maxTurnVal;
                 }
                 line.clear();
             }else if(c!='\r') line+=c;
@@ -1703,13 +1730,13 @@ void getInp() {
 //                     Wave Edit
 // ======================================================
 void editWave(){
-    editIndex = static_cast<int>(norm(p1,0.0f,1023.0f,0.0f,WAVE_RES-1));
+    editIndex = static_cast<int>(norm(p1,0.0f,maxTurnVal,0.0f,WAVE_RES-1));
     if(abs(p2-lastP2)>1 && editIndex >= 0 && editIndex < WAVE_RES){
-        wavePoints[editIndex] = norm(p2,0.0f,1023.0f,-2.0f,2.0f);
+        wavePoints[editIndex] = norm(p2,0.0f,maxTurnVal,-2.0f,2.0f);
         waveNeedsRebuild=true;
     }
-    if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,1023.0f,0.1f,5.0f);
-    knobPosition = norm(p4,0.0f,1023.0f,0.0f,0.9f);
+    if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,maxTurnVal,0.1f,5.0f);
+    knobPosition = norm(p4,0.0f,maxTurnVal,0.0f,0.9f);
     if(abs(p4-lastP4)>2) custom=false;
     if(abs(p1-lastP1)>3 || abs(p2-lastP2)>3 || abs(p3-lastP3)>3) custom=true;
     updateWave();
@@ -1719,10 +1746,10 @@ void editWave(){
 //                     ADSR Edit
 // ======================================================
 void editADSR(){
-    if(abs(p1-lastP1)>1) attack = norm(p1,0.0f,1023.0f,0.0f,5.0f);
-    if(abs(p2-lastP2)>1) decay = norm(p2,0.0f,1023.0f,0.0f,5.0f);
-    if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,1023.0f,0.0f,1.0f);
-    if(abs(p4-lastP4)>1) release = norm(p4,0.0f,1023.0f,0.0f,5.0f);
+    if(abs(p1-lastP1)>1) attack = norm(p1,0.0f,maxTurnVal,0.0f,5.0f);
+    if(abs(p2-lastP2)>1) decay = norm(p2,0.0f,maxTurnVal,0.0f,5.0f);
+    if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,maxTurnVal,0.0f,1.0f);
+    if(abs(p4-lastP4)>1) release = norm(p4,0.0f,maxTurnVal,0.0f,5.0f);
 }
 float rDry = 1.0f;
 float rWet = 0.0f;
@@ -1733,16 +1760,16 @@ float rDecay = 0.5f;
 // ======================================================
 void editReverb() {
     if(abs(p1-lastP1)>1){
-        rDry = norm(p1,0.0f,1023.0f,0.0f,1.0f);
+        rDry = norm(p1,0.0f,maxTurnVal,0.0f,1.0f);
         rWet = 1.0f - rDry;
         reverb.setDryWet(rDry,rWet);
     }
     if(abs(p2-lastP2)>1){
-        rSize = norm(p2,0.0f,1023.0f,0.1f,1.5f);
+        rSize = norm(p2,0.0f,maxTurnVal,0.1f,1.5f);
         reverb.setRoomSize(rSize);
     }
     if(abs(p3-lastP3)>1){
-        rDecay = norm(p3,0.0f,1023.0f,0.1f,1.0f);
+        rDecay = norm(p3,0.0f,maxTurnVal,0.1f,1.0f);
         reverb.setDecay(rDecay);
     }
 }
@@ -1751,11 +1778,11 @@ void editReverb() {
 //                     Tone Edit
 // ======================================================
 void editTone(){
-    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,1023.0f,0.0f, maxOutputLevel);
-    if(abs(p2-lastP2)>1) setOctave(int(norm(p2,0.0f,1023.0f,0.0f, 3.0f)));
+    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,maxTurnVal,0.0f, maxOutputLevel);
+    if(abs(p2-lastP2)>1) setOctave(int(norm(p2,0.0f,maxTurnVal,0.0f, 3.0f)));
     if(abs(p3-lastP3)>1) {
         // compute the desired length, clamp to allowed range
-        int newLen = iMap(p3, 0, 1023, 1, 2048);
+        int newLen = iMap(p3, 0, maxTurnVal, 1, 2048);
         if (newLen < 32) newLen = 32;
         if (newLen > MAX_BUF_LEN) newLen = MAX_BUF_LEN;
 
@@ -1773,12 +1800,12 @@ void editTone(){
 
 
 void editNoise(){
-    noiseVolume = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
-    float cutoffT = std::clamp(norm(p2, 0.0f, 1023.0f, 0.0f, 1.0f), 0.0f, 1.0f);
+    noiseVolume = norm(p1, 0.0f, maxTurnVal, 0.0f, 1.0f);
+    float cutoffT = std::clamp(norm(p2, 0.0f, maxTurnVal, 0.0f, 1.0f), 0.0f, 1.0f);
     noiseFilterCutoff = 40.0f * std::pow((sampleRate * 0.45f) / 40.0f, cutoffT);
     noise.setCutoff(noiseFilterCutoff);
-    noiseAdsrAmount = norm(p3, 0.0f, 1023.0f, 0.0f, 1.0f);
-    noiseType = static_cast<NoiseType>(norm(p4, 0.0f, 1023.0f, 0.0f, 5.0f));
+    noiseAdsrAmount = norm(p3, 0.0f, maxTurnVal, 0.0f, 1.0f);
+    noiseType = static_cast<NoiseType>(norm(p4, 0.0f, maxTurnVal, 0.0f, 5.0f));
     noise.setType(noiseType);
 
 }
@@ -1787,21 +1814,21 @@ void editHarmonist() {
     bool pitchChanged = false;
 
     if (abs(p2 - lastP2) > 1) {
-        harmonyCount = std::clamp(iMap(p2, 0, 1023, 0, MAX_HARMONIES), 0, MAX_HARMONIES);
+        harmonyCount = std::clamp(iMap(p2, 0, maxTurnVal, 0, MAX_HARMONIES), 0, MAX_HARMONIES);
     }
 
     if (harmonyCount <= 0) return;
 
     int currentHarmony = getCurrentHarmonyIndex();
     if (abs(p1 - lastP1) > 1) {
-        harmonySettings[currentHarmony].level = norm(p1, 0.0f, 1023.0f, 0.0f, 1.0f);
+        harmonySettings[currentHarmony].level = norm(p1, 0.0f, maxTurnVal, 0.0f, 1.0f);
     }
     if (abs(p3 - lastP3) > 1) {
-        harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, 1023, -13, 13), -13, 13);
+        harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, maxTurnVal, -13, 13), -13, 13);
         pitchChanged = true;
     }
     if (abs(p4 - lastP4) > 1) {
-        harmonySettings[currentHarmony].detune = norm(p4, 0.0f, 1023.0f, -0.03f, 0.03f);
+        harmonySettings[currentHarmony].detune = norm(p4, 0.0f, maxTurnVal, -0.03f, 0.03f);
         pitchChanged = true;
     }
 
@@ -1811,12 +1838,12 @@ void editHarmonist() {
 }
 
 void selectMenu() {
-    menuSelection = norm(p4, 0, 1023, 1, 8);
+    menuSelection = norm(p4, 0, maxTurnVal, 1, 8);
 }
 
 int knobIndex(int itemCount) {
     if (itemCount <= 1) return 0;
-    return std::clamp(int(norm(p4, 0.0f, 1023.0f, 0.0f, float(itemCount))), 0, itemCount - 1);
+    return std::clamp(int(norm(p4, 0.0f, maxTurnVal, 0.0f, float(itemCount))), 0, itemCount - 1);
 }
 
 int getPresetListSelectionIndex() {
@@ -2286,7 +2313,7 @@ void drawNoise() {
             drawPixel(int(x), int(y));
         }
     }
-    float cuttoffT = std::clamp(norm(p2, 0.0f, 1023.0f, -1.0f, 101.0f), 0.0f, 100.0f);
+    float cuttoffT = std::clamp(norm(p2, 0.0f, maxTurnVal, -1.0f, 101.0f), 0.0f, 100.0f);
     drawFilledCircleSparse(int(cx), int(cy), 10, cuttoffT);
 
     stbi_image_free(img);
@@ -2606,7 +2633,7 @@ int main() {
         lastMenuRead = currentRead;
 
         if (menu == WRITE_MENU) {
-            updateWriteTempo();
+            updateWriteControls();
             if (!edit && !writeNotes.empty() && currentRead == 1 && singleClickPending &&
                 writePendingClickCount <= 1 && !writeHoldTriggered && !writePlaybackLooping &&
                 (now - buttonPressStartTime >= WRITE_HOLD_DELAY_MS)) {
