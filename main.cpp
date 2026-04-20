@@ -85,15 +85,20 @@ constexpr int MAX_WRITE_NOTES = 48;
 constexpr float WRITE_MIN_BPM = 40.0f;
 constexpr float WRITE_MAX_BPM = 240.0f;
 constexpr float WRITE_NOTE_GATE = 0.8f;
+constexpr float WRITE_FILTER_CENTER_WIDTH = 0.04f;
 std::string presetNameInput;
 const char* PRESET_FILE_PATH = "../presets.dat";
 std::vector<int> writeNotes;
+float writePlaybackVolume = 1.0f;
 float writeTempoBpm = 120.0f;
+float writeFilterControl = 0.5f;
 bool writePlaybackActive = false;
 bool writePlaybackLooping = false;
 size_t writePlaybackIndex = 0;
 unsigned long writePlaybackStepStartMs = 0;
 int writePlaybackVoiceIndex = -1;
+float writeFilterLowpassState = 0.0f;
+float writeFilterHighpassState = 0.0f;
 
 // Global audio objects
 RtAudio dac;
