@@ -23,6 +23,7 @@
 #include <cstdlib> 
 #include <ctime>
 #include <fstream>
+#include <cerrno>
 using namespace std::chrono;
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
@@ -756,7 +757,7 @@ const int numVoices = 24;
 constexpr int MAX_HARMONIES = 3;
 
 bool normVoices = true; // Normalize by active voices
-int fd;
+int fd = -1;
 int editIndex = 0;
 bool edit = false;
 
@@ -1670,42 +1671,81 @@ void updateKeyStates() {
 //               Read Input Device
 // ======================================================
 bool initSerial(const char* port="/dev/ttyACM1") {
-    fd=open(port,O_RDONLY|O_NOCTTY);
-    if(fd<0){ 
-        if(port==std::string("/dev/ttyACM1")){
-            std::cerr<<"Failed to open serial port 1, trying port 0...\n";
-            return initSerial("/dev/ttyACM0");
-        }else{
-            std::cerr<<"Failed to open serial port: "<<port<<"\n";
-            return false;
+    const std::vector<const char*> candidatePorts = {
+        port,
+        "/dev/ttyACM0",
+        "/dev/serial0",
+        "/dev/ttyAMA0",
+        "/dev/ttyS0",
+    };
+    std::vector<std::string> triedPorts;
+
+    for (const char* candidate : candidatePorts) {
+        if (!candidate || candidate[0] == '\0') continue;
+        if (std::find(triedPorts.begin(), triedPorts.end(), candidate) != triedPorts.end()) continue;
+        triedPorts.emplace_back(candidate);
+
+        int newFd = open(candidate, O_RDONLY | O_NOCTTY | O_NONBLOCK);
+        if (newFd < 0) continue;
+
+        termios tty{};
+        if (tcgetattr(newFd, &tty) != 0) {
+            close(newFd);
+            continue;
         }
+
+        cfsetospeed(&tty, B115200);
+        cfsetispeed(&tty, B115200);
+        tty.c_cflag |= (CLOCAL | CREAD);
+        tty.c_cflag &= ~CSIZE;
+        tty.c_cflag |= CS8;
+        tty.c_cflag &= ~PARENB;
+        tty.c_cflag &= ~CSTOPB;
+        tty.c_cflag &= ~CRTSCTS;
+        tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+        tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+        tty.c_oflag &= ~OPOST;
+        tty.c_cc[VMIN] = 0;
+        tty.c_cc[VTIME] = 0;
+
+        if (tcsetattr(newFd, TCSANOW, &tty) != 0) {
+            close(newFd);
+            continue;
+        }
+
+        fd = newFd;
+        std::cerr << "Serial connected on " << candidate << "\n";
+
+        if ((std::string(candidate) == "/dev/serial0" ||
+             std::string(candidate) == "/dev/ttyAMA0" ||
+             std::string(candidate) == "/dev/ttyS0") &&
+            std::find(colPins.begin(), colPins.end(), 14) != colPins.end()) {
+            std::cerr << "Warning: GPIO14 is still in colPins and can clash with Pi UART wiring.\n";
+        }
+
+        return true;
     }
 
-    termios tty{};
-    if(tcgetattr(fd,&tty)!=0){ std::cerr<<"tcgetattr failed\n"; return false; }
-
-    cfsetospeed(&tty,B115200);
-    cfsetispeed(&tty,B115200);
-    tty.c_cflag|=(CLOCAL|CREAD);
-    tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;
-    tty.c_cflag &= ~PARENB;
-    tty.c_cflag &= ~CSTOPB;
-    tty.c_cflag &= ~CRTSCTS;
-    tty.c_lflag &= ~(ICANON|ECHO|ECHOE|ISIG);
-    tty.c_iflag &= ~(IXON|IXOFF|IXANY);
-    tty.c_oflag &= ~OPOST;
-    tty.c_cc[VMIN]=1;
-    tty.c_cc[VTIME]=0;
-    tcsetattr(fd,TCSANOW,&tty);
-
-    return true;
+    fd = -1;
+    std::cerr << "No serial device found; continuing without serial input.\n";
+    return false;
 }
 
 void getInp() {
+    if (fd < 0) return;
+
     static std::string line="";
     char buf[64];
     int n=read(fd,buf,sizeof(buf));
+    if (n < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+        std::cerr << "Serial read failed, disabling serial input.\n";
+        close(fd);
+        fd = -1;
+        return;
+    }
+    if (n == 0) return;
+
     if(n>0){
         for(int i=0;i<n;i++){
             char c=buf[i];
@@ -2511,14 +2551,7 @@ void monitorAudioDevices() {
 int main() {
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
-    if(!initSerial()){
-        try{
-            initSerial("/dev/ttyACM0");
-        }catch(...){
-            std::cerr<<"Failed to open serial port\n";
-            return 1;
-        }
-    };
+    initSerial();
 
     reverb.mode = ReverbType::SCHROEDER;
     reverb.setDryWet(1.0f,0.0f);
