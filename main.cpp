@@ -1807,7 +1807,10 @@ void editADSR(){
     if(abs(p3-lastP3)>1) sustain = std::clamp(sustain + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
     if(abs(p4-lastP4)>1) release = std::clamp(release + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
 }
-
+float rDry = 1.0f;
+float rWet = 0.0f;
+float rSize = 1.0f;
+float rDecay = 0.5f;
 void editReverb() {
     if(abs(p1-lastP1)>1){
         rDry = std::clamp(rDry + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
