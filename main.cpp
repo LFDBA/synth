@@ -1525,9 +1525,9 @@ void startWritePlayback(unsigned long nowMs, bool loopPlayback = false) {
 }
 
 void updateWriteControls() {
-    writePlaybackVolume = norm(p1, 0.0f, maxTurnVal, 0.0f, 1.0f);
-    writeFilterControl = norm(p2, 0.0f, maxTurnVal, 0.0f, 1.0f);
-    writeTempoBpm = norm(p4, 0.0f, maxTurnVal, WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f);
+    if(abs(p1-lastP1)>1) writePlaybackVolume = std::clamp(writePlaybackVolume + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if(abs(p2-lastP2)>1) writeFilterControl = std::clamp(writeFilterControl + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if(abs(p4-lastP4)>1) writeTempoBpm = std::clamp(writeTempoBpm + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -20.0f, 20.0f), WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f);
 }
 
 void updateWritePlayback(unsigned long nowMs) {
@@ -1776,115 +1776,90 @@ void getInp() {
     }
 }
 
-// ======================================================
-//                     Wave Edit
-// ======================================================
-void editWave(){
-    editIndex = static_cast<int>(norm(p1,0.0f,maxTurnVal,0.0f,WAVE_RES-1));
-    if(abs(p2-lastP2)>1 && editIndex >= 0 && editIndex < WAVE_RES){
-        wavePoints[editIndex] = norm(p2,0.0f,maxTurnVal,-2.0f,2.0f);
-        waveNeedsRebuild=true;
+void editTone(){
+    if(abs(p1-lastP1)>1) outputLevel = std::clamp(outputLevel + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -maxOutputLevel, maxOutputLevel), 0.0f, maxOutputLevel);
+    if(abs(p2-lastP2)>1) setOctave(std::clamp(octave + (p2-lastP2 > 0 ? 1 : -1), 0, 3));
+    if(abs(p3-lastP3)>1) {
+        int newLen = std::clamp(BUF_LEN.load() + (p3-lastP3) * 16, 32, MAX_BUF_LEN);
+        setBufferLength(newLen);
     }
-    if(abs(p3-lastP3)>1) curvature = norm(p3,0.0f,maxTurnVal,0.1f,5.0f);
-    knobPosition = norm(p4,0.0f,maxTurnVal,0.0f,0.9f);
-    if(abs(p4-lastP4)>2) custom=false;
-    if(abs(p1-lastP1)>3 || abs(p2-lastP2)>3 || abs(p3-lastP3)>3) custom=true;
+    if(abs(p4-lastP4)>1) clipAmount = std::clamp(clipAmount + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -1.0f, 1.0f), 0.0f, 1.0f);
+}
+
+void editWave(){
+    editIndex = std::clamp(editIndex + (p1-lastP1), 0, WAVE_RES-1);
+    if(abs(p2-lastP2)>1){
+        wavePoints[editIndex] = std::clamp(wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.2f, 0.2f), -2.0f, 2.0f);
+        waveNeedsRebuild = true;
+    }
+    if(abs(p3-lastP3)>1) curvature = std::clamp(curvature + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.1f, 5.0f);
+    if(abs(p4-lastP4)>2) {
+        knobPosition = std::clamp(knobPosition + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 0.9f);
+        custom = false;
+    }
+    if(abs(p1-lastP1)>3 || abs(p2-lastP2)>3 || abs(p3-lastP3)>3) custom = true;
     updateWave();
 }
 
-// ======================================================
-//                     ADSR Edit
-// ======================================================
 void editADSR(){
-    if(abs(p1-lastP1)>1) attack = norm(p1,0.0f,maxTurnVal,0.0f,5.0f);
-    if(abs(p2-lastP2)>1) decay = norm(p2,0.0f,maxTurnVal,0.0f,5.0f);
-    if(abs(p3-lastP3)>1) sustain = norm(p3,0.0f,maxTurnVal,0.0f,1.0f);
-    if(abs(p4-lastP4)>1) release = norm(p4,0.0f,maxTurnVal,0.0f,5.0f);
+    if(abs(p1-lastP1)>1) attack  = std::clamp(attack  + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
+    if(abs(p2-lastP2)>1) decay   = std::clamp(decay   + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
+    if(abs(p3-lastP3)>1) sustain = std::clamp(sustain + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if(abs(p4-lastP4)>1) release = std::clamp(release + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
 }
-float rDry = 1.0f;
-float rWet = 0.0f;
-float rSize = 1.0f;
-float rDecay = 0.5f;
-// ======================================================
-//                   Reverb Edit
-// ======================================================
+
 void editReverb() {
     if(abs(p1-lastP1)>1){
-        rDry = norm(p1,0.0f,maxTurnVal,0.0f,1.0f);
+        rDry = std::clamp(rDry + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
         rWet = 1.0f - rDry;
-        reverb.setDryWet(rDry,rWet);
+        reverb.setDryWet(rDry, rWet);
     }
     if(abs(p2-lastP2)>1){
-        rSize = norm(p2,0.0f,maxTurnVal,0.1f,1.5f);
+        rSize = std::clamp(rSize + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.2f, 0.2f), 0.1f, 1.5f);
         reverb.setRoomSize(rSize);
     }
     if(abs(p3-lastP3)>1){
-        rDecay = norm(p3,0.0f,maxTurnVal,0.1f,1.0f);
+        rDecay = std::clamp(rDecay + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.1f, 1.0f);
         reverb.setDecay(rDecay);
     }
 }
 
-// ======================================================
-//                     Tone Edit
-// ======================================================
-void editTone(){
-    if(abs(p1-lastP1)>1) outputLevel = norm(p1,0.0f,maxTurnVal,0.0f, maxOutputLevel);
-    if(abs(p2-lastP2)>1) setOctave(int(norm(p2,0.0f,maxTurnVal,0.0f, 3.0f)));
-    if(abs(p3-lastP3)>1) {
-        // compute the desired length, clamp to allowed range
-        int newLen = iMap(p3, 0, maxTurnVal, 1, 2048);
-        if (newLen < 32) newLen = 32;
-        if (newLen > MAX_BUF_LEN) newLen = MAX_BUF_LEN;
-
-        int oldLen = BUF_LEN.load(std::memory_order_acquire);
-        if (newLen != oldLen) {
-            // Adjust bufIndex so it still points to a valid slot
-            int currentPos = bufIndex.load(std::memory_order_acquire) % newLen;
-            bufIndex.store(currentPos, std::memory_order_release);
-            BUF_LEN.store(newLen, std::memory_order_release);
-        }
-    }
-    if(abs(p4-lastP4)>1) clipAmount = getClipAmountFromKnob(p4);
-}
-
-
-
 void editNoise(){
-    noiseVolume = norm(p1, 0.0f, maxTurnVal, 0.0f, 1.0f);
-    float cutoffT = std::clamp(norm(p2, 0.0f, maxTurnVal, 0.0f, 1.0f), 0.0f, 1.0f);
-    noiseFilterCutoff = 40.0f * std::pow((sampleRate * 0.45f) / 40.0f, cutoffT);
-    noise.setCutoff(noiseFilterCutoff);
-    noiseAdsrAmount = norm(p3, 0.0f, maxTurnVal, 0.0f, 1.0f);
-    noiseType = static_cast<NoiseType>(norm(p4, 0.0f, maxTurnVal, 0.0f, 5.0f));
-    noise.setType(noiseType);
-
+    if(abs(p1-lastP1)>1) noiseVolume = std::clamp(noiseVolume + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if(abs(p2-lastP2)>1) {
+        float cutoffT = std::clamp(norm(noiseFilterCutoff, 40.0f, sampleRate*0.45f, 0.0f, 1.0f) + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.05f, 0.05f), 0.0f, 1.0f);
+        noiseFilterCutoff = 40.0f * std::pow((sampleRate * 0.45f) / 40.0f, cutoffT);
+        noise.setCutoff(noiseFilterCutoff);
+    }
+    if(abs(p3-lastP3)>1) noiseAdsrAmount = std::clamp(noiseAdsrAmount + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if(abs(p4-lastP4)>1) {
+        int nt = std::clamp(int(noiseType) + (p4-lastP4 > 0 ? 1 : -1), 0, 5);
+        noiseType = static_cast<NoiseType>(nt);
+        noise.setType(noiseType);
+    }
 }
 
 void editHarmonist() {
-    bool pitchChanged = false;
-
-    if (abs(p2 - lastP2) > 1) {
-        harmonyCount = std::clamp(iMap(p2, 0, maxTurnVal, 0, MAX_HARMONIES), 0, MAX_HARMONIES);
+    if(abs(p2-lastP2)>1) {
+        harmonyCount = std::clamp(harmonyCount + (p2-lastP2 > 0 ? 1 : -1), 0, MAX_HARMONIES);
     }
 
     if (harmonyCount <= 0) return;
 
     int currentHarmony = getCurrentHarmonyIndex();
-    if (abs(p1 - lastP1) > 1) {
-        harmonySettings[currentHarmony].level = norm(p1, 0.0f, maxTurnVal, 0.0f, 1.0f);
-    }
-    if (abs(p3 - lastP3) > 1) {
-        harmonySettings[currentHarmony].interval = std::clamp(iMap(p3, 0, maxTurnVal, -13, 13), -13, 13);
+    bool pitchChanged = false;
+
+    if(abs(p1-lastP1)>1) harmonySettings[currentHarmony].level = std::clamp(harmonySettings[currentHarmony].level + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if(abs(p3-lastP3)>1) {
+        harmonySettings[currentHarmony].interval = std::clamp(harmonySettings[currentHarmony].interval + (p3-lastP3 > 0 ? 1 : -1), -13, 13);
         pitchChanged = true;
     }
-    if (abs(p4 - lastP4) > 1) {
-        harmonySettings[currentHarmony].detune = norm(p4, 0.0f, maxTurnVal, -0.03f, 0.03f);
+    if(abs(p4-lastP4)>1) {
+        harmonySettings[currentHarmony].detune = std::clamp(harmonySettings[currentHarmony].detune + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.003f, 0.003f), -0.03f, 0.03f);
         pitchChanged = true;
     }
 
-    if (pitchChanged) {
-        refreshPlayingVoiceFrequencies();
-    }
+    if (pitchChanged) refreshPlayingVoiceFrequencies();
 }
 
 void selectMenu() {
