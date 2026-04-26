@@ -82,7 +82,9 @@ int lastPresetListKnobSelection = -1;
 int presetReorderAccumulator = 0;
 int maxTurnVal = 80;
 constexpr int MAX_PRESET_NAME_LEN = 12;
-constexpr int PRESET_REORDER_KNOB_STEP = 40;
+// Preset reordering uses encoder-style deltas, so a single input step should
+// be enough to move one slot.
+constexpr int PRESET_REORDER_KNOB_STEP = 1;
 constexpr int MAX_WRITE_NOTES = 48;
 constexpr float WRITE_MIN_BPM = 40.0f;
 constexpr float WRITE_MAX_BPM = 240.0f;
@@ -1974,7 +1976,7 @@ void editPresetListOrder() {
     }
 
     int delta = p1 - lastP1;
-    if (std::abs(delta) <= 1) return;
+    if (delta == 0) return;
 
     presetReorderAccumulator += delta;
 
