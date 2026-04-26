@@ -1726,12 +1726,165 @@ void handleWriteTripleClick(unsigned long nowMs) {
 
 void drawWrite() {
     clearBuffer();
-    drawTextCenteredX(WIDTH / 2, 2, "WRITE");
-    drawTextCenteredX(WIDTH / 2, 10, getWriteStatusLabel());
 
-    drawWriteBar(2, 18, "LEVEL", writePlaybackVolume, getWriteLevelLabel());
-    drawWriteBar(2, 34, "FILTER", writeFilterControl, getWriteFilterLabel(), true);
-    drawWriteBar(2, 50, "TEMPO", getWriteTempoNormalized(), getWriteTempoLabel());
+    const float mix = sanitizeDisplaySample(::mix);
+    const int jitterAmt = visualJitterAmount(mix, outputLevel, 4);
+
+    // ---- Title ----
+    drawTextCenteredX(WIDTH / 2, 2, "WRITE");
+
+    // ---- Notes timeline (top strip, pitch-mapped dots) ----
+    constexpr int TL_X = 2;
+    constexpr int TL_Y = 12;
+    constexpr int TL_H = 14;
+    const int TL_W = WIDTH - 4;
+    const int N = (int)writeNotes.size();
+
+    if (N > 0) {
+        int minP = writeNotes[0], maxP = writeNotes[0];
+        for (int n : writeNotes) { minP = std::min(minP, n); maxP = std::max(maxP, n); }
+        float pRange = std::max(maxP - minP, 1);
+
+        for (int i = 0; i < N; i++) {
+            int nx = TL_X + (N > 1 ? int(float(i) / float(N - 1) * TL_W) : TL_W / 2);
+            int ny = TL_Y + TL_H - 1 - int(float(writeNotes[i] - minP) / pRange * float(TL_H - 3));
+            nx = std::clamp(nx, TL_X, TL_X + TL_W);
+            ny = std::clamp(ny, TL_Y, TL_Y + TL_H - 1);
+
+            bool isPlaying = writePlaybackActive && (int)writePlaybackIndex == i;
+
+            if (isPlaying) {
+                int r = 2 + std::clamp(int(std::fabs(mix) * 3.0f), 0, 3);
+                filledCircle(nx + randomOffset(jitterAmt), ny + randomOffset(jitterAmt), r);
+                int rippleR = r + 2 + std::clamp(int(std::fabs(mix) * 4.0f), 0, 4);
+                circle(nx, ny, rippleR);
+            } else if (edit && i == N - 1) {
+                // most recently recorded note
+                filledCircle(nx, ny, 2);
+            } else {
+                drawPixel(nx, ny);
+                if (i % 3 == 0) drawPixel(nx, ny - 1);
+            }
+        }
+
+        // playhead line
+        if (writePlaybackActive && N > 1) {
+            float phi = float(writePlaybackIndex) / float(N - 1);
+            int phX = TL_X + int(phi * TL_W);
+            drawLine(phX, TL_Y - 1, phX, TL_Y + TL_H);
+        }
+    } else {
+        // empty: dashed line
+        for (int x = TL_X; x < TL_X + TL_W; x += 4)
+            drawLine(x, TL_Y + TL_H / 2, x + 2, TL_Y + TL_H / 2);
+    }
+
+    // separator
+    drawLine(0, TL_Y + TL_H + 1, WIDTH - 1, TL_Y + TL_H + 1);
+
+    // ---- Sparse fill helper (mirrors drawFilledCircleSparse logic) ----
+    // removePercent 0=solid fill, 100=empty
+    // We'll use it for rect fills: iterate pixels and probabilistically set
+    auto sparseFillRect = [&](int x, int y, int w, int h, float removePercent) {
+        removePercent = std::clamp(removePercent, 0.0f, 100.0f);
+        float keepChance = 1.0f - (removePercent / 100.0f);
+        for (int px2 = x; px2 < x + w; px2++) {
+            for (int py = y; py < y + h; py++) {
+                float r = (float)rand() / RAND_MAX;
+                if (r < keepChance) drawPixel(px2, py);
+            }
+        }
+    };
+
+    // filterControl: 0.0=full low-pass, 0.5=flat, 1.0=full high-pass
+    // "lower filter = less filled" means low filter values = sparse
+    // Map filterControl 0..1 → removePercent 90..0 (low = very sparse, high = solid)
+    float filterRemovePct = std::clamp((1.0f - writeFilterControl) * 90.0f, 0.0f, 90.0f);
+
+    // ---- VOL bar ----
+    constexpr int BAR_X = 32;
+    const int BAR_W = WIDTH - BAR_X - 14; // leave room for tempo clock
+    constexpr int BAR_H = 8;
+    constexpr int VOL_Y = 33;
+
+    drawText(2, VOL_Y, "VOL");
+    drawRect(BAR_X, VOL_Y, BAR_W, BAR_H);
+
+    int vFill = std::clamp(int(writePlaybackVolume * float(BAR_W - 2)), 0, BAR_W - 2);
+    if (vFill > 0) {
+        // Waveform-wobble on top edge driven by mix
+        for (int bx = BAR_X + 1; bx <= BAR_X + vFill; bx++) {
+            int wobble = (mix > 0.02f) ? int(sinf(float(bx) * 0.6f) * mix * 3.0f) : 0;
+            for (int by = VOL_Y + 1 + wobble; by < VOL_Y + BAR_H - 1; by++)
+                drawPixel(bx, by);
+        }
+    }
+
+    // ---- FILTER bar (centered, sparse fill) ----
+    constexpr int FIL_Y = VOL_Y + 13;
+
+    drawText(2, FIL_Y, "FIL");
+    drawRect(BAR_X, FIL_Y, BAR_W, BAR_H);
+
+    {
+        int centerX = BAR_X + BAR_W / 2;
+        int half = (BAR_W - 2) / 2;
+        float centered = writeFilterControl - 0.5f;
+        float fillW_f = 0.0f;
+        bool fillLeft = false;
+
+        if (std::fabs(centered) > WRITE_FILTER_CENTER_WIDTH) {
+            fillLeft = (centered < 0.0f);
+            float t = std::clamp(std::fabs(centered) / 0.5f, 0.0f, 1.0f);
+            fillW_f = t * float(half);
+        }
+
+        int fillW = std::clamp(int(fillW_f), 0, half);
+        if (fillW > 0) {
+            int fx = fillLeft ? (centerX - fillW) : (centerX + 1);
+            sparseFillRect(fx, FIL_Y + 1, fillW, BAR_H - 2, filterRemovePct);
+        }
+        // center tick
+        drawLine(centerX, FIL_Y + 1, centerX, FIL_Y + BAR_H - 2);
+    }
+
+    // ---- Tempo clock (top-right corner) ----
+    constexpr int TC_X = WIDTH - 10;
+    constexpr int TC_Y = 42;
+    constexpr int TC_R = 9;
+
+    // 8 tick marks around ring
+    for (int t = 0; t < 8; t++) {
+        float a = float(t) / 8.0f * 2.0f * float(M_PI) - float(M_PI) / 2.0f;
+        int ox = TC_X + int(cosf(a) * float(TC_R));
+        int oy = TC_Y + int(sinf(a) * float(TC_R));
+        drawPixel(ox, oy);
+    }
+
+    // Sweeping hand (driven by real playback position)
+    float handAngle = 0.0f;
+    if (writePlaybackActive && N > 0) {
+        handAngle = float(writePlaybackIndex) / float(std::max(N, 1)) * 2.0f * float(M_PI) - float(M_PI) / 2.0f;
+    }
+    int hx = TC_X + int(cosf(handAngle) * float(TC_R - 2));
+    int hy = TC_Y + int(sinf(handAngle) * float(TC_R - 2));
+    drawLine(TC_X, TC_Y, hx, hy);
+
+    // Center dot pulses on beat: flash on each new playback step
+    if (writePlaybackActive && writePlaybackVoiceIndex >= 0) {
+        filledCircle(TC_X + randomOffset(jitterAmt), TC_Y + randomOffset(jitterAmt), 2);
+    } else {
+        circle(TC_X, TC_Y, 1);
+    }
+
+    // ---- Status label ----
+    drawText(2, HEIGHT - 7, getWriteStatusLabel().c_str());
+
+    // ---- Note count ----
+    if (N > 0) {
+        std::string nc = std::to_string(std::min(N, 99));
+        drawText(WIDTH - int(nc.size()) * 6, HEIGHT - 7, nc.c_str());
+    }
 }
 
 
