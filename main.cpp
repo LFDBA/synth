@@ -772,12 +772,18 @@ float knobPosition = 0.9f;
 
 // Waveform editor
 const int WAVE_RES = 12;
+constexpr float CUSTOM_WAVE_MIN = -1.0f;
+constexpr float CUSTOM_WAVE_MAX = 1.0f;
 float wavePoints[WAVE_RES];
 static std::vector<float> customTable;
 static bool waveNeedsRebuild = true;
 const int TABLE_SIZE = 8192;
 float curvature = 1.0f;
 int octave = 1;
+
+inline float clampCustomWavePoint(float value) {
+    return std::clamp(value, CUSTOM_WAVE_MIN, CUSTOM_WAVE_MAX);
+}
 
 // ======================================================
 //                     Voice Struct
@@ -943,15 +949,15 @@ void rebuildCustomTableFromPoints(const std::array<float, WAVE_RES>& points, flo
         float idxF = t * (WAVE_RES - 1);
         int idx = int(idxF);
         float frac = idxF - idx;
-        float v1 = points[idx];
-        float v2 = points[std::min(idx + 1, WAVE_RES - 1)];
+        float v1 = clampCustomWavePoint(points[idx]);
+        float v2 = clampCustomWavePoint(points[std::min(idx + 1, WAVE_RES - 1)]);
         table[i] = curveInterp(v1, v2, frac, patchCurvature);
     }
 }
 
 void rebuildWaveTable() {
     std::array<float, WAVE_RES> points{};
-    for (int i = 0; i < WAVE_RES; i++) points[i] = wavePoints[i];
+    for (int i = 0; i < WAVE_RES; i++) points[i] = clampCustomWavePoint(wavePoints[i]);
     rebuildCustomTableFromPoints(points, curvature, customTable);
     waveNeedsRebuild=false;
 }
@@ -959,7 +965,7 @@ void rebuildWaveTable() {
 void updateWave() { waveNeedsRebuild=true; }
 
 void initWavePoints() {
-    for(int i=0;i<WAVE_RES;i++) wavePoints[i] = norm(i,0,WAVE_RES-1,-2.0f,2.0f);
+    for(int i=0;i<WAVE_RES;i++) wavePoints[i] = norm(i,0,WAVE_RES-1,CUSTOM_WAVE_MIN,CUSTOM_WAVE_MAX);
     customTable.resize(TABLE_SIZE);
     waveNeedsRebuild=true;
 }
@@ -1802,7 +1808,9 @@ void editTone(){
 void editWave(){
     if(abs(p1-lastP1)>1) editIndex = std::clamp(editIndex + (norm(p1-lastP1, -maxTurnVal, maxTurnVal, -1.0f, 1.0f) * (WAVE_RES - 1)), 0, WAVE_RES-1);
     if(abs(p2-lastP2)>1){
-        wavePoints[editIndex] = std::clamp(wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -1.0f, 1.0f), -2.0f, 2.0f);
+        wavePoints[editIndex] = clampCustomWavePoint(
+            wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -1.0f, 1.0f)
+        );
         waveNeedsRebuild = true;
         custom = true;
     }
@@ -1962,7 +1970,7 @@ Preset captureCurrentPreset(const std::string& name) {
     preset.custom = custom;
     preset.curvature = curvature;
     for (int i = 0; i < WAVE_RES; i++) {
-        preset.wavePoints[i] = wavePoints[i];
+        preset.wavePoints[i] = clampCustomWavePoint(wavePoints[i]);
     }
     preset.attack = attack;
     preset.decay = decay;
@@ -1992,7 +2000,7 @@ void applyPreset(const Preset& preset) {
     custom = preset.custom;
     curvature = preset.curvature;
     for (int i = 0; i < WAVE_RES; i++) {
-        wavePoints[i] = preset.wavePoints[i];
+        wavePoints[i] = clampCustomWavePoint(preset.wavePoints[i]);
     }
     waveNeedsRebuild = true;
 
@@ -2072,6 +2080,7 @@ void loadPresetsFromFile() {
 
         for (int i = 0; i < WAVE_RES; i++) {
             if (!(in >> preset.wavePoints[i])) return;
+            preset.wavePoints[i] = clampCustomWavePoint(preset.wavePoints[i]);
         }
 
         if (!(in >> preset.attack >> preset.decay >> preset.sustain >> preset.release)) break;
