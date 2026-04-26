@@ -2233,7 +2233,7 @@ void drawWave() {
         drawLine(x-1, lastY, x, y);
         lastY = y;
     }
-    drawLine(editedIndex, 0, editedIndex, height-1); // vertical line for edited point
+    drawLine(editIndex, 0, editedIndex, height-1); // vertical line for edited point
 }
 void drawReverb() {
     clearBuffer();
