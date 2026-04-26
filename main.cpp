@@ -91,7 +91,7 @@ constexpr float WRITE_MAX_BPM = 240.0f;
 constexpr float WRITE_NOTE_GATE = 0.8f;
 constexpr float WRITE_FILTER_CENTER_WIDTH = 0.04f;
 constexpr float WRITE_VOLUME_STEP = 0.05f;
-constexpr float WRITE_FILTER_STEP = 0.05f;
+constexpr float WRITE_FILTER_STEP = 0.02f;
 constexpr float WRITE_TEMPO_STEP = 4.0f;
 std::string presetNameInput;
 const char* PRESET_FILE_PATH = "../presets.dat";
@@ -1399,6 +1399,16 @@ float applyEncoderStep(float currentValue, int delta, float step, float minValue
     return std::clamp(currentValue + float(delta) * step, minValue, maxValue);
 }
 
+int consumeRelativeKnobDelta(int& knobValue, int& lastKnobValue) {
+    int delta = knobValue - lastKnobValue;
+    if (delta == 0) return 0;
+
+    int center = maxTurnVal / 2;
+    knobValue = center;
+    lastKnobValue = center;
+    return delta;
+}
+
 float getWriteTempoNormalized() {
     return std::clamp(
         norm(writeTempoBpm, WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f, 0.0f, 1.0f),
@@ -1636,9 +1646,13 @@ void startWritePlayback(unsigned long nowMs, bool loopPlayback = false) {
 }
 
 void updateWriteControls() {
-    if (p1 != lastP1) writePlaybackVolume = applyEncoderStep(writePlaybackVolume, p1 - lastP1, WRITE_VOLUME_STEP, 0.0f, 1.0f);
-    if (p2 != lastP2) writeFilterControl = applyEncoderStep(writeFilterControl, p2 - lastP2, WRITE_FILTER_STEP, 0.0f, 1.0f);
-    if (p4 != lastP4) writeTempoBpm = applyEncoderStep(writeTempoBpm, p4 - lastP4, WRITE_TEMPO_STEP, WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f);
+    int p1Delta = consumeRelativeKnobDelta(p1, lastP1);
+    int p2Delta = consumeRelativeKnobDelta(p2, lastP2);
+    int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
+
+    if (p1Delta != 0) writePlaybackVolume = applyEncoderStep(writePlaybackVolume, p1Delta, WRITE_VOLUME_STEP, 0.0f, 1.0f);
+    if (p2Delta != 0) writeFilterControl = applyEncoderStep(writeFilterControl, p2Delta, WRITE_FILTER_STEP, 0.0f, 1.0f);
+    if (p4Delta != 0) writeTempoBpm = applyEncoderStep(writeTempoBpm, p4Delta, WRITE_TEMPO_STEP, WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f);
 }
 
 void updateWritePlayback(unsigned long nowMs) {
