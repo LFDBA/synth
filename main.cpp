@@ -1821,7 +1821,7 @@ void editADSR(){
 float rDry = 1.0f;
 float rWet = 0.0f;
 float rSize = 1.0f;
-float rDecay = 0.5f;yy
+float rDecay = 0.5f;
 void editReverb() {
     if(abs(p1-lastP1)>1){
         rDry = std::clamp(rDry + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
