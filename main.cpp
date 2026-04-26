@@ -1802,13 +1802,13 @@ void editTone(){
 void editWave(){
     if(abs(p1-lastP1)>1) editIndex = std::clamp(editIndex + (p1-lastP1), 0, WAVE_RES-1);
     if(abs(p2-lastP2)>1){
-        wavePoints[editIndex] = std::clamp(wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -4.0f, 4.0f), -2.0f, 2.0f);
+        wavePoints[editIndex] = std::clamp(wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -1.0f, 1.0f), -2.0f, 2.0f);
         waveNeedsRebuild = true;
         custom = true;
     }
     if(abs(p3-lastP3)>1) curvature = std::clamp(curvature + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -5.0f, 5.0f), 0.1f, 5.0f);
     if(abs(p4-lastP4)>1) {
-        knobPosition = std::clamp(knobPosition + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.9f, 0.9f), 0.0f, 0.9f);
+        knobPosition = std::clamp(knobPosition + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 0.9f);
         custom = false;
         waveNeedsRebuild = true;
     }
@@ -2233,6 +2233,7 @@ void drawWave() {
         drawLine(x-1, lastY, x, y);
         lastY = y;
     }
+    drawLine(editedIndex, 0, editedIndex, height-1); // vertical line for edited point
 }
 void drawReverb() {
     clearBuffer();
