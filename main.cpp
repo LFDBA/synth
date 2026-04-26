@@ -1588,6 +1588,8 @@ void handleWriteSingleClick() {
         writeNotes.clear();
         stopWritePlayback();
         captureWritePatch();
+        // Snapshot on enter
+        lastP1 = p1; lastP2 = p2; lastP3 = p3; lastP4 = p4;
     }
     edit = !edit;
 }
@@ -2780,7 +2782,16 @@ int main() {
                     }
                     writePendingClickCount = 0;
                 }
-                else edit = !edit;
+                else {
+                    edit = !edit;
+                    if (edit) {
+                        // Snapshot encoder positions so params don't jump on first turn
+                        lastP1 = p1;
+                        lastP2 = p2;
+                        lastP3 = p3;
+                        lastP4 = p4;
+                    }
+                }
 
                 std::cout << "Single click detected!" << std::endl;
             }
