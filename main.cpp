@@ -1806,7 +1806,10 @@ void editTone(){
 }
 
 void editWave(){
-    if(abs(p1-lastP1)>1) editIndex = std::clamp(editIndex + (norm(p1-lastP1, -maxTurnVal, maxTurnVal, -1.0f, 1.0f) * (WAVE_RES - 1)), 0, WAVE_RES-1);
+    if(p1 != lastP1) {
+        int indexDelta = std::clamp(p1 - lastP1, -1, 1);
+        editIndex = std::clamp(editIndex + indexDelta, 0, WAVE_RES - 1);
+    }
     if(abs(p2-lastP2)>1){
         wavePoints[editIndex] = clampCustomWavePoint(
             wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -1.0f, 1.0f)
