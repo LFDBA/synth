@@ -90,7 +90,7 @@ constexpr float WRITE_MIN_BPM = 40.0f;
 constexpr float WRITE_MAX_BPM = 240.0f;
 constexpr float WRITE_NOTE_GATE = 0.8f;
 constexpr float WRITE_FILTER_CENTER_WIDTH = 0.04f;
-constexpr float WRITE_VOLUME_STEP = 0.05f;
+constexpr float WRITE_VOLUME_STEP = 0.02f;
 constexpr float WRITE_FILTER_STEP = 0.02f;
 constexpr float WRITE_TEMPO_STEP = 4.0f;
 std::string presetNameInput;
