@@ -1673,7 +1673,9 @@ void updateKeyStates() {
 //               Read Input Device
 // ======================================================
 bool initSerial(const char* port="/dev/ttyUSB0") {
-    system("stty -F /dev/ttyUSB0 115200 raw");
+    if (system("stty -F /dev/ttyUSB0 115200 raw") != 0) {
+        std::cerr << "stty command failed (non-fatal)\n";
+    }
     const std::vector<const char*> candidatePorts = {
         port,
         "/dev/ttyACM1",
@@ -2619,7 +2621,9 @@ int main() {
             // Notify Arduino on every button press
             if (fd >= 0) {
                 const char* resetMsg = "reset\n";
-                write(fd, resetMsg, strlen(resetMsg));
+                if (write(fd, resetMsg, strlen(resetMsg)) < 0) {
+                    std::cerr << "Serial write failed\n";
+                }
             }
 
             if (menu == WRITE_MENU) {
