@@ -2630,6 +2630,12 @@ int main() {
             buttonPressStartTime = now;
             writeHoldTriggered = false;
 
+            // Notify Arduino on every button press
+            if (fd >= 0) {
+                const char* resetMsg = "reset\n";
+                write(fd, resetMsg, strlen(resetMsg));
+            }
+
             if (menu == WRITE_MENU) {
                 if (singleClickPending && (now - lastClickTime <= doubleClickDelay)) {
                     writePendingClickCount = std::min(writePendingClickCount + 1, 3);
