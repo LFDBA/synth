@@ -1671,7 +1671,7 @@ void updateKeyStates() {
 //               Read Input Device
 // ======================================================
 bool initSerial(const char* port="/dev/ttyUSB0") {
-    system("stty", "-F", "/dev/ttyUSB0", "115200", "raw");
+    system("stty -F /dev/ttyUSB0 115200 raw");
     const std::vector<const char*> candidatePorts = {
         port,
         "/dev/ttyACM1",
