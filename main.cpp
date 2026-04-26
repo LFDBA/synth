@@ -90,6 +90,9 @@ constexpr float WRITE_MIN_BPM = 40.0f;
 constexpr float WRITE_MAX_BPM = 240.0f;
 constexpr float WRITE_NOTE_GATE = 0.8f;
 constexpr float WRITE_FILTER_CENTER_WIDTH = 0.04f;
+constexpr float WRITE_VOLUME_STEP = 0.05f;
+constexpr float WRITE_FILTER_STEP = 0.05f;
+constexpr float WRITE_TEMPO_STEP = 4.0f;
 std::string presetNameInput;
 const char* PRESET_FILE_PATH = "../presets.dat";
 std::vector<int> writeNotes;
@@ -1391,6 +1394,78 @@ float applyWriteFilter(float input) {
     writeFilterHighpassState += alpha * (input - writeFilterHighpassState);
     return input - writeFilterHighpassState;
 }
+
+float applyEncoderStep(float currentValue, int delta, float step, float minValue, float maxValue) {
+    return std::clamp(currentValue + float(delta) * step, minValue, maxValue);
+}
+
+float getWriteTempoNormalized() {
+    return std::clamp(
+        norm(writeTempoBpm, WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f, 0.0f, 1.0f),
+        0.0f,
+        1.0f
+    );
+}
+
+std::string getWriteStatusLabel() {
+    if (writePlaybackLooping) return "LOOPING";
+    if (writePlaybackActive) return "PLAYING";
+    if (edit) return "RECORDING";
+    if (writeNotes.empty()) return "EMPTY";
+    return "READY";
+}
+
+std::string getWriteLevelLabel() {
+    if (writePlaybackVolume < 0.34f) return "SOFT";
+    if (writePlaybackVolume < 0.67f) return "MEDIUM";
+    return "LOUD";
+}
+
+std::string getWriteFilterLabel() {
+    float centered = std::clamp(writeFilterControl, 0.0f, 1.0f) - 0.5f;
+    if (std::fabs(centered) <= WRITE_FILTER_CENTER_WIDTH) return "FLAT";
+    return centered < 0.0f ? "LOW PASS" : "HIGH PASS";
+}
+
+std::string getWriteTempoLabel() {
+    if (writeTempoBpm < 90.0f) return "SLOW";
+    if (writeTempoBpm < 170.0f) return "MEDIUM";
+    return "FAST";
+}
+
+void drawWriteBar(int labelX, int y, const std::string& label, float normalizedValue,
+                  const std::string& detail, bool centered = false) {
+    const int barX = 44;
+    const int barW = 78;
+    const int barH = 7;
+
+    drawText(labelX, y, label.c_str());
+    drawRect(barX, y, barW, barH);
+
+    if (centered) {
+        int centerX = barX + (barW / 2);
+        int usableHalf = (barW - 3) / 2;
+        float offset = std::clamp(normalizedValue, 0.0f, 1.0f) - 0.5f;
+        int fillW = std::clamp(int(std::lround((std::fabs(offset) / 0.5f) * float(usableHalf))), 0, usableHalf);
+
+        if (fillW > 0) {
+            if (offset < 0.0f) {
+                drawRectFilled(centerX - fillW, y + 1, fillW, barH - 2);
+            } else if (offset > 0.0f) {
+                drawRectFilled(centerX + 1, y + 1, fillW, barH - 2);
+            }
+        }
+
+        drawLine(centerX, y + 1, centerX, y + barH - 2);
+    } else {
+        int fillW = std::clamp(int(std::lround(std::clamp(normalizedValue, 0.0f, 1.0f) * float(barW - 2))), 0, barW - 2);
+        if (fillW > 0) {
+            drawRectFilled(barX + 1, y + 1, fillW, barH - 2);
+        }
+    }
+
+    drawText(barX, y + 9, detail.c_str());
+}
 // ======================================================
 //                  Audio Callback
 // ======================================================
@@ -1561,9 +1636,9 @@ void startWritePlayback(unsigned long nowMs, bool loopPlayback = false) {
 }
 
 void updateWriteControls() {
-    if(p1 != lastP1) writePlaybackVolume = std::clamp(writePlaybackVolume + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
-    if(p2 != lastP2) writeFilterControl = std::clamp(writeFilterControl + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
-    if(p4 != lastP4) writeTempoBpm = std::clamp(writeTempoBpm + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -20.0f, 20.0f), WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f);
+    if (p1 != lastP1) writePlaybackVolume = applyEncoderStep(writePlaybackVolume, p1 - lastP1, WRITE_VOLUME_STEP, 0.0f, 1.0f);
+    if (p2 != lastP2) writeFilterControl = applyEncoderStep(writeFilterControl, p2 - lastP2, WRITE_FILTER_STEP, 0.0f, 1.0f);
+    if (p4 != lastP4) writeTempoBpm = applyEncoderStep(writeTempoBpm, p4 - lastP4, WRITE_TEMPO_STEP, WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f);
 }
 
 void updateWritePlayback(unsigned long nowMs) {
@@ -1637,6 +1712,12 @@ void handleWriteTripleClick(unsigned long nowMs) {
 
 void drawWrite() {
     clearBuffer();
+    drawTextCenteredX(WIDTH / 2, 2, "WRITE");
+    drawTextCenteredX(WIDTH / 2, 10, getWriteStatusLabel());
+
+    drawWriteBar(2, 18, "LEVEL", writePlaybackVolume, getWriteLevelLabel());
+    drawWriteBar(2, 34, "FILTER", writeFilterControl, getWriteFilterLabel(), true);
+    drawWriteBar(2, 50, "TEMPO", getWriteTempoNormalized(), getWriteTempoLabel());
 }
 
 
