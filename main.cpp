@@ -760,8 +760,6 @@ bool normVoices = true; // Normalize by active voices
 int fd = -1;
 int editIndex = 0;
 bool edit = false;
-constexpr int WAVE_EDIT_INDEX_TICKS_PER_STEP = 2;
-int waveEditIndexAccumulator = 0;
 
 Reverb reverb(sampleRate);
 
@@ -789,6 +787,19 @@ inline float clampCustomWavePoint(float value) {
 
 inline int clampKnobStep(int currentValue, int knobDelta, int minValue, int maxValue) {
     return std::clamp(currentValue + knobDelta, minValue, maxValue);
+}
+
+inline int waveEditIndexFromKnob(int knobValue) {
+    return std::clamp(int(norm(float(knobValue), 0.0f, float(maxTurnVal), 0.0f, float(WAVE_RES - 1))), 0, WAVE_RES - 1);
+}
+
+inline int knobValueForWaveEditIndex(int index) {
+    return std::clamp(int(std::lround(norm(float(index), 0.0f, float(WAVE_RES - 1), 0.0f, float(maxTurnVal)))), 0, maxTurnVal);
+}
+
+inline int knobValueForWavePoint(float pointValue) {
+    float clampedValue = clampCustomWavePoint(pointValue);
+    return std::clamp(int(std::lround(norm(clampedValue, CUSTOM_WAVE_MIN, CUSTOM_WAVE_MAX, 0.0f, float(maxTurnVal)))), 0, maxTurnVal);
 }
 
 inline int waveSampleToY(float sample, int height) {
@@ -985,22 +996,6 @@ void initWavePoints() {
     for(int i=0;i<WAVE_RES;i++) wavePoints[i] = norm(i,0,WAVE_RES-1,CUSTOM_WAVE_MIN,CUSTOM_WAVE_MAX);
     customTable.resize(TABLE_SIZE);
     waveNeedsRebuild=true;
-}
-
-void nudgeWaveEditIndex(int knobDelta) {
-    if (knobDelta == 0) return;
-
-    waveEditIndexAccumulator += knobDelta;
-    while (std::abs(waveEditIndexAccumulator) >= WAVE_EDIT_INDEX_TICKS_PER_STEP) {
-        int step = (waveEditIndexAccumulator > 0) ? 1 : -1;
-        int nextIndex = std::clamp(editIndex + step, 0, WAVE_RES - 1);
-        if (nextIndex == editIndex) {
-            waveEditIndexAccumulator = 0;
-            break;
-        }
-        editIndex = nextIndex;
-        waveEditIndexAccumulator -= step * WAVE_EDIT_INDEX_TICKS_PER_STEP;
-    }
 }
 
 // ======================================================
@@ -1841,10 +1836,16 @@ void editTone(){
 void editWave(){
     bool waveShapeChanged = false;
 
-    if(p1 != lastP1) nudgeWaveEditIndex(p1 - lastP1);
+    int newEditIndex = waveEditIndexFromKnob(p1);
+    if (newEditIndex != editIndex) {
+        editIndex = newEditIndex;
+        p2 = knobValueForWavePoint(wavePoints[editIndex]);
+        lastP2 = p2;
+    }
+
     if(p2 != lastP2){
         wavePoints[editIndex] = clampCustomWavePoint(
-            wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -1.0f, 1.0f)
+            norm(float(p2), 0.0f, float(maxTurnVal), CUSTOM_WAVE_MIN, CUSTOM_WAVE_MAX)
         );
         waveShapeChanged = true;
         custom = true;
@@ -2815,7 +2816,10 @@ int main() {
                 else {
                     edit = !edit;
                     if (edit) {
-                        if (menu == WAVE_MENU) waveEditIndexAccumulator = 0;
+                        if (menu == WAVE_MENU) {
+                            p1 = knobValueForWaveEditIndex(editIndex);
+                            p2 = knobValueForWavePoint(wavePoints[editIndex]);
+                        }
                         // Snapshot encoder positions so params don't jump on first turn
                         lastP1 = p1;
                         lastP2 = p2;
