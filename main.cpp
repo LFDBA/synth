@@ -1775,6 +1775,17 @@ void getInp() {
         }
     }
 }
+void setBufferLength(int newLen) {
+    if (newLen < 32) newLen = 32;
+    if (newLen > MAX_BUF_LEN) newLen = MAX_BUF_LEN;
+
+    int oldLen = BUF_LEN.load(std::memory_order_acquire);
+    if (newLen == oldLen) return;
+
+    int currentPos = bufIndex.load(std::memory_order_acquire) % newLen;
+    bufIndex.store(currentPos, std::memory_order_release);
+    BUF_LEN.store(newLen, std::memory_order_release);
+}
 
 void editTone(){
     if(abs(p1-lastP1)>1) outputLevel = std::clamp(outputLevel + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -maxOutputLevel, maxOutputLevel), 0.0f, maxOutputLevel);
@@ -1810,7 +1821,7 @@ void editADSR(){
 float rDry = 1.0f;
 float rWet = 0.0f;
 float rSize = 1.0f;
-float rDecay = 0.5f;
+float rDecay = 0.5f;yy
 void editReverb() {
     if(abs(p1-lastP1)>1){
         rDry = std::clamp(rDry + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
@@ -1935,17 +1946,7 @@ void editPresetListOrder() {
     }
 }
 
-void setBufferLength(int newLen) {
-    if (newLen < 32) newLen = 32;
-    if (newLen > MAX_BUF_LEN) newLen = MAX_BUF_LEN;
 
-    int oldLen = BUF_LEN.load(std::memory_order_acquire);
-    if (newLen == oldLen) return;
-
-    int currentPos = bufIndex.load(std::memory_order_acquire) % newLen;
-    bufIndex.store(currentPos, std::memory_order_release);
-    BUF_LEN.store(newLen, std::memory_order_release);
-}
 
 Preset captureCurrentPreset(const std::string& name) {
     Preset preset;
