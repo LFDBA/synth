@@ -84,7 +84,7 @@ int maxTurnVal = 80;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 // Preset reordering uses encoder-style deltas, so a single input step should
 // be enough to move one slot.
-constexpr int PRESET_REORDER_KNOB_STEP = 1;
+constexpr int PRESET_REORDER_KNOB_STEP = 8;
 constexpr int MAX_WRITE_NOTES = 48;
 constexpr float WRITE_MIN_BPM = 40.0f;
 constexpr float WRITE_MAX_BPM = 240.0f;
