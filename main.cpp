@@ -766,8 +766,8 @@ Reverb reverb(sampleRate);
 // Menus
 
 // Input device variables
-int p1, p2, p3, p4;
-int lastP1=-1, lastP2, lastP3, lastP4;
+int p1=40, p2=40, p3=40, p4=40;        // start at midpoint
+int lastP1=40, lastP2=40, lastP3=40, lastP4=40;
 float knobPosition = 0.9f;
 
 // Waveform editor
@@ -1736,9 +1736,9 @@ bool initSerial(const char* port="/dev/ttyUSB0") {
 void getInp() {
     if (fd < 0) return;
 
-    static std::string line="";
+    static std::string line = "";
     char buf[64];
-    int n=read(fd,buf,sizeof(buf));
+    int n = read(fd, buf, sizeof(buf));
     if (n < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) return;
         std::cerr << "Serial read failed, disabling serial input.\n";
@@ -1748,23 +1748,28 @@ void getInp() {
     }
     if (n == 0) return;
 
-    if(n>0){
-        for(int i=0;i<n;i++){
-            char c=buf[i];
-            if(c=='\n'){
-                if(!line.empty()){
-                    std::stringstream ss(line);
-                    std::string label;
-                    int value;
-                    ss >> label >> value;
-                    std::cout << "Received: " << label << " " << value << std::endl;
-                    if(label=="p1") p1=value;
-                    else if(label=="p2") p2=value;
-                    else if(label=="p3") p3=value;
-                    else if(label=="p4") p4=value;
+    for (int i = 0; i < n; i++) {
+        char c = buf[i];
+        if (c == '\n') {
+            if (!line.empty()) {
+                std::stringstream ss(line);
+                std::string label;
+                int delta;
+                if (ss >> label >> delta) {
+                    int* target = nullptr;
+                    if      (label == "p1") target = &p1;
+                    else if (label == "p2") target = &p2;
+                    else if (label == "p3") target = &p3;
+                    else if (label == "p4") target = &p4;
+
+                    if (target) {
+                        *target = std::clamp(*target + delta, 0, maxTurnVal);
+                    }
                 }
-                line.clear();
-            }else if(c!='\r') line+=c;
+            }
+            line.clear();
+        } else if (c != '\r') {
+            line += c;
         }
     }
 }
