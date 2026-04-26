@@ -1800,17 +1800,18 @@ void editTone(){
 }
 
 void editWave(){
-    editIndex = std::clamp(editIndex + (p1-lastP1), 0, WAVE_RES-1);
+    if(abs(p1-lastP1)>1) editIndex = std::clamp(editIndex + (p1-lastP1), 0, WAVE_RES-1);
     if(abs(p2-lastP2)>1){
-        wavePoints[editIndex] = std::clamp(wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.2f, 0.2f), -2.0f, 2.0f);
+        wavePoints[editIndex] = std::clamp(wavePoints[editIndex] + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -4.0f, 4.0f), -2.0f, 2.0f);
+        waveNeedsRebuild = true;
+        custom = true;
+    }
+    if(abs(p3-lastP3)>1) curvature = std::clamp(curvature + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -5.0f, 5.0f), 0.1f, 5.0f);
+    if(abs(p4-lastP4)>1) {
+        knobPosition = std::clamp(knobPosition + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.9f, 0.9f), 0.0f, 0.9f);
+        custom = false;
         waveNeedsRebuild = true;
     }
-    if(abs(p3-lastP3)>1) curvature = std::clamp(curvature + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.1f, 5.0f);
-    if(abs(p4-lastP4)>2) {
-        knobPosition = std::clamp(knobPosition + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 0.9f);
-        custom = false;
-    }
-    if(abs(p1-lastP1)>3 || abs(p2-lastP2)>3 || abs(p3-lastP3)>3) custom = true;
     updateWave();
 }
 
