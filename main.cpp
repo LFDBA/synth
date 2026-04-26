@@ -1755,12 +1755,12 @@ void drawWrite() {
 
             if (isPlaying) {
                 int r = 2 + std::clamp(int(std::fabs(mix) * 3.0f), 0, 3);
-                filledCircle(nx + randomOffset(jitterAmt), ny + randomOffset(jitterAmt), r);
+                drawFilledCircle(nx + randomOffset(jitterAmt), ny + randomOffset(jitterAmt), r);
                 int rippleR = r + 2 + std::clamp(int(std::fabs(mix) * 4.0f), 0, 4);
-                circle(nx, ny, rippleR);
+                drawCircle(nx, ny, rippleR);
             } else if (edit && i == N - 1) {
                 // most recently recorded note
-                filledCircle(nx, ny, 2);
+                drawFilledCircle(nx, ny, 2);
             } else {
                 drawPixel(nx, ny);
                 if (i % 3 == 0) drawPixel(nx, ny - 1);
@@ -1872,9 +1872,9 @@ void drawWrite() {
 
     // Center dot pulses on beat: flash on each new playback step
     if (writePlaybackActive && writePlaybackVoiceIndex >= 0) {
-        filledCircle(TC_X + randomOffset(jitterAmt), TC_Y + randomOffset(jitterAmt), 2);
+        drawFilledCircle(TC_X + randomOffset(jitterAmt), TC_Y + randomOffset(jitterAmt), 2);
     } else {
-        circle(TC_X, TC_Y, 1);
+        drawCircle(TC_X, TC_Y, 1);
     }
 
     // ---- Status label ----
