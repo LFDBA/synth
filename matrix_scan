@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+g++ -O2 -std=c++17 matrix_scan_probe.cpp -o matrix_scan_probe -lpigpio -lrt -lpthread
+sudo ./matrix_scan_probe "$@"
