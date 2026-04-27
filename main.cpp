@@ -32,9 +32,9 @@ using namespace std::chrono;
 #include <iostream>
 
 
-std::vector<int> pins = {4, 5, 6, 12, 13, 17, 14, 19, 20, 22, 23};
+std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
 std::vector<int> rowPins = {4, 5, 6, 12}; 
-std::vector<int> colPins = {13, 17, 14, 19, 20, 23, 22};
+std::vector<int> colPins = {13, 17, 18, 19, 20, 23, 22};
 
 void initMatrix() {
     for (int r : rowPins) {
@@ -89,9 +89,11 @@ constexpr int MAX_WRITE_NOTES = 48;
 constexpr float WRITE_MIN_BPM = 40.0f;
 constexpr float WRITE_MAX_BPM = 240.0f;
 constexpr float WRITE_NOTE_GATE = 0.8f;
+constexpr float WRITE_MIN_NOTE_HOLD = 0.05f;
 constexpr float WRITE_FILTER_CENTER_WIDTH = 0.04f;
 constexpr float WRITE_VOLUME_STEP = 0.02f;
 constexpr float WRITE_FILTER_STEP = 0.02f;
+constexpr float WRITE_HOLD_STEP = 0.05f;
 constexpr float WRITE_TEMPO_STEP = 4.0f;
 std::string presetNameInput;
 const char* PRESET_FILE_PATH = "../presets.dat";
@@ -99,6 +101,7 @@ std::vector<int> writeNotes;
 float writePlaybackVolume = 1.0f;
 float writeTempoBpm = 120.0f;
 float writeFilterControl = 0.5f;
+float writeNoteHold = WRITE_NOTE_GATE;
 bool writePlaybackActive = false;
 bool writePlaybackLooping = false;
 size_t writePlaybackIndex = 0;
@@ -1417,6 +1420,14 @@ float getWriteTempoNormalized() {
     );
 }
 
+float getWriteHoldNormalized() {
+    return std::clamp(
+        norm(writeNoteHold, WRITE_MIN_NOTE_HOLD, 1.0f, 0.0f, 1.0f),
+        0.0f,
+        1.0f
+    );
+}
+
 std::string getWriteStatusLabel() {
     if (writePlaybackLooping) return "LOOPING";
     if (writePlaybackActive) return "PLAYING";
@@ -1648,10 +1659,12 @@ void startWritePlayback(unsigned long nowMs, bool loopPlayback = false) {
 void updateWriteControls() {
     int p1Delta = consumeRelativeKnobDelta(p1, lastP1);
     int p2Delta = consumeRelativeKnobDelta(p2, lastP2);
+    int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
     int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
 
     if (p1Delta != 0) writePlaybackVolume = applyEncoderStep(writePlaybackVolume, p1Delta, WRITE_VOLUME_STEP, 0.0f, 1.0f);
     if (p2Delta != 0) writeFilterControl = applyEncoderStep(writeFilterControl, p2Delta, WRITE_FILTER_STEP, 0.0f, 1.0f);
+    if (p3Delta != 0) writeNoteHold = applyEncoderStep(writeNoteHold, p3Delta, WRITE_HOLD_STEP, WRITE_MIN_NOTE_HOLD, 1.0f);
     if (p4Delta != 0) writeTempoBpm = applyEncoderStep(writeTempoBpm, p4Delta, WRITE_TEMPO_STEP, WRITE_MIN_BPM, WRITE_MAX_BPM * 2.5f);
 }
 
@@ -1659,7 +1672,7 @@ void updateWritePlayback(unsigned long nowMs) {
     if (!writePlaybackActive) return;
 
     float stepMs = 60000.0f / std::max(writeTempoBpm, 1.0f);
-    float gateMs = stepMs * WRITE_NOTE_GATE;
+    float gateMs = stepMs * writeNoteHold;
     float elapsedMs = float(nowMs - writePlaybackStepStartMs);
 
     if (writePlaybackVoiceIndex >= 0 && elapsedMs >= gateMs) {
@@ -1744,24 +1757,34 @@ void drawWrite() {
         int minP = writeNotes[0], maxP = writeNotes[0];
         for (int n : writeNotes) { minP = std::min(minP, n); maxP = std::max(maxP, n); }
         float pRange = std::max(maxP - minP, 1);
+        int stepSpan = (N > 1) ? std::max(4, TL_W / (N - 1)) : 14;
+        int holdW = std::clamp(
+            int(std::lround(float(std::max(stepSpan - 2, 1)) * writeNoteHold)),
+            1,
+            std::max(stepSpan - 1, 1)
+        );
 
         for (int i = 0; i < N; i++) {
             int nx = TL_X + (N > 1 ? int(float(i) / float(N - 1) * TL_W) : TL_W / 2);
             int ny = TL_Y + TL_H - 1 - int(float(writeNotes[i] - minP) / pRange * float(TL_H - 3));
             nx = std::clamp(nx, TL_X, TL_X + TL_W);
             ny = std::clamp(ny, TL_Y, TL_Y + TL_H - 1);
+            int holdEndX = std::clamp(nx + holdW, TL_X, TL_X + TL_W);
 
             bool isPlaying = writePlaybackActive && (int)writePlaybackIndex == i;
 
             if (isPlaying) {
+                drawRectFilled(nx, ny - 1, std::max(holdEndX - nx, 1), 3);
                 int r = 2 + std::clamp(int(std::fabs(mix) * 3.0f), 0, 3);
                 drawFilledCircle(nx + randomOffset(jitterAmt), ny + randomOffset(jitterAmt), r);
                 int rippleR = r + 2 + std::clamp(int(std::fabs(mix) * 4.0f), 0, 4);
                 drawCircle(nx, ny, rippleR);
             } else if (edit && i == N - 1) {
                 // most recently recorded note
+                drawLine(nx, ny, holdEndX, ny);
                 drawFilledCircle(nx, ny, 2);
             } else {
+                drawLine(nx, ny, holdEndX, ny);
                 drawPixel(nx, ny);
                 if (i % 3 == 0) drawPixel(nx, ny - 1);
             }
@@ -1880,10 +1903,16 @@ void drawWrite() {
     // ---- Status label ----
     drawText(2, HEIGHT - 7, getWriteStatusLabel().c_str());
 
-    // ---- Note count ----
-    if (N > 0) {
-        std::string nc = std::to_string(std::min(N, 99));
-        drawText(WIDTH - int(nc.size()) * 6, HEIGHT - 7, nc.c_str());
+    // ---- Hold meter ----
+    constexpr int HOLD_Y = HEIGHT - 7;
+    constexpr int HOLD_LABEL_X = 58;
+    constexpr int HOLD_BAR_X = 84;
+    constexpr int HOLD_BAR_W = 38;
+    drawText(HOLD_LABEL_X, HOLD_Y, "HOLD");
+    drawRect(HOLD_BAR_X, HOLD_Y, HOLD_BAR_W, 7);
+    int holdFill = std::clamp(int(getWriteHoldNormalized() * float(HOLD_BAR_W - 2)), 0, HOLD_BAR_W - 2);
+    if (holdFill > 0) {
+        drawRectFilled(HOLD_BAR_X + 1, HOLD_Y + 1, holdFill, 5);
     }
 }
 
