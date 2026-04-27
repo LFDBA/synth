@@ -32,9 +32,10 @@ using namespace std::chrono;
 #include <iostream>
 
 
-std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
+std::vector<int> pins = {4, 5, 6, 12, 13, 18, 17, 19, 20, 22, 23};
 std::vector<int> rowPins = {4, 5, 6, 12}; 
-std::vector<int> colPins = {13, 17, 18, 19, 20, 23, 22};
+// Wiring currently lands the sharp column on GPIO17 and the adjacent column on GPIO18.
+std::vector<int> colPins = {13, 18, 17, 19, 20, 23, 22};
 
 void initMatrix() {
     for (int r : rowPins) {
@@ -1949,14 +1950,34 @@ void onKeyRelease(int keyID) {
 }   
 
 void updateKeyStates() {
+    const int gpio18ColIndex = int(std::find(colPins.begin(), colPins.end(), 18) - colPins.begin());
+
     for (size_t r = 0; r < rowPins.size(); ++r) {
         gpioSetMode(rowPins[r], PI_OUTPUT);
         gpioWrite(rowPins[r], 1);
         std::this_thread::sleep_for(std::chrono::microseconds(50)); // bump to 50µs too
 
+        std::vector<bool> columnStates(colPins.size(), false);
+        for (size_t c = 0; c < colPins.size(); ++c) {
+            columnStates[c] = (gpioRead(colPins[c]) == 1);
+        }
+
+        // GPIO18 currently ghosts when neighboring columns are active.
+        // If it appears together with any other column in the same row, treat it as the ghost.
+        if (gpio18ColIndex >= 0 && gpio18ColIndex < int(columnStates.size()) && columnStates[gpio18ColIndex]) {
+            bool otherColumnActive = false;
+            for (size_t c = 0; c < columnStates.size(); ++c) {
+                if (int(c) != gpio18ColIndex && columnStates[c]) {
+                    otherColumnActive = true;
+                    break;
+                }
+            }
+            if (otherColumnActive) columnStates[gpio18ColIndex] = false;
+        }
+
         for (size_t c = 0; c < colPins.size(); ++c) {
             int keyID = (r * colPins.size()) + c;
-            bool isPhysicalPressed = (gpioRead(colPins[c]) == 1);
+            bool isPhysicalPressed = columnStates[c];
             if (isPhysicalPressed) {
                 if (keyStates[keyID].count < debounceScans) {
                     keyStates[keyID].count++;
@@ -2034,13 +2055,6 @@ bool initSerial(const char* port="/dev/ttyUSB0") {
 
         fd = newFd;
         std::cerr << "Serial connected on " << candidate << "\n";
-
-        if ((std::string(candidate) == "/dev/serial0" ||
-             std::string(candidate) == "/dev/ttyAMA0" ||
-             std::string(candidate) == "/dev/ttyS0") &&
-            std::find(colPins.begin(), colPins.end(), 14) != colPins.end()) {
-            std::cerr << "Warning: GPIO14 is still in colPins and can clash with Pi UART wiring.\n";
-        }
 
         return true;
     }

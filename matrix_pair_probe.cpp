@@ -37,7 +37,7 @@ static const std::vector<int> DEFAULT_SCAN_PINS = {
     4, 5, 6, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27
 };
 static const std::vector<int> ROW_PINS = {4, 5, 6, 12};
-static const std::vector<int> COL_PINS = {13, 17, 14, 19, 20, 23, 22};
+static const std::vector<int> COL_PINS = {13, 18, 17, 19, 20, 23, 22};
 static const std::array<const char*, 12> NOTE_NAMES = {
     "E", "F", "F#", "G", "G#", "A", "Bb", "B", "C", "C#", "D", "D#"
 };
