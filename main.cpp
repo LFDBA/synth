@@ -32,10 +32,10 @@ using namespace std::chrono;
 #include <iostream>
 
 
-std::vector<int> pins = {4, 5, 6, 12, 13, 18, 17, 19, 20, 22, 23};
+std::vector<int> pins = {4, 5, 6, 12, 13, 17, 18, 19, 20, 22, 23};
 std::vector<int> rowPins = {4, 5, 6, 12}; 
-// Wiring currently lands the sharp column on GPIO17 and the adjacent column on GPIO18.
-std::vector<int> colPins = {13, 18, 17, 19, 20, 23, 22};
+// The original sharp column moved from GPIO14 to GPIO18.
+std::vector<int> colPins = {13, 17, 18, 19, 20, 23, 22};
 
 void initMatrix() {
     for (int r : rowPins) {
@@ -1950,8 +1950,6 @@ void onKeyRelease(int keyID) {
 }   
 
 void updateKeyStates() {
-    const int gpio18ColIndex = int(std::find(colPins.begin(), colPins.end(), 18) - colPins.begin());
-
     for (size_t r = 0; r < rowPins.size(); ++r) {
         gpioSetMode(rowPins[r], PI_OUTPUT);
         gpioWrite(rowPins[r], 1);
@@ -1960,19 +1958,6 @@ void updateKeyStates() {
         std::vector<bool> columnStates(colPins.size(), false);
         for (size_t c = 0; c < colPins.size(); ++c) {
             columnStates[c] = (gpioRead(colPins[c]) == 1);
-        }
-
-        // GPIO18 currently ghosts when neighboring columns are active.
-        // If it appears together with any other column in the same row, treat it as the ghost.
-        if (gpio18ColIndex >= 0 && gpio18ColIndex < int(columnStates.size()) && columnStates[gpio18ColIndex]) {
-            bool otherColumnActive = false;
-            for (size_t c = 0; c < columnStates.size(); ++c) {
-                if (int(c) != gpio18ColIndex && columnStates[c]) {
-                    otherColumnActive = true;
-                    break;
-                }
-            }
-            if (otherColumnActive) columnStates[gpio18ColIndex] = false;
         }
 
         for (size_t c = 0; c < colPins.size(); ++c) {
