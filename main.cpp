@@ -2002,6 +2002,7 @@ bool initSerial(const char* port="/dev/ttyUSB0") {
         "/dev/serial0",
         "/dev/ttyAMA0",
         "/dev/ttyS0",
+        "/dev/ttyUSB1"
     };
     std::vector<std::string> triedPorts;
 
