@@ -1,5 +1,33 @@
 #!/bin/bash
 
+if [ ! -x ./main ]; then
+    echo "./main is missing or not executable." >&2
+    exit 1
+fi
+
+HOST_ARCH="$(uname -m)"
+MAIN_INFO="$(file ./main 2>/dev/null || true)"
+
+case "$HOST_ARCH:$MAIN_INFO" in
+    aarch64:*x86-64*|arm64:*x86-64*)
+        echo "./main was built for x86_64, but this machine is $HOST_ARCH." >&2
+        echo "Rebuild ./main on this machine before running it." >&2
+        exit 1
+        ;;
+    x86_64:*ARM*aarch64*|x86_64:*ARM64*)
+        echo "./main was built for ARM, but this machine is $HOST_ARCH." >&2
+        echo "Rebuild ./main on this machine before running it." >&2
+        exit 1
+        ;;
+esac
+
+MISSING_LIBS="$(ldd ./main 2>/dev/null | awk '/not found/ {print $1}')"
+if [ -n "$MISSING_LIBS" ]; then
+    echo "./main is present, but shared libraries are missing:" >&2
+    echo "$MISSING_LIBS" >&2
+    exit 1
+fi
+
 gpioset 0 26=0
 gpioset 0 21=1
 gpioset 0 27=0
