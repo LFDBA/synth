@@ -4,6 +4,7 @@ COMPILE_GUARD_DIR="/tmp/synth_compile_guard"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 MAIN_PATH="$SCRIPT_DIR/main"
 LOADER_PATH="$SCRIPT_DIR/load_synth_program"
+RUN_PATH="$SCRIPT_DIR/run"
 
 BLINK_PID=""
 LOADER_PID=""
@@ -29,13 +30,14 @@ acquire_compile_guard() {
 }
 
 stop_runtime() {
+    sudo pkill -f "$RUN_PATH" 2>/dev/null || true
     sudo pkill -f "$MAIN_PATH" 2>/dev/null || true
     sudo pkill -f "$LOADER_PATH" 2>/dev/null || true
     sudo killall pigpiod 2>/dev/null || true
     sudo fuser -k 8888/tcp 2>/dev/null || true
     sudo rm -f /var/run/pigpio.pid
 
-    while pgrep -f "$MAIN_PATH" >/dev/null 2>&1 || lsof -i :8888 >/dev/null 2>&1; do
+    while pgrep -f "$RUN_PATH" >/dev/null 2>&1 || pgrep -f "$MAIN_PATH" >/dev/null 2>&1 || lsof -i :8888 >/dev/null 2>&1; do
         sleep 0.2
     done
 }
@@ -77,11 +79,12 @@ fi
 
 trap cleanup EXIT INT TERM
 
-stop_runtime
-
 gpioset 0 27=0
 gpioset 0 21=0
-gpioset 0 26=0
+gpioset 0 26=1
+
+stop_runtime
+
 start_blink
 git stash
 git pull
@@ -96,10 +99,6 @@ sudo ./load_synth_program &
 LOADER_PID=$!
 stop_blink
 gpioset 0 26=1
-
-
-
-
 g++ \
   main.cpp \
   Reverb.cpp \

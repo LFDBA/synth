@@ -2,7 +2,11 @@
 
 COMPILE_GUARD_DIR="/tmp/synth_compile_guard"
 
-if [ -d "$COMPILE_GUARD_DIR" ]; then
+compile_in_progress() {
+    [ -d "$COMPILE_GUARD_DIR" ]
+}
+
+if compile_in_progress; then
     exit 0
 fi
 
@@ -34,11 +38,23 @@ if [ -n "$MISSING_LIBS" ]; then
     exit 1
 fi
 
+if compile_in_progress; then
+    exit 0
+fi
+
 gpioset 0 26=0
 gpioset 0 21=1
 gpioset 0 27=0
 
+if compile_in_progress; then
+    exit 0
+fi
+
 sudo ./main
+
+if compile_in_progress; then
+    exit 0
+fi
 
 sleep 0.3
 gpioset 0 26=0
