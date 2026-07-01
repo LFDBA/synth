@@ -1,10 +1,44 @@
 #!/bin/bash
 
-gpioset 0 27=0
-gpioset 0 21=0
-
+COMPILE_GUARD_DIR="/tmp/synth_compile_guard"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+MAIN_PATH="$SCRIPT_DIR/main"
+LOADER_PATH="$SCRIPT_DIR/load_synth_program"
 
 BLINK_PID=""
+LOADER_PID=""
+
+acquire_compile_guard() {
+    if mkdir "$COMPILE_GUARD_DIR" 2>/dev/null; then
+        printf '%s\n' "$$" > "$COMPILE_GUARD_DIR/pid"
+        return 0
+    fi
+
+    if [ -f "$COMPILE_GUARD_DIR/pid" ]; then
+        OLD_PID="$(cat "$COMPILE_GUARD_DIR/pid" 2>/dev/null || true)"
+        if [ -n "$OLD_PID" ] && ! kill -0 "$OLD_PID" 2>/dev/null; then
+            rm -rf "$COMPILE_GUARD_DIR"
+            if mkdir "$COMPILE_GUARD_DIR" 2>/dev/null; then
+                printf '%s\n' "$$" > "$COMPILE_GUARD_DIR/pid"
+                return 0
+            fi
+        fi
+    fi
+
+    return 1
+}
+
+stop_runtime() {
+    sudo pkill -f "$MAIN_PATH" 2>/dev/null || true
+    sudo pkill -f "$LOADER_PATH" 2>/dev/null || true
+    sudo killall pigpiod 2>/dev/null || true
+    sudo fuser -k 8888/tcp 2>/dev/null || true
+    sudo rm -f /var/run/pigpio.pid
+
+    while pgrep -f "$MAIN_PATH" >/dev/null 2>&1 || lsof -i :8888 >/dev/null 2>&1; do
+        sleep 0.2
+    done
+}
 
 start_blink() {
     (
@@ -26,6 +60,27 @@ stop_blink() {
     fi
 }
 
+cleanup() {
+    stop_blink
+    if [ -n "$LOADER_PID" ]; then
+        sudo kill -9 "$LOADER_PID" 2>/dev/null || true
+        wait "$LOADER_PID" 2>/dev/null || true
+        LOADER_PID=""
+    fi
+    rm -rf "$COMPILE_GUARD_DIR"
+}
+
+if ! acquire_compile_guard; then
+    echo "compile already in progress" >&2
+    exit 1
+fi
+
+trap cleanup EXIT INT TERM
+
+stop_runtime
+
+gpioset 0 27=0
+gpioset 0 21=0
 gpioset 0 26=0
 start_blink
 git stash
@@ -33,7 +88,6 @@ git pull
 g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread
 LOADER_COMPILE_STATUS=$?
 if [ "$LOADER_COMPILE_STATUS" -ne 0 ]; then
-    stop_blink
     gpioset 0 26=0
     exit "$LOADER_COMPILE_STATUS"
 fi
@@ -60,7 +114,6 @@ g++ \
 
 MAIN_COMPILE_STATUS=$?
 if [ "$MAIN_COMPILE_STATUS" -ne 0 ]; then
-    sudo kill -9 $LOADER_PID 2>/dev/null
     rm -f main.tmp
     gpioset 0 26=0
     exit "$MAIN_COMPILE_STATUS"
@@ -71,7 +124,8 @@ file main
 
 
 
-sudo kill -9 $LOADER_PID 2>/dev/null
+sudo kill -9 "$LOADER_PID" 2>/dev/null || true
+LOADER_PID=""
 sudo killall pigpiod 2>/dev/null
 sudo fuser -k 8888/tcp 2>/dev/null
 sudo rm -f /var/run/pigpio.pid

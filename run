@@ -1,5 +1,11 @@
 #!/bin/bash
 
+COMPILE_GUARD_DIR="/tmp/synth_compile_guard"
+
+if [ -d "$COMPILE_GUARD_DIR" ]; then
+    exit 0
+fi
+
 if [ ! -x ./main ]; then
     echo "./main is missing or not executable." >&2
     exit 1
