@@ -54,9 +54,20 @@ g++ \
   TwoStageFFTConvolver.cpp \
   Utilities.cpp \
   AudioFFT.cpp \
-  -o main \
+  -o main.tmp \
   -O3 -flto -std=c++17 \
   -lportaudio -lpthread -lm -lrtaudio -lasound -lncurses -lpigpio -lrt
+
+MAIN_COMPILE_STATUS=$?
+if [ "$MAIN_COMPILE_STATUS" -ne 0 ]; then
+    sudo kill -9 $LOADER_PID 2>/dev/null
+    rm -f main.tmp
+    gpioset 0 26=0
+    exit "$MAIN_COMPILE_STATUS"
+fi
+
+mv main.tmp main
+file main
 
 
 

@@ -5,10 +5,10 @@ sudo apt install -y g++ make cmake
 sudo apt install -y portaudio19-dev
 sudo apt install pulseaudio-utils -y
 sudo apt install alsa-utils -y
-sudo apt install rtaudio rtaudio-devel -y
-sudo apt install alsa-lib-devel -y
 sudo apt install librtaudio-dev -y
-sudo apt install libncurses5-dev libncursesw5-dev -y
+sudo apt install libasound2-dev -y
+sudo apt install libncurses-dev -y
+sudo apt install pigpio libpigpio-dev -y
 
 
 pip install numpy
@@ -39,5 +39,3 @@ chmod +x test
 chmod +x restart
 chmod +x update
 ./update
-
-###### ADD PIGPIO INSTALL!!!! ######
