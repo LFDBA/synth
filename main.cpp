@@ -2064,6 +2064,10 @@ void getInp() {
     }
     if (n == 0) return;
 
+    // Debug raw serial traffic before line-based parsing mutates it.
+    std::cout.write(buf, n);
+    std::cout.flush();
+
     for (int i = 0; i < n; i++) {
         char c = buf[i];
         if (c == '\n') {
