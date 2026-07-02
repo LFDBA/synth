@@ -80,7 +80,7 @@ int presetListSelection = 0;
 int presetOptionSelection = 0;
 int presetReorderAccumulator = 0;
 int maxTurnVal = 80;
-constexpr int ENCODER_DELTA_MULTIPLIER = 1;
+constexpr int ENCODER_DELTA_MULTIPLIER = 0.1;
 constexpr int MENU_NAV_KNOB_STEP = ENCODER_DELTA_MULTIPLIER;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 // Preset reordering uses encoder-style deltas, so a single input step should
