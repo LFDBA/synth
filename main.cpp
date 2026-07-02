@@ -812,9 +812,55 @@ inline int knobValueForWavePoint(float pointValue) {
     return std::clamp(int(std::lround(norm(clampedValue, CUSTOM_WAVE_MIN, CUSTOM_WAVE_MAX, 0.0f, float(maxTurnVal)))), 0, maxTurnVal);
 }
 
+inline int knobValueForMenuSelection(int selection) {
+    return std::clamp(int(std::lround(norm(float(selection), 1.0f, 8.0f, 0.0f, float(maxTurnVal)))), 0, maxTurnVal);
+}
+
 inline int waveSampleToY(float sample, int height) {
     float clampedSample = clampCustomWavePoint(sample);
     return std::clamp(height / 2 - int(clampedSample * (height / 2 - 1)), 0, height - 1);
+}
+
+inline int knobCenterValue() {
+    return maxTurnVal / 2;
+}
+
+inline int encoderStepDirection(int delta) {
+    return (delta > 0) - (delta < 0);
+}
+
+void recenterRelativeKnob(int& knobValue, int& lastKnobValue) {
+    int center = knobCenterValue();
+    knobValue = center;
+    lastKnobValue = center;
+}
+
+void recenterAllRelativeKnobs() {
+    recenterRelativeKnob(p1, lastP1);
+    recenterRelativeKnob(p2, lastP2);
+    recenterRelativeKnob(p3, lastP3);
+    recenterRelativeKnob(p4, lastP4);
+}
+
+void prepareEditEncodersForCurrentMenu() {
+    if (menu == WAVE_MENU) {
+        p1 = knobValueForWaveEditIndex(editIndex);
+        p2 = knobValueForWavePoint(wavePoints[editIndex]);
+        lastP1 = p1;
+        lastP2 = p2;
+        recenterRelativeKnob(p3, lastP3);
+        recenterRelativeKnob(p4, lastP4);
+        return;
+    }
+
+    recenterAllRelativeKnobs();
+}
+
+void syncMainMenuEncoderFromCurrentMenu() {
+    if (menu < TONE_MENU || menu > PRESET_MENU) return;
+    menuSelection = std::clamp(int(menu) - 1, 1, 8);
+    p4 = knobValueForMenuSelection(menuSelection);
+    lastP4 = p4;
 }
 
 // ======================================================
@@ -1412,9 +1458,7 @@ int consumeRelativeKnobDelta(int& knobValue, int& lastKnobValue) {
     int delta = knobValue - lastKnobValue;
     if (delta == 0) return 0;
 
-    int center = maxTurnVal / 2;
-    knobValue = center;
-    lastKnobValue = center;
+    recenterRelativeKnob(knobValue, lastKnobValue);
     return delta;
 }
 
@@ -1732,8 +1776,7 @@ void handleWriteSingleClick() {
         writeNotes.clear();
         stopWritePlayback();
         captureWritePatch();
-        // Snapshot on enter
-        lastP1 = p1; lastP2 = p2; lastP3 = p3; lastP4 = p4;
+        recenterAllRelativeKnobs();
     }
     edit = !edit;
 }
@@ -2112,13 +2155,18 @@ void setBufferLength(int newLen) {
 }
 
 void editTone(){
-    if(p1 != lastP1) outputLevel = std::clamp(outputLevel + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -maxOutputLevel, maxOutputLevel), 0.0f, maxOutputLevel);
-    if(p2 != lastP2) setOctave(clampKnobStep(octave, p2 - lastP2, 0, 3));
-    if(p3 != lastP3) {
-        int newLen = std::clamp(BUF_LEN.load() + (p3-lastP3) * 16, 32, MAX_BUF_LEN);
+    int p1Delta = consumeRelativeKnobDelta(p1, lastP1);
+    int p2Delta = consumeRelativeKnobDelta(p2, lastP2);
+    int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
+    int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
+
+    if (p1Delta != 0) outputLevel = std::clamp(outputLevel + norm(p1Delta, -maxTurnVal, maxTurnVal, -maxOutputLevel, maxOutputLevel), 0.0f, maxOutputLevel);
+    if (p2Delta != 0) setOctave(clampKnobStep(octave, encoderStepDirection(p2Delta), 0, 3));
+    if (p3Delta != 0) {
+        int newLen = std::clamp(BUF_LEN.load() + p3Delta * 16, 32, MAX_BUF_LEN);
         setBufferLength(newLen);
     }
-    if(p4 != lastP4) clipAmount = std::clamp(clipAmount + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -1.0f, 1.0f), 0.0f, 1.0f);
+    if (p4Delta != 0) clipAmount = std::clamp(clipAmount + norm(p4Delta, -maxTurnVal, maxTurnVal, -1.0f, 1.0f), 0.0f, 1.0f);
 }
 
 void editWave(){
@@ -2138,75 +2186,95 @@ void editWave(){
         waveShapeChanged = true;
         custom = true;
     }
-    if(p3 != lastP3) {
-        curvature = std::clamp(curvature + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -5.0f, 5.0f), 0.1f, 5.0f);
+    int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
+    int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
+
+    if (p3Delta != 0) {
+        curvature = std::clamp(curvature + norm(p3Delta, -maxTurnVal, maxTurnVal, -5.0f, 5.0f), 0.1f, 5.0f);
         waveShapeChanged = true;
     }
-    if(p4 != lastP4) {
-        knobPosition = std::clamp(knobPosition + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 0.9f);
+    if (p4Delta != 0) {
+        knobPosition = std::clamp(knobPosition + norm(p4Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 0.9f);
         custom = false;
     }
     if (waveShapeChanged) updateWave();
 }
 
 void editADSR(){
-    if(p1 != lastP1) attack  = std::clamp(attack  + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
-    if(p2 != lastP2) decay   = std::clamp(decay   + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
-    if(p3 != lastP3) sustain = std::clamp(sustain + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
-    if(p4 != lastP4) release = std::clamp(release + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
+    int p1Delta = consumeRelativeKnobDelta(p1, lastP1);
+    int p2Delta = consumeRelativeKnobDelta(p2, lastP2);
+    int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
+    int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
+
+    if (p1Delta != 0) attack  = std::clamp(attack  + norm(p1Delta, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
+    if (p2Delta != 0) decay   = std::clamp(decay   + norm(p2Delta, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
+    if (p3Delta != 0) sustain = std::clamp(sustain + norm(p3Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if (p4Delta != 0) release = std::clamp(release + norm(p4Delta, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
 }
 float rDry = 1.0f;
 float rWet = 0.0f;
 float rSize = 1.0f;
 float rDecay = 0.5f;
 void editReverb() {
-    if(p1 != lastP1){
-        rDry = std::clamp(rDry + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    int p1Delta = consumeRelativeKnobDelta(p1, lastP1);
+    int p2Delta = consumeRelativeKnobDelta(p2, lastP2);
+    int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
+
+    if (p1Delta != 0) {
+        rDry = std::clamp(rDry + norm(p1Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
         rWet = 1.0f - rDry;
         reverb.setDryWet(rDry, rWet);
     }
-    if(p2 != lastP2){
-        rSize = std::clamp(rSize + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.2f, 0.2f), 0.1f, 1.5f);
+    if (p2Delta != 0) {
+        rSize = std::clamp(rSize + norm(p2Delta, -maxTurnVal, maxTurnVal, -0.2f, 0.2f), 0.1f, 1.5f);
         reverb.setRoomSize(rSize);
     }
-    if(p3 != lastP3){
-        rDecay = std::clamp(rDecay + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.1f, 1.0f);
+    if (p3Delta != 0) {
+        rDecay = std::clamp(rDecay + norm(p3Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.1f, 1.0f);
         reverb.setDecay(rDecay);
     }
 }
 
 void editNoise(){
-    if(p1 != lastP1) noiseVolume = std::clamp(noiseVolume + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
-    if(p2 != lastP2) {
-        float cutoffT = std::clamp(norm(noiseFilterCutoff, 40.0f, sampleRate*0.45f, 0.0f, 1.0f) + norm(p2-lastP2, -maxTurnVal, maxTurnVal, -0.05f, 0.05f), 0.0f, 1.0f);
+    int p1Delta = consumeRelativeKnobDelta(p1, lastP1);
+    int p2Delta = consumeRelativeKnobDelta(p2, lastP2);
+    int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
+    int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
+
+    if (p1Delta != 0) noiseVolume = std::clamp(noiseVolume + norm(p1Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if (p2Delta != 0) {
+        float cutoffT = std::clamp(norm(noiseFilterCutoff, 40.0f, sampleRate*0.45f, 0.0f, 1.0f) + norm(p2Delta, -maxTurnVal, maxTurnVal, -0.05f, 0.05f), 0.0f, 1.0f);
         noiseFilterCutoff = 40.0f * std::pow((sampleRate * 0.45f) / 40.0f, cutoffT);
         noise.setCutoff(noiseFilterCutoff);
     }
-    if(p3 != lastP3) noiseAdsrAmount = std::clamp(noiseAdsrAmount + norm(p3-lastP3, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
-    if(p4 != lastP4) {
-        int nt = clampKnobStep(int(noiseType), p4 - lastP4, 0, 5);
+    if (p3Delta != 0) noiseAdsrAmount = std::clamp(noiseAdsrAmount + norm(p3Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if (p4Delta != 0) {
+        int nt = clampKnobStep(int(noiseType), encoderStepDirection(p4Delta), 0, 5);
         noiseType = static_cast<NoiseType>(nt);
         noise.setType(noiseType);
     }
 }
 
 void editHarmonist() {
-    if(p2 != lastP2) {
-        harmonyCount = clampKnobStep(harmonyCount, p2 - lastP2, 0, MAX_HARMONIES);
-    }
+    int p1Delta = consumeRelativeKnobDelta(p1, lastP1);
+    int p2Delta = consumeRelativeKnobDelta(p2, lastP2);
+    int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
+    int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
+
+    if (p2Delta != 0) harmonyCount = clampKnobStep(harmonyCount, encoderStepDirection(p2Delta), 0, MAX_HARMONIES);
 
     if (harmonyCount <= 0) return;
 
     int currentHarmony = getCurrentHarmonyIndex();
     bool pitchChanged = false;
 
-    if(p1 != lastP1) harmonySettings[currentHarmony].level = std::clamp(harmonySettings[currentHarmony].level + norm(p1-lastP1, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
-    if(p3 != lastP3) {
-        harmonySettings[currentHarmony].interval = clampKnobStep(harmonySettings[currentHarmony].interval, p3 - lastP3, -13, 13);
+    if (p1Delta != 0) harmonySettings[currentHarmony].level = std::clamp(harmonySettings[currentHarmony].level + norm(p1Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if (p3Delta != 0) {
+        harmonySettings[currentHarmony].interval = clampKnobStep(harmonySettings[currentHarmony].interval, encoderStepDirection(p3Delta), -13, 13);
         pitchChanged = true;
     }
-    if(p4 != lastP4) {
-        harmonySettings[currentHarmony].detune = std::clamp(harmonySettings[currentHarmony].detune + norm(p4-lastP4, -maxTurnVal, maxTurnVal, -0.003f, 0.003f), -0.03f, 0.03f);
+    if (p4Delta != 0) {
+        harmonySettings[currentHarmony].detune = std::clamp(harmonySettings[currentHarmony].detune + norm(p4Delta, -maxTurnVal, maxTurnVal, -0.003f, 0.003f), -0.03f, 0.03f);
         pitchChanged = true;
     }
 
@@ -2261,7 +2329,7 @@ void editPresetListOrder() {
         return;
     }
 
-    int delta = p1 - lastP1;
+    int delta = consumeRelativeKnobDelta(p1, lastP1);
     if (delta == 0) return;
 
     presetReorderAccumulator += delta;
@@ -2680,7 +2748,7 @@ void drawNoise() {
             drawPixel(int(x), int(y));
         }
     }
-    float cuttoffT = std::clamp(norm(p2, 0.0f, maxTurnVal, -1.0f, 101.0f), 0.0f, 100.0f);
+    float cuttoffT = std::clamp(norm(noiseFilterCutoff, 40.0f, sampleRate * 0.45f, 0.0f, 100.0f), 0.0f, 100.0f);
     drawFilledCircleSparse(int(cx), int(cy), 10, cuttoffT);
 
     stbi_image_free(img);
@@ -2981,6 +3049,7 @@ int main() {
 
                     std::cout << "Double click detected!" << std::endl;
                     // TODO: Handle double click (e.g., special menu)
+                    syncMainMenuEncoderFromCurrentMenu();
                     menu = static_cast<Mode>(MAIN_MENU); 
                     presetScreen = PresetScreen::LIST;
                     presetNameInput.clear();
@@ -3081,6 +3150,7 @@ int main() {
                     if (menu == PRESET_MENU) {
                         presetScreen = PresetScreen::LIST;
                         presetListSelection = std::min(presetListSelection, int(presets.size()));
+                        recenterRelativeKnob(p1, lastP1);
                     }
                 }
                 else if (menu == PRESET_MENU) handlePresetSingleClick();
@@ -3091,6 +3161,7 @@ int main() {
                     else if (writePendingClickCount == 2) {
                         writeHoldTriggered = false;
                         std::cout << "Double click detected!" << std::endl;
+                        syncMainMenuEncoderFromCurrentMenu();
                         menu = static_cast<Mode>(MAIN_MENU);
                         presetScreen = PresetScreen::LIST;
                         presetNameInput.clear();
@@ -3103,17 +3174,7 @@ int main() {
                 }
                 else {
                     edit = !edit;
-                    if (edit) {
-                        if (menu == WAVE_MENU) {
-                            p1 = knobValueForWaveEditIndex(editIndex);
-                            p2 = knobValueForWavePoint(wavePoints[editIndex]);
-                        }
-                        // Snapshot encoder positions so params don't jump on first turn
-                        lastP1 = p1;
-                        lastP2 = p2;
-                        lastP3 = p3;
-                        lastP4 = p4;
-                    }
+                    if (edit) prepareEditEncodersForCurrentMenu();
                 }
 
                 std::cout << "Single click detected!" << std::endl;
