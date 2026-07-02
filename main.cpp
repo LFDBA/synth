@@ -83,6 +83,7 @@ int mainMenuNavAccumulator = 0;
 int presetListNavAccumulator = 0;
 int presetOptionNavAccumulator = 0;
 int harmonyCountAccumulator = 0;
+int harmonyIntervalAccumulator = 0;
 int maxTurnVal = 80;
 constexpr int ENCODER_DELTA_MULTIPLIER = 1;
 constexpr int PRESET_REORDER_KNOB_STEP = 8;
@@ -107,6 +108,7 @@ constexpr float NOISE_LEVEL_STEP = 0.02f;
 constexpr float NOISE_FILTER_STEP = 0.02f;
 constexpr float NOISE_ADSR_STEP = 0.02f;
 constexpr int HARMONY_COUNT_KNOB_STEP = 8;
+constexpr int HARMONY_INTERVAL_KNOB_STEP = 8;
 constexpr float HARMONY_LEVEL_STEP = 0.02f;
 constexpr float HARMONY_DETUNE_STEP = 0.0005f;
 constexpr float WRITE_VOLUME_STEP = 0.02f;
@@ -852,6 +854,7 @@ void resetMenuNavigationAccumulators() {
     presetListNavAccumulator = 0;
     presetOptionNavAccumulator = 0;
     harmonyCountAccumulator = 0;
+    harmonyIntervalAccumulator = 0;
 }
 
 void recenterAllRelativeKnobs() {
@@ -2335,10 +2338,30 @@ void editHarmonist() {
     bool pitchChanged = false;
 
     if (p1Delta != 0) harmonySettings[currentHarmony].level = applyEncoderStep(harmonySettings[currentHarmony].level, p1Delta, HARMONY_LEVEL_STEP, 0.0f, 1.0f);
-    if (p3Delta != 0) {
-        harmonySettings[currentHarmony].interval = clampKnobStep(harmonySettings[currentHarmony].interval, encoderStepDirection(p3Delta), -13, 13);
+    harmonyIntervalAccumulator += p3Delta;
+
+    while (harmonyIntervalAccumulator >= HARMONY_INTERVAL_KNOB_STEP) {
+        int nextInterval = clampKnobStep(harmonySettings[currentHarmony].interval, 1, -13, 13);
+        if (nextInterval == harmonySettings[currentHarmony].interval) {
+            harmonyIntervalAccumulator = 0;
+            break;
+        }
+        harmonySettings[currentHarmony].interval = nextInterval;
+        harmonyIntervalAccumulator -= HARMONY_INTERVAL_KNOB_STEP;
         pitchChanged = true;
     }
+
+    while (harmonyIntervalAccumulator <= -HARMONY_INTERVAL_KNOB_STEP) {
+        int nextInterval = clampKnobStep(harmonySettings[currentHarmony].interval, -1, -13, 13);
+        if (nextInterval == harmonySettings[currentHarmony].interval) {
+            harmonyIntervalAccumulator = 0;
+            break;
+        }
+        harmonySettings[currentHarmony].interval = nextInterval;
+        harmonyIntervalAccumulator += HARMONY_INTERVAL_KNOB_STEP;
+        pitchChanged = true;
+    }
+
     if (p4Delta != 0) {
         harmonySettings[currentHarmony].detune = applyEncoderStep(harmonySettings[currentHarmony].detune, p4Delta, HARMONY_DETUNE_STEP, -0.03f, 0.03f);
         pitchChanged = true;
