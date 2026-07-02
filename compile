@@ -118,7 +118,21 @@ if [ "$MAIN_COMPILE_STATUS" -ne 0 ]; then
     exit "$MAIN_COMPILE_STATUS"
 fi
 
+g++ \
+  clear_screen.cpp \
+  -o clear_screen.tmp \
+  -O2 -std=c++17 \
+  -lpigpio -lrt -lpthread
+
+CLEAR_COMPILE_STATUS=$?
+if [ "$CLEAR_COMPILE_STATUS" -ne 0 ]; then
+    rm -f main.tmp clear_screen.tmp
+    gpioset 0 26=0
+    exit "$CLEAR_COMPILE_STATUS"
+fi
+
 mv main.tmp main
+mv clear_screen.tmp clear_screen
 file main
 
 

@@ -23,22 +23,47 @@ void sendData(int spi, const uint8_t* data, size_t len) {
     spiWrite(spi, (char*)data, len);
 }
 
-// Full SH1106 clear
+void initDisplay(int spi) {
+    gpioWrite(PIN_RES, 0);
+    usleep(100000);
+    gpioWrite(PIN_RES, 1);
+    usleep(100000);
+
+    sendCommand(spi, 0xAE);
+    sendCommand(spi, 0xFD); sendCommand(spi, 0x12);
+    sendCommand(spi, 0x00);
+    sendCommand(spi, 0x10);
+    sendCommand(spi, 0x40);
+    sendCommand(spi, 0x81); sendCommand(spi, 0xBF);
+    sendCommand(spi, 0xA1);
+    sendCommand(spi, 0xA6);
+    sendCommand(spi, 0xA8); sendCommand(spi, 0x3F);
+    sendCommand(spi, 0xC8);
+    sendCommand(spi, 0xD3); sendCommand(spi, 0x00);
+    sendCommand(spi, 0xD5); sendCommand(spi, 0xA0);
+    sendCommand(spi, 0xD9); sendCommand(spi, 0xF1);
+    sendCommand(spi, 0xDA); sendCommand(spi, 0x12);
+    sendCommand(spi, 0xDB); sendCommand(spi, 0x34);
+    sendCommand(spi, 0xA4);
+    sendCommand(spi, 0xA6);
+    sendCommand(spi, 0xAF);
+}
+
+// Full SSD1309 clear
 void clearScreen() {
     if(global_spi_handle < 0) {
         std::cerr << "SPI not initialized!\n";
         return;
     }
 
-    // Clear the OLED's internal memory (all 8 pages)
-    uint8_t empty[132];      // SH1106 has 132 columns internally
+    uint8_t empty[128];
     memset(empty, 0x00, sizeof(empty));
 
     for(int page = 0; page < 8; page++) {
         sendCommand(global_spi_handle, 0xB0 + page); // select page
         sendCommand(global_spi_handle, 0x00);        // lower column
         sendCommand(global_spi_handle, 0x10);        // upper column
-        sendData(global_spi_handle, empty, 132);     // write zeros to all columns
+        sendData(global_spi_handle, empty, sizeof(empty));
     }
 }
 
@@ -52,12 +77,6 @@ int main() {
     gpioSetMode(PIN_DC, PI_OUTPUT);
     gpioSetMode(PIN_RES, PI_OUTPUT);
 
-    // Reset display
-    gpioWrite(PIN_RES, 0);
-    usleep(200000); // hold 200ms
-    gpioWrite(PIN_RES, 1);
-    usleep(200000);
-
     // Open SPI
     global_spi_handle = spiOpen(SPI_CHANNEL, SPI_SPEED, 0);
     if(global_spi_handle < 0) {
@@ -66,6 +85,7 @@ int main() {
         return 1;
     }
 
+    initDisplay(global_spi_handle);
     clearScreen();
     std::cout << "Screen cleared!\n";
 

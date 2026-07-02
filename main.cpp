@@ -287,7 +287,7 @@ int lastMenuRead = 0;
 #define PIN_DC 25              // Data/Command pin
 #define PIN_RES 24             // Reset pin
 
-const int WIDTH = 127;
+const int WIDTH = 128;
 const int HEIGHT = 64;
 
 uint8_t buffer[WIDTH * (HEIGHT / 8)];
@@ -317,7 +317,7 @@ void sendData(int spi, const uint8_t* data, size_t len) {
 }
 
 // --------------------------------------
-//  SH1106 Init
+//  SSD1309 Init
 // --------------------------------------
 void initDisplay(int spi) {
     gpioWrite(PIN_RES, 0);
@@ -326,17 +326,20 @@ void initDisplay(int spi) {
     usleep(100000);
 
     sendCommand(spi, 0xAE);
-    sendCommand(spi, 0xD5); sendCommand(spi, 0x80);
-    sendCommand(spi, 0xA8); sendCommand(spi, 0x3F);
-    sendCommand(spi, 0xD3); sendCommand(spi, 0x00);
+    sendCommand(spi, 0xFD); sendCommand(spi, 0x12);
+    sendCommand(spi, 0x00);
+    sendCommand(spi, 0x10);
     sendCommand(spi, 0x40);
-    sendCommand(spi, 0xAD); sendCommand(spi, 0x8B);
+    sendCommand(spi, 0x81); sendCommand(spi, 0xBF);
     sendCommand(spi, 0xA1);
+    sendCommand(spi, 0xA6);
+    sendCommand(spi, 0xA8); sendCommand(spi, 0x3F);
     sendCommand(spi, 0xC8);
-    sendCommand(spi, 0xDA); sendCommand(spi, 0x12);
-    sendCommand(spi, 0x81); sendCommand(spi, 0xCF);
+    sendCommand(spi, 0xD3); sendCommand(spi, 0x00);
+    sendCommand(spi, 0xD5); sendCommand(spi, 0xA0);
     sendCommand(spi, 0xD9); sendCommand(spi, 0xF1);
-    sendCommand(spi, 0xDB); sendCommand(spi, 0x40);
+    sendCommand(spi, 0xDA); sendCommand(spi, 0x12);
+    sendCommand(spi, 0xDB); sendCommand(spi, 0x34);
     sendCommand(spi, 0xA4);
     sendCommand(spi, 0xA6);
     sendCommand(spi, 0xAF);
@@ -351,15 +354,14 @@ void clearBuffer() {
 }
 
 void clearScreen() {
-    // Clear the OLED's internal memory (all 8 pages)
-    uint8_t empty[132];      // SH1106 has 132 columns internally
+    uint8_t empty[WIDTH];
     memset(empty, 0x00, sizeof(empty));
 
     for(int page = 0; page < 8; page++) {
         sendCommand(global_spi_handle, 0xB0 + page); // select page
         sendCommand(global_spi_handle, 0x00);        // lower column
         sendCommand(global_spi_handle, 0x10);        // upper column
-        sendData(global_spi_handle, empty, 132);     // write zeros to all columns
+        sendData(global_spi_handle, empty, WIDTH);
     }
 }
 

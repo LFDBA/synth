@@ -25,14 +25,14 @@
 #include "stb/stb_image.h"
 
 // -----------------------------------------------------------------------
-//  SH1106 SPI config — match your existing setup
+//  SSD1309 SPI config — match your existing setup
 // -----------------------------------------------------------------------
 #define SPI_CHANNEL  0
 #define SPI_SPEED    8000000
 #define PIN_DC       25
 #define PIN_RES      24
 
-const int WIDTH  = 127;
+const int WIDTH  = 128;
 const int HEIGHT = 64;
 
 uint8_t buffer[WIDTH * (HEIGHT / 8)];
@@ -63,17 +63,20 @@ void initDisplay() {
     gpioWrite(PIN_RES, 1); usleep(100000);
 
     sendCommand(0xAE);
-    sendCommand(0xD5); sendCommand(0x80);
-    sendCommand(0xA8); sendCommand(0x3F);
-    sendCommand(0xD3); sendCommand(0x00);
+    sendCommand(0xFD); sendCommand(0x12);
+    sendCommand(0x00);
+    sendCommand(0x10);
     sendCommand(0x40);
-    sendCommand(0xAD); sendCommand(0x8B);
+    sendCommand(0x81); sendCommand(0xBF);
     sendCommand(0xA1);
+    sendCommand(0xA6);
+    sendCommand(0xA8); sendCommand(0x3F);
     sendCommand(0xC8);
-    sendCommand(0xDA); sendCommand(0x12);
-    sendCommand(0x81); sendCommand(0xCF);
+    sendCommand(0xD3); sendCommand(0x00);
+    sendCommand(0xD5); sendCommand(0xA0);
     sendCommand(0xD9); sendCommand(0xF1);
-    sendCommand(0xDB); sendCommand(0x40);
+    sendCommand(0xDA); sendCommand(0x12);
+    sendCommand(0xDB); sendCommand(0x34);
     sendCommand(0xA4);
     sendCommand(0xA6);
     sendCommand(0xAF);
@@ -84,13 +87,13 @@ void clearBuffer() {
 }
 
 void clearScreen() {
-    uint8_t empty[132];
+    uint8_t empty[WIDTH];
     memset(empty, 0x00, sizeof(empty));
     for (int page = 0; page < 8; page++) {
         sendCommand(0xB0 + page);
         sendCommand(0x00);
         sendCommand(0x10);
-        sendData(empty, 132);
+        sendData(empty, WIDTH);
     }
 }
 
