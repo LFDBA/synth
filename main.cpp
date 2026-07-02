@@ -78,11 +78,10 @@ const int debounceScans = 8;
 int selectedPreset = 0;
 int presetListSelection = 0;
 int presetOptionSelection = 0;
-int presetListSelectionOffset = 0;
-int lastPresetListKnobSelection = -1;
 int presetReorderAccumulator = 0;
 int maxTurnVal = 80;
 constexpr int ENCODER_DELTA_MULTIPLIER = 2;
+constexpr int MENU_NAV_KNOB_STEP = ENCODER_DELTA_MULTIPLIER;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 // Preset reordering uses encoder-style deltas, so a single input step should
 // be enough to move one slot.
@@ -812,10 +811,6 @@ inline int knobValueForWavePoint(float pointValue) {
     return std::clamp(int(std::lround(norm(clampedValue, CUSTOM_WAVE_MIN, CUSTOM_WAVE_MAX, 0.0f, float(maxTurnVal)))), 0, maxTurnVal);
 }
 
-inline int knobValueForMenuSelection(int selection) {
-    return std::clamp(int(std::lround(norm(float(selection), 1.0f, 8.0f, 0.0f, float(maxTurnVal)))), 0, maxTurnVal);
-}
-
 inline int waveSampleToY(float sample, int height) {
     float clampedSample = clampCustomWavePoint(sample);
     return std::clamp(height / 2 - int(clampedSample * (height / 2 - 1)), 0, height - 1);
@@ -859,8 +854,7 @@ void prepareEditEncodersForCurrentMenu() {
 void syncMainMenuEncoderFromCurrentMenu() {
     if (menu < TONE_MENU || menu > PRESET_MENU) return;
     menuSelection = std::clamp(int(menu) - 1, 1, 8);
-    p4 = knobValueForMenuSelection(menuSelection);
-    lastP4 = p4;
+    recenterAllRelativeKnobs();
 }
 
 // ======================================================
@@ -1460,6 +1454,25 @@ int consumeRelativeKnobDelta(int& knobValue, int& lastKnobValue) {
 
     recenterRelativeKnob(knobValue, lastKnobValue);
     return delta;
+}
+
+int menuNavigationStepsFromDelta(int delta) {
+    if (delta == 0) return 0;
+
+    int stepSize = std::max(1, MENU_NAV_KNOB_STEP);
+    int magnitude = std::max(1, std::abs(delta) / stepSize);
+    return (delta > 0) ? magnitude : -magnitude;
+}
+
+int consumeMenuNavigationSteps(bool includeP1, bool includeP2, bool includeP3, bool includeP4) {
+    int steps = 0;
+
+    if (includeP1) steps += menuNavigationStepsFromDelta(consumeRelativeKnobDelta(p1, lastP1));
+    if (includeP2) steps += menuNavigationStepsFromDelta(consumeRelativeKnobDelta(p2, lastP2));
+    if (includeP3) steps += menuNavigationStepsFromDelta(consumeRelativeKnobDelta(p3, lastP3));
+    if (includeP4) steps += menuNavigationStepsFromDelta(consumeRelativeKnobDelta(p4, lastP4));
+
+    return steps;
 }
 
 float getWriteTempoNormalized() {
@@ -2282,25 +2295,26 @@ void editHarmonist() {
 }
 
 void selectMenu() {
-    menuSelection = norm(p4, 0, maxTurnVal, 1, 8);
+    int steps = consumeMenuNavigationSteps(true, true, true, true);
+    menuSelection = std::clamp(menuSelection + steps, 1, 8);
 }
 
-int knobIndex(int itemCount) {
-    if (itemCount <= 1) return 0;
-    return std::clamp(int(norm(p4, 0.0f, maxTurnVal, 0.0f, float(itemCount))), 0, itemCount - 1);
+void updatePresetListSelection() {
+    int itemCount = int(presets.size()) + 1;
+    if (itemCount <= 0) return;
+
+    int steps = consumeMenuNavigationSteps(false, true, true, true);
+    presetListSelection = std::clamp(presetListSelection + steps, 0, itemCount - 1);
 }
 
 int getPresetListSelectionIndex() {
     int itemCount = int(presets.size()) + 1;
-    int baseSelection = knobIndex(itemCount);
-    if (baseSelection != lastPresetListKnobSelection) {
-        presetListSelectionOffset = 0;
-        lastPresetListKnobSelection = baseSelection;
-    }
+    return std::clamp(presetListSelection, 0, itemCount - 1);
+}
 
-    presetListSelection = std::clamp(baseSelection + presetListSelectionOffset, 0, itemCount - 1);
-    presetListSelectionOffset = presetListSelection - baseSelection;
-    return presetListSelection;
+void updatePresetOptionSelection() {
+    int steps = consumeMenuNavigationSteps(true, true, true, true);
+    presetOptionSelection = std::clamp(presetOptionSelection + steps, 0, 1);
 }
 
 bool movePresetListSelection(int direction) {
@@ -2315,10 +2329,7 @@ bool movePresetListSelection(int direction) {
     std::swap(presets[fromIndex], presets[toIndex]);
     savePresetsToFile();
 
-    int baseSelection = knobIndex(int(presets.size()) + 1);
     presetListSelection = toIndex;
-    presetListSelectionOffset = presetListSelection - baseSelection;
-    lastPresetListKnobSelection = baseSelection;
     selectedPreset = presetListSelection;
     return true;
 }
@@ -2510,11 +2521,13 @@ void finishPresetNaming() {
     selectedPreset = int(presets.size()) - 1;
     presetListSelection = selectedPreset;
     presetScreen = PresetScreen::LIST;
+    recenterAllRelativeKnobs();
 }
 
 void loadSelectedPreset() {
     if (selectedPreset < 0 || selectedPreset >= int(presets.size())) return;
     applyPreset(presets[selectedPreset]);
+    syncMainMenuEncoderFromCurrentMenu();
     menu = MAIN_MENU;
     presetListSelection = selectedPreset;
     presetScreen = PresetScreen::LIST;
@@ -2529,13 +2542,18 @@ void deleteSelectedPreset() {
     }
     presetListSelection = std::min(presetListSelection, int(presets.size()));
     presetScreen = PresetScreen::LIST;
+    recenterAllRelativeKnobs();
 }
 
 void handlePresetSingleClick() {
     if (presetScreen == PresetScreen::LIST) {
         selectedPreset = presetListSelection;
         if (selectedPreset >= int(presets.size())) beginPresetNaming();
-        else presetScreen = PresetScreen::OPTIONS;
+        else {
+            presetOptionSelection = 0;
+            presetScreen = PresetScreen::OPTIONS;
+            recenterAllRelativeKnobs();
+        }
         return;
     }
 
@@ -2809,7 +2827,6 @@ void drawPresetList() {
     clearBuffer();
 
     int itemCount = int(presets.size()) + 1;
-    presetListSelection = getPresetListSelectionIndex();
 
     drawTextCenteredX(WIDTH / 2, 2, "PRESETS");
 
@@ -2855,7 +2872,6 @@ void drawPresetOptions() {
         return;
     }
 
-    presetOptionSelection = knobIndex(2);
     drawTextCenteredX(WIDTH / 2, 10, presets[selectedPreset].name);
     if (presetOptionSelection == 0) {
         drawMenuItem(8, 29, 53, 14, "DELETE", true);
@@ -3123,9 +3139,15 @@ int main() {
         if(menu==PRESET_MENU) {
             edit = false;
             editPresetListOrder();
-            if (presetScreen == PresetScreen::LIST) drawPresetList();
+            if (presetScreen == PresetScreen::LIST) {
+                updatePresetListSelection();
+                drawPresetList();
+            }
             else if (presetScreen == PresetScreen::NAMING) drawPresetNaming();
-            else drawPresetOptions();
+            else {
+                updatePresetOptionSelection();
+                drawPresetOptions();
+            }
         }
 
         if (edit) {
@@ -3150,7 +3172,7 @@ int main() {
                     if (menu == PRESET_MENU) {
                         presetScreen = PresetScreen::LIST;
                         presetListSelection = std::min(presetListSelection, int(presets.size()));
-                        recenterRelativeKnob(p1, lastP1);
+                        recenterAllRelativeKnobs();
                     }
                 }
                 else if (menu == PRESET_MENU) handlePresetSingleClick();
