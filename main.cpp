@@ -79,12 +79,13 @@ int selectedPreset = 0;
 int presetListSelection = 0;
 int presetOptionSelection = 0;
 int presetReorderAccumulator = 0;
+int mainMenuNavAccumulator = 0;
+int presetListNavAccumulator = 0;
+int presetOptionNavAccumulator = 0;
 int maxTurnVal = 80;
 constexpr int ENCODER_DELTA_MULTIPLIER = 1;
-// Preset reordering uses encoder-style deltas, so a single input step should
-// be enough to move one slot.
-constexpr int PRESET_REORDER_KNOB_STEP = 5000;
-constexpr int MENU_NAV_KNOB_STEP = PRESET_REORDER_KNOB_STEP;
+constexpr int PRESET_REORDER_KNOB_STEP = 8;
+constexpr int MENU_NAV_KNOB_STEP = 8;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 constexpr int MAX_WRITE_NOTES = 48;
 constexpr float WRITE_MIN_BPM = 40.0f;
@@ -844,11 +845,18 @@ void recenterRelativeKnob(int& knobValue, int& lastKnobValue) {
     lastKnobValue = center;
 }
 
+void resetMenuNavigationAccumulators() {
+    mainMenuNavAccumulator = 0;
+    presetListNavAccumulator = 0;
+    presetOptionNavAccumulator = 0;
+}
+
 void recenterAllRelativeKnobs() {
     recenterRelativeKnob(p1, lastP1);
     recenterRelativeKnob(p2, lastP2);
     recenterRelativeKnob(p3, lastP3);
     recenterRelativeKnob(p4, lastP4);
+    resetMenuNavigationAccumulators();
 }
 
 void prepareEditEncodersForCurrentMenu() {
@@ -1470,21 +1478,28 @@ int consumeRelativeKnobDelta(int& knobValue, int& lastKnobValue) {
     return delta;
 }
 
-int menuNavigationStepsFromDelta(int delta) {
-    if (delta == 0) return 0;
+int consumeMenuNavigationSteps(int& accumulator, bool includeP1, bool includeP2, bool includeP3, bool includeP4) {
+    int delta = 0;
+
+    if (includeP1) delta += consumeRelativeKnobDelta(p1, lastP1);
+    if (includeP2) delta += consumeRelativeKnobDelta(p2, lastP2);
+    if (includeP3) delta += consumeRelativeKnobDelta(p3, lastP3);
+    if (includeP4) delta += consumeRelativeKnobDelta(p4, lastP4);
+
+    accumulator += delta;
 
     int stepSize = std::max(1, MENU_NAV_KNOB_STEP);
-    int magnitude = std::max(1, std::abs(delta) / stepSize);
-    return (delta > 0) ? magnitude : -magnitude;
-}
-
-int consumeMenuNavigationSteps(bool includeP1, bool includeP2, bool includeP3, bool includeP4) {
     int steps = 0;
 
-    if (includeP1) steps += menuNavigationStepsFromDelta(consumeRelativeKnobDelta(p1, lastP1));
-    if (includeP2) steps += menuNavigationStepsFromDelta(consumeRelativeKnobDelta(p2, lastP2));
-    if (includeP3) steps += menuNavigationStepsFromDelta(consumeRelativeKnobDelta(p3, lastP3));
-    if (includeP4) steps += menuNavigationStepsFromDelta(consumeRelativeKnobDelta(p4, lastP4));
+    while (accumulator >= stepSize) {
+        steps++;
+        accumulator -= stepSize;
+    }
+
+    while (accumulator <= -stepSize) {
+        steps--;
+        accumulator += stepSize;
+    }
 
     return steps;
 }
@@ -2310,7 +2325,7 @@ void editHarmonist() {
 }
 
 void selectMenu() {
-    int steps = consumeMenuNavigationSteps(true, true, true, true);
+    int steps = consumeMenuNavigationSteps(mainMenuNavAccumulator, true, true, true, true);
     menuSelection = std::clamp(menuSelection + steps, 1, 8);
 }
 
@@ -2318,7 +2333,7 @@ void updatePresetListSelection() {
     int itemCount = int(presets.size()) + 1;
     if (itemCount <= 0) return;
 
-    int steps = consumeMenuNavigationSteps(false, true, true, true);
+    int steps = consumeMenuNavigationSteps(presetListNavAccumulator, false, true, true, true);
     presetListSelection = std::clamp(presetListSelection + steps, 0, itemCount - 1);
 }
 
@@ -2328,7 +2343,7 @@ int getPresetListSelectionIndex() {
 }
 
 void updatePresetOptionSelection() {
-    int steps = consumeMenuNavigationSteps(true, true, true, true);
+    int steps = consumeMenuNavigationSteps(presetOptionNavAccumulator, true, true, true, true);
     presetOptionSelection = std::clamp(presetOptionSelection + steps, 0, 1);
 }
 
