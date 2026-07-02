@@ -82,6 +82,7 @@ int presetListSelectionOffset = 0;
 int lastPresetListKnobSelection = -1;
 int presetReorderAccumulator = 0;
 int maxTurnVal = 80;
+constexpr int ENCODER_DELTA_MULTIPLIER = 2;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 // Preset reordering uses encoder-style deltas, so a single input step should
 // be enough to move one slot.
@@ -1403,6 +1404,10 @@ float applyEncoderStep(float currentValue, int delta, float step, float minValue
     return std::clamp(currentValue + float(delta) * step, minValue, maxValue);
 }
 
+int scaleEncoderDelta(int delta) {
+    return delta * ENCODER_DELTA_MULTIPLIER;
+}
+
 int consumeRelativeKnobDelta(int& knobValue, int& lastKnobValue) {
     int delta = knobValue - lastKnobValue;
     if (delta == 0) return 0;
@@ -2084,7 +2089,7 @@ void getInp() {
                     else if (label == "p4") target = &p4;
 
                     if (target) {
-                        *target = std::clamp(*target + delta, 0, maxTurnVal);
+                        *target = std::clamp(*target + scaleEncoderDelta(delta), 0, maxTurnVal);
                     }
                 }
             }
