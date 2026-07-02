@@ -83,7 +83,7 @@ int maxTurnVal = 80;
 constexpr int ENCODER_DELTA_MULTIPLIER = 1;
 // Preset reordering uses encoder-style deltas, so a single input step should
 // be enough to move one slot.
-constexpr int PRESET_REORDER_KNOB_STEP = 16;
+constexpr int PRESET_REORDER_KNOB_STEP = 50;
 constexpr int MENU_NAV_KNOB_STEP = PRESET_REORDER_KNOB_STEP;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 constexpr int MAX_WRITE_NOTES = 48;
