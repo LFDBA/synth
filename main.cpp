@@ -80,12 +80,12 @@ int presetListSelection = 0;
 int presetOptionSelection = 0;
 int presetReorderAccumulator = 0;
 int maxTurnVal = 80;
-constexpr int ENCODER_DELTA_MULTIPLIER = 0.5;
-constexpr int MENU_NAV_KNOB_STEP = ENCODER_DELTA_MULTIPLIER;
-constexpr int MAX_PRESET_NAME_LEN = 12;
+constexpr int ENCODER_DELTA_MULTIPLIER = 1;
 // Preset reordering uses encoder-style deltas, so a single input step should
 // be enough to move one slot.
 constexpr int PRESET_REORDER_KNOB_STEP = 8;
+constexpr int MENU_NAV_KNOB_STEP = PRESET_REORDER_KNOB_STEP;
+constexpr int MAX_PRESET_NAME_LEN = 12;
 constexpr int MAX_WRITE_NOTES = 48;
 constexpr float WRITE_MIN_BPM = 40.0f;
 constexpr float WRITE_MAX_BPM = 240.0f;
