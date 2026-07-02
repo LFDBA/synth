@@ -80,7 +80,7 @@ int presetListSelection = 0;
 int presetOptionSelection = 0;
 int presetReorderAccumulator = 0;
 int maxTurnVal = 80;
-constexpr int ENCODER_DELTA_MULTIPLIER = 2;
+constexpr int ENCODER_DELTA_MULTIPLIER = 1;
 constexpr int MENU_NAV_KNOB_STEP = ENCODER_DELTA_MULTIPLIER;
 constexpr int MAX_PRESET_NAME_LEN = 12;
 // Preset reordering uses encoder-style deltas, so a single input step should
@@ -92,6 +92,20 @@ constexpr float WRITE_MAX_BPM = 240.0f;
 constexpr float WRITE_NOTE_GATE = 0.8f;
 constexpr float WRITE_MIN_NOTE_HOLD = 0.05f;
 constexpr float WRITE_FILTER_CENTER_WIDTH = 0.04f;
+constexpr float OUTPUT_LEVEL_STEP = 0.01f;
+constexpr float CLIP_AMOUNT_STEP = 0.02f;
+constexpr float WAVE_CURVATURE_STEP = 0.05f;
+constexpr float WAVE_MORPH_STEP = 0.02f;
+constexpr float ADSR_TIME_STEP = 0.05f;
+constexpr float ADSR_SUSTAIN_STEP = 0.02f;
+constexpr float REVERB_MIX_STEP = 0.02f;
+constexpr float REVERB_SIZE_STEP = 0.03f;
+constexpr float REVERB_DECAY_STEP = 0.02f;
+constexpr float NOISE_LEVEL_STEP = 0.02f;
+constexpr float NOISE_FILTER_STEP = 0.02f;
+constexpr float NOISE_ADSR_STEP = 0.02f;
+constexpr float HARMONY_LEVEL_STEP = 0.02f;
+constexpr float HARMONY_DETUNE_STEP = 0.0005f;
 constexpr float WRITE_VOLUME_STEP = 0.02f;
 constexpr float WRITE_FILTER_STEP = 0.02f;
 constexpr float WRITE_HOLD_STEP = 0.05f;
@@ -2173,13 +2187,13 @@ void editTone(){
     int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
     int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
 
-    if (p1Delta != 0) outputLevel = std::clamp(outputLevel + norm(p1Delta, -maxTurnVal, maxTurnVal, -maxOutputLevel, maxOutputLevel), 0.0f, maxOutputLevel);
+    if (p1Delta != 0) outputLevel = applyEncoderStep(outputLevel, p1Delta, OUTPUT_LEVEL_STEP, 0.0f, maxOutputLevel);
     if (p2Delta != 0) setOctave(clampKnobStep(octave, encoderStepDirection(p2Delta), 0, 3));
     if (p3Delta != 0) {
         int newLen = std::clamp(BUF_LEN.load() + p3Delta * 16, 32, MAX_BUF_LEN);
         setBufferLength(newLen);
     }
-    if (p4Delta != 0) clipAmount = std::clamp(clipAmount + norm(p4Delta, -maxTurnVal, maxTurnVal, -1.0f, 1.0f), 0.0f, 1.0f);
+    if (p4Delta != 0) clipAmount = applyEncoderStep(clipAmount, p4Delta, CLIP_AMOUNT_STEP, 0.0f, 1.0f);
 }
 
 void editWave(){
@@ -2203,11 +2217,11 @@ void editWave(){
     int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
 
     if (p3Delta != 0) {
-        curvature = std::clamp(curvature + norm(p3Delta, -maxTurnVal, maxTurnVal, -5.0f, 5.0f), 0.1f, 5.0f);
+        curvature = applyEncoderStep(curvature, p3Delta, WAVE_CURVATURE_STEP, 0.1f, 5.0f);
         waveShapeChanged = true;
     }
     if (p4Delta != 0) {
-        knobPosition = std::clamp(knobPosition + norm(p4Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 0.9f);
+        knobPosition = applyEncoderStep(knobPosition, p4Delta, WAVE_MORPH_STEP, 0.0f, 0.9f);
         custom = false;
     }
     if (waveShapeChanged) updateWave();
@@ -2219,10 +2233,10 @@ void editADSR(){
     int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
     int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
 
-    if (p1Delta != 0) attack  = std::clamp(attack  + norm(p1Delta, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
-    if (p2Delta != 0) decay   = std::clamp(decay   + norm(p2Delta, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
-    if (p3Delta != 0) sustain = std::clamp(sustain + norm(p3Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
-    if (p4Delta != 0) release = std::clamp(release + norm(p4Delta, -maxTurnVal, maxTurnVal, -0.5f, 0.5f), 0.0f, 5.0f);
+    if (p1Delta != 0) attack  = applyEncoderStep(attack, p1Delta, ADSR_TIME_STEP, 0.0f, 5.0f);
+    if (p2Delta != 0) decay   = applyEncoderStep(decay, p2Delta, ADSR_TIME_STEP, 0.0f, 5.0f);
+    if (p3Delta != 0) sustain = applyEncoderStep(sustain, p3Delta, ADSR_SUSTAIN_STEP, 0.0f, 1.0f);
+    if (p4Delta != 0) release = applyEncoderStep(release, p4Delta, ADSR_TIME_STEP, 0.0f, 5.0f);
 }
 float rDry = 1.0f;
 float rWet = 0.0f;
@@ -2234,16 +2248,16 @@ void editReverb() {
     int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
 
     if (p1Delta != 0) {
-        rDry = std::clamp(rDry + norm(p1Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+        rDry = applyEncoderStep(rDry, p1Delta, REVERB_MIX_STEP, 0.0f, 1.0f);
         rWet = 1.0f - rDry;
         reverb.setDryWet(rDry, rWet);
     }
     if (p2Delta != 0) {
-        rSize = std::clamp(rSize + norm(p2Delta, -maxTurnVal, maxTurnVal, -0.2f, 0.2f), 0.1f, 1.5f);
+        rSize = applyEncoderStep(rSize, p2Delta, REVERB_SIZE_STEP, 0.1f, 1.5f);
         reverb.setRoomSize(rSize);
     }
     if (p3Delta != 0) {
-        rDecay = std::clamp(rDecay + norm(p3Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.1f, 1.0f);
+        rDecay = applyEncoderStep(rDecay, p3Delta, REVERB_DECAY_STEP, 0.1f, 1.0f);
         reverb.setDecay(rDecay);
     }
 }
@@ -2254,13 +2268,14 @@ void editNoise(){
     int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
     int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
 
-    if (p1Delta != 0) noiseVolume = std::clamp(noiseVolume + norm(p1Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if (p1Delta != 0) noiseVolume = applyEncoderStep(noiseVolume, p1Delta, NOISE_LEVEL_STEP, 0.0f, 1.0f);
     if (p2Delta != 0) {
-        float cutoffT = std::clamp(norm(noiseFilterCutoff, 40.0f, sampleRate*0.45f, 0.0f, 1.0f) + norm(p2Delta, -maxTurnVal, maxTurnVal, -0.05f, 0.05f), 0.0f, 1.0f);
+        float cutoffT = std::clamp(norm(noiseFilterCutoff, 40.0f, sampleRate*0.45f, 0.0f, 1.0f), 0.0f, 1.0f);
+        cutoffT = applyEncoderStep(cutoffT, p2Delta, NOISE_FILTER_STEP, 0.0f, 1.0f);
         noiseFilterCutoff = 40.0f * std::pow((sampleRate * 0.45f) / 40.0f, cutoffT);
         noise.setCutoff(noiseFilterCutoff);
     }
-    if (p3Delta != 0) noiseAdsrAmount = std::clamp(noiseAdsrAmount + norm(p3Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if (p3Delta != 0) noiseAdsrAmount = applyEncoderStep(noiseAdsrAmount, p3Delta, NOISE_ADSR_STEP, 0.0f, 1.0f);
     if (p4Delta != 0) {
         int nt = clampKnobStep(int(noiseType), encoderStepDirection(p4Delta), 0, 5);
         noiseType = static_cast<NoiseType>(nt);
@@ -2281,13 +2296,13 @@ void editHarmonist() {
     int currentHarmony = getCurrentHarmonyIndex();
     bool pitchChanged = false;
 
-    if (p1Delta != 0) harmonySettings[currentHarmony].level = std::clamp(harmonySettings[currentHarmony].level + norm(p1Delta, -maxTurnVal, maxTurnVal, -0.1f, 0.1f), 0.0f, 1.0f);
+    if (p1Delta != 0) harmonySettings[currentHarmony].level = applyEncoderStep(harmonySettings[currentHarmony].level, p1Delta, HARMONY_LEVEL_STEP, 0.0f, 1.0f);
     if (p3Delta != 0) {
         harmonySettings[currentHarmony].interval = clampKnobStep(harmonySettings[currentHarmony].interval, encoderStepDirection(p3Delta), -13, 13);
         pitchChanged = true;
     }
     if (p4Delta != 0) {
-        harmonySettings[currentHarmony].detune = std::clamp(harmonySettings[currentHarmony].detune + norm(p4Delta, -maxTurnVal, maxTurnVal, -0.003f, 0.003f), -0.03f, 0.03f);
+        harmonySettings[currentHarmony].detune = applyEncoderStep(harmonySettings[currentHarmony].detune, p4Delta, HARMONY_DETUNE_STEP, -0.03f, 0.03f);
         pitchChanged = true;
     }
 
