@@ -82,6 +82,7 @@ int presetReorderAccumulator = 0;
 int mainMenuNavAccumulator = 0;
 int presetListNavAccumulator = 0;
 int presetOptionNavAccumulator = 0;
+int harmonyCountAccumulator = 0;
 int maxTurnVal = 80;
 constexpr int ENCODER_DELTA_MULTIPLIER = 1;
 constexpr int PRESET_REORDER_KNOB_STEP = 8;
@@ -105,6 +106,7 @@ constexpr float REVERB_DECAY_STEP = 0.02f;
 constexpr float NOISE_LEVEL_STEP = 0.02f;
 constexpr float NOISE_FILTER_STEP = 0.02f;
 constexpr float NOISE_ADSR_STEP = 0.02f;
+constexpr int HARMONY_COUNT_KNOB_STEP = 8;
 constexpr float HARMONY_LEVEL_STEP = 0.02f;
 constexpr float HARMONY_DETUNE_STEP = 0.0005f;
 constexpr float WRITE_VOLUME_STEP = 0.02f;
@@ -849,6 +851,7 @@ void resetMenuNavigationAccumulators() {
     mainMenuNavAccumulator = 0;
     presetListNavAccumulator = 0;
     presetOptionNavAccumulator = 0;
+    harmonyCountAccumulator = 0;
 }
 
 void recenterAllRelativeKnobs() {
@@ -2304,7 +2307,27 @@ void editHarmonist() {
     int p3Delta = consumeRelativeKnobDelta(p3, lastP3);
     int p4Delta = consumeRelativeKnobDelta(p4, lastP4);
 
-    if (p2Delta != 0) harmonyCount = clampKnobStep(harmonyCount, encoderStepDirection(p2Delta), 0, MAX_HARMONIES);
+    harmonyCountAccumulator += p2Delta;
+
+    while (harmonyCountAccumulator >= HARMONY_COUNT_KNOB_STEP) {
+        int nextHarmonyCount = clampKnobStep(harmonyCount, 1, 0, MAX_HARMONIES);
+        if (nextHarmonyCount == harmonyCount) {
+            harmonyCountAccumulator = 0;
+            break;
+        }
+        harmonyCount = nextHarmonyCount;
+        harmonyCountAccumulator -= HARMONY_COUNT_KNOB_STEP;
+    }
+
+    while (harmonyCountAccumulator <= -HARMONY_COUNT_KNOB_STEP) {
+        int nextHarmonyCount = clampKnobStep(harmonyCount, -1, 0, MAX_HARMONIES);
+        if (nextHarmonyCount == harmonyCount) {
+            harmonyCountAccumulator = 0;
+            break;
+        }
+        harmonyCount = nextHarmonyCount;
+        harmonyCountAccumulator += HARMONY_COUNT_KNOB_STEP;
+    }
 
     if (harmonyCount <= 0) return;
 
