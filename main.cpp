@@ -273,7 +273,8 @@ enum Mode {
     NOISE_MENU,
     HARMONIST_MENU,
     WRITE_MENU,
-    PRESET_MENU
+    PRESET_MENU,
+    DOCS_MENU
 };
 Mode menu = TONE_MENU;
 int lastMenuRead = 0;
@@ -534,6 +535,64 @@ void drawTextCenteredX(int centerX, int y, const std::string& text) {
     drawText(centerX - getTextWidth(text) / 2, y, text.c_str());
 }
 
+using Glyph5x7 = std::array<uint8_t, 5>;
+
+const Glyph5x7* getDocsGlyph(char c) {
+    static const Glyph5x7 glyphW = {0x3C, 0x40, 0x30, 0x40, 0x3C};
+    static const Glyph5x7 glyphP = {0x7C, 0x14, 0x14, 0x14, 0x08};
+    static const Glyph5x7 glyphX = {0x44, 0x28, 0x10, 0x28, 0x44};
+    static const Glyph5x7 glyphD = {0x08, 0x14, 0x14, 0x18, 0x7C};
+    static const Glyph5x7 glyphE = {0x38, 0x54, 0x54, 0x54, 0x18};
+    static const Glyph5x7 glyphV = {0x1C, 0x20, 0x40, 0x20, 0x1C};
+    static const Glyph5x7 glyphDot = {0x00, 0x60, 0x60, 0x00, 0x00};
+    static const Glyph5x7 glyphDash = {0x08, 0x08, 0x08, 0x08, 0x08};
+    static const Glyph5x7 glyphOne = {0x00, 0x42, 0x7E, 0x40, 0x00};
+
+    switch (c) {
+        case 'w': return &glyphW;
+        case 'p': return &glyphP;
+        case 'x': return &glyphX;
+        case 'd': return &glyphD;
+        case 'e': return &glyphE;
+        case 'v': return &glyphV;
+        case '.': return &glyphDot;
+        case '-': return &glyphDash;
+        case '1': return &glyphOne;
+        default: return nullptr;
+    }
+}
+
+void drawScaledGlyph(int x, int y, const Glyph5x7& glyph, int scale) {
+    for (int col = 0; col < 5; col++) {
+        uint8_t bits = glyph[col];
+        for (int row = 0; row < 7; row++) {
+            if (!(bits & (1 << row))) continue;
+            for (int dx = 0; dx < scale; dx++) {
+                for (int dy = 0; dy < scale; dy++) {
+                    drawPixel(x + col * scale + dx, y + row * scale + dy);
+                }
+            }
+        }
+    }
+}
+
+int getScaledDocsTextWidth(const std::string& text, int scale) {
+    if (text.empty()) return 0;
+    return int(text.size()) * 5 * scale + (int(text.size()) - 1) * scale;
+}
+
+void drawScaledDocsTextCenteredX(int centerX, int y, const std::string& text, int scale) {
+    int cursorX = centerX - getScaledDocsTextWidth(text, scale) / 2;
+
+    for (char c : text) {
+        const Glyph5x7* glyph = getDocsGlyph(c);
+        if (glyph != nullptr) {
+            drawScaledGlyph(cursorX, y, *glyph, scale);
+        }
+        cursorX += 6 * scale;
+    }
+}
+
 void drawPixelInverse(int x, int y) {
     if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
     buffer[x + (y/8)*WIDTH] ^= (1 << (y % 8)); // XOR inverts pixel
@@ -723,6 +782,23 @@ void drawMenu() {
         drawMenuItem(menuX, menuY + (menuH + gap) * 2, menuW, menuH, "WRITE");
         drawMenuItem(menuX, menuY + (menuH + gap) * 3, menuW, menuH, "PRESETS", true);
     }
+    else if(menuSelection == 9){
+        drawMenuItem(menuX, 18, menuW, menuH, "PRESETS");
+        drawMenuItem(menuX, 35, menuW, menuH, "DOCS", true);
+    }
+}
+
+void drawDocsMenu() {
+    clearBuffer();
+
+    constexpr int scale = 3;
+    constexpr int lineGap = 4;
+    const int lineHeight = 7 * scale;
+    const int totalHeight = lineHeight * 2 + lineGap;
+    const int startY = (HEIGHT - totalHeight) / 2;
+
+    drawScaledDocsTextCenteredX(WIDTH / 2, startY, "www.px", scale);
+    drawScaledDocsTextCenteredX(WIDTH / 2, startY + lineHeight + lineGap, "-1.dev", scale);
 }
 
 
@@ -917,8 +993,8 @@ void prepareEditEncodersForCurrentMenu() {
 }
 
 void syncMainMenuEncoderFromCurrentMenu() {
-    if (menu < TONE_MENU || menu > PRESET_MENU) return;
-    menuSelection = std::clamp(int(menu) - 1, 1, 8);
+    if (menu < TONE_MENU || menu > DOCS_MENU) return;
+    menuSelection = std::clamp(int(menu) - 1, 1, 9);
     recenterAllRelativeKnobs();
 }
 
@@ -2409,7 +2485,7 @@ void editHarmonist() {
 
 void selectMenu() {
     int steps = consumeMenuNavigationSteps(mainMenuNavAccumulator, true, true, true, true);
-    menuSelection = std::clamp(menuSelection + steps, 1, 8);
+    menuSelection = std::clamp(menuSelection + steps, 1, 9);
 }
 
 void updatePresetListSelection() {
@@ -3261,6 +3337,10 @@ int main() {
                 updatePresetOptionSelection();
                 drawPresetOptions();
             }
+        }
+        if(menu==DOCS_MENU) {
+            edit = false;
+            drawDocsMenu();
         }
 
         if (edit) {
