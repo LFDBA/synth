@@ -283,12 +283,17 @@ int lastMenuRead = 0;
 //                     Screen Setup
 // ======================================================
 #define SPI_CHANNEL 0          // CE0
-#define SPI_SPEED 8000000      // 8 MHz
+#define SPI_SPEED 4000000      // 4 MHz for better SSD1309 stability
 #define PIN_DC 25              // Data/Command pin
 #define PIN_RES 24             // Reset pin
 
-const int WIDTH = 127;
+// Set to 0 if you swap back to the older SH1106-based module.
+#define OLED_USE_SSD1309 1
+
+const int WIDTH = 128;
 const int HEIGHT = 64;
+const int PAGE_COUNT = HEIGHT / 8;
+const int COLUMN_OFFSET = OLED_USE_SSD1309 ? 0 : 2;
 
 uint8_t buffer[WIDTH * (HEIGHT / 8)];
 int global_spi_handle = -1;   // Needed for safe exit
@@ -316,8 +321,14 @@ void sendData(int spi, const uint8_t* data, size_t len) {
     spiWrite(spi, (char*)data, len);
 }
 
+void setPageStart(int spi, int page) {
+    sendCommand(spi, 0xB0 + page);
+    sendCommand(spi, COLUMN_OFFSET & 0x0F);
+    sendCommand(spi, 0x10 | ((COLUMN_OFFSET >> 4) & 0x0F));
+}
+
 // --------------------------------------
-//  SH1106 Init
+//  OLED Init
 // --------------------------------------
 void initDisplay(int spi) {
     gpioWrite(PIN_RES, 0);
@@ -325,12 +336,19 @@ void initDisplay(int spi) {
     gpioWrite(PIN_RES, 1);
     usleep(100000);
 
+    if (OLED_USE_SSD1309) {
+        sendCommand(spi, 0xFD); sendCommand(spi, 0x12); // unlock SSD1309 commands
+        sendCommand(spi, 0x20); sendCommand(spi, 0x00); // horizontal addressing
+    }
+
     sendCommand(spi, 0xAE);
     sendCommand(spi, 0xD5); sendCommand(spi, 0x80);
     sendCommand(spi, 0xA8); sendCommand(spi, 0x3F);
     sendCommand(spi, 0xD3); sendCommand(spi, 0x00);
     sendCommand(spi, 0x40);
-    sendCommand(spi, 0xAD); sendCommand(spi, 0x8B);
+    if (!OLED_USE_SSD1309) {
+        sendCommand(spi, 0xAD); sendCommand(spi, 0x8B);
+    }
     sendCommand(spi, 0xA1);
     sendCommand(spi, 0xC8);
     sendCommand(spi, 0xDA); sendCommand(spi, 0x12);
@@ -351,15 +369,25 @@ void clearBuffer() {
 }
 
 void clearScreen() {
-    // Clear the OLED's internal memory (all 8 pages)
-    uint8_t empty[132];      // SH1106 has 132 columns internally
-    memset(empty, 0x00, sizeof(empty));
+    static const uint8_t empty[WIDTH * PAGE_COUNT] = {0};
 
-    for(int page = 0; page < 8; page++) {
-        sendCommand(global_spi_handle, 0xB0 + page); // select page
-        sendCommand(global_spi_handle, 0x00);        // lower column
-        sendCommand(global_spi_handle, 0x10);        // upper column
-        sendData(global_spi_handle, empty, 132);     // write zeros to all columns
+    if (OLED_USE_SSD1309) {
+        sendCommand(global_spi_handle, 0x21);
+        sendCommand(global_spi_handle, 0x00);
+        sendCommand(global_spi_handle, WIDTH - 1);
+        sendCommand(global_spi_handle, 0x22);
+        sendCommand(global_spi_handle, 0x00);
+        sendCommand(global_spi_handle, PAGE_COUNT - 1);
+        sendData(global_spi_handle, empty, sizeof(empty));
+        return;
+    }
+
+    uint8_t pageEmpty[WIDTH];
+    memset(pageEmpty, 0x00, sizeof(pageEmpty));
+
+    for (int page = 0; page < PAGE_COUNT; page++) {
+        setPageStart(global_spi_handle, page);
+        sendData(global_spi_handle, pageEmpty, WIDTH);
     }
 }
 
@@ -701,10 +729,19 @@ void drawMenu() {
 unsigned char* img;
 // Send buffer to OLED
 void updateDisplay(int spi) {
-    for (int page = 0; page < HEIGHT/8; page++) {
-        sendCommand(spi, 0xB0 + page);
+    if (OLED_USE_SSD1309) {
+        sendCommand(spi, 0x21);
         sendCommand(spi, 0x00);
-        sendCommand(spi, 0x10);
+        sendCommand(spi, WIDTH - 1);
+        sendCommand(spi, 0x22);
+        sendCommand(spi, 0x00);
+        sendCommand(spi, PAGE_COUNT - 1);
+        sendData(spi, buffer, sizeof(buffer));
+        return;
+    }
+
+    for (int page = 0; page < PAGE_COUNT; page++) {
+        setPageStart(spi, page);
         sendData(spi, &buffer[page * WIDTH], WIDTH);
     }
 }

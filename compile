@@ -88,11 +88,18 @@ stop_runtime
 start_blink
 git stash
 git pull
-g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread
+g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread -std=c++17
 LOADER_COMPILE_STATUS=$?
 if [ "$LOADER_COMPILE_STATUS" -ne 0 ]; then
     gpioset 0 26=0
     exit "$LOADER_COMPILE_STATUS"
+fi
+
+g++ clear_screen.cpp -o clear_screen -lpigpio -lrt -lpthread -std=c++17
+CLEAR_COMPILE_STATUS=$?
+if [ "$CLEAR_COMPILE_STATUS" -ne 0 ]; then
+    gpioset 0 26=0
+    exit "$CLEAR_COMPILE_STATUS"
 fi
 
 sudo ./load_synth_program &

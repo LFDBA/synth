@@ -28,12 +28,17 @@
 //  SH1106 SPI config — match your existing setup
 // -----------------------------------------------------------------------
 #define SPI_CHANNEL  0
-#define SPI_SPEED    8000000
+#define SPI_SPEED    4000000
 #define PIN_DC       25
 #define PIN_RES      24
 
-const int WIDTH  = 127;
+// Set to 0 if you swap back to the older SH1106-based module.
+#define OLED_USE_SSD1309 1
+
+const int WIDTH  = 128;
 const int HEIGHT = 64;
+const int PAGE_COUNT = HEIGHT / 8;
+const int COLUMN_OFFSET = OLED_USE_SSD1309 ? 0 : 2;
 
 uint8_t buffer[WIDTH * (HEIGHT / 8)];
 int spi;
@@ -55,6 +60,12 @@ void sendData(const uint8_t* data, size_t len) {
     spiWrite(spi, (char*)data, len);
 }
 
+void setPageStart(int page) {
+    sendCommand(0xB0 + page);
+    sendCommand(COLUMN_OFFSET & 0x0F);
+    sendCommand(0x10 | ((COLUMN_OFFSET >> 4) & 0x0F));
+}
+
 // -----------------------------------------------------------------------
 //  Display init / update
 // -----------------------------------------------------------------------
@@ -62,12 +73,19 @@ void initDisplay() {
     gpioWrite(PIN_RES, 0); usleep(100000);
     gpioWrite(PIN_RES, 1); usleep(100000);
 
+    if (OLED_USE_SSD1309) {
+        sendCommand(0xFD); sendCommand(0x12); // unlock SSD1309 commands
+        sendCommand(0x20); sendCommand(0x00); // horizontal addressing
+    }
+
     sendCommand(0xAE);
     sendCommand(0xD5); sendCommand(0x80);
     sendCommand(0xA8); sendCommand(0x3F);
     sendCommand(0xD3); sendCommand(0x00);
     sendCommand(0x40);
-    sendCommand(0xAD); sendCommand(0x8B);
+    if (!OLED_USE_SSD1309) {
+        sendCommand(0xAD); sendCommand(0x8B);
+    }
     sendCommand(0xA1);
     sendCommand(0xC8);
     sendCommand(0xDA); sendCommand(0x12);
@@ -84,21 +102,41 @@ void clearBuffer() {
 }
 
 void clearScreen() {
-    uint8_t empty[132];
-    memset(empty, 0x00, sizeof(empty));
-    for (int page = 0; page < 8; page++) {
-        sendCommand(0xB0 + page);
+    static const uint8_t empty[WIDTH * PAGE_COUNT] = {0};
+
+    if (OLED_USE_SSD1309) {
+        sendCommand(0x21);
         sendCommand(0x00);
-        sendCommand(0x10);
-        sendData(empty, 132);
+        sendCommand(WIDTH - 1);
+        sendCommand(0x22);
+        sendCommand(0x00);
+        sendCommand(PAGE_COUNT - 1);
+        sendData(empty, sizeof(empty));
+        return;
+    }
+
+    uint8_t pageEmpty[WIDTH];
+    memset(pageEmpty, 0x00, sizeof(pageEmpty));
+    for (int page = 0; page < PAGE_COUNT; page++) {
+        setPageStart(page);
+        sendData(pageEmpty, WIDTH);
     }
 }
 
 void updateDisplay() {
-    for (int page = 0; page < HEIGHT / 8; page++) {
-        sendCommand(0xB0 + page);
+    if (OLED_USE_SSD1309) {
+        sendCommand(0x21);
         sendCommand(0x00);
-        sendCommand(0x10);
+        sendCommand(WIDTH - 1);
+        sendCommand(0x22);
+        sendCommand(0x00);
+        sendCommand(PAGE_COUNT - 1);
+        sendData(buffer, sizeof(buffer));
+        return;
+    }
+
+    for (int page = 0; page < PAGE_COUNT; page++) {
+        setPageStart(page);
         sendData(&buffer[page * WIDTH], WIDTH);
     }
 }
@@ -297,7 +335,7 @@ int main() {
     const int   DOT_GAP = 12;
     const int   BOUNCE  = 5;
     const int   BASE_Y  = 52;
-    const int   CX      = 63;
+    const int   CX      = WIDTH / 2;
 
     const int dotX[3] = { CX - DOT_GAP, CX, CX + DOT_GAP };
     bool showHeadphones = false;
