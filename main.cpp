@@ -791,14 +791,9 @@ void drawMenu() {
 void drawDocsMenu() {
     clearBuffer();
 
-    constexpr int scale = 3;
-    constexpr int lineGap = 4;
-    const int lineHeight = 7 * scale;
-    const int totalHeight = lineHeight * 2 + lineGap;
-    const int startY = (HEIGHT - totalHeight) / 2;
+    constexpr int scale = 1;
 
-    drawScaledDocsTextCenteredX(WIDTH / 2, startY, "www.px", scale);
-    drawScaledDocsTextCenteredX(WIDTH / 2, startY + lineHeight + lineGap, "-1.dev", scale);
+    drawScaledDocsTextCenteredX(WIDTH / 2, HEIGHT/2, "www.px-1.dev", scale);
 }
 
 
