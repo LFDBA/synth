@@ -45,9 +45,9 @@ stop_runtime() {
 start_blink() {
     (
         while true; do
-            gpioset -c 0 26=1
+            sudo gpioset -c 0 26=1
             sleep 0.5
-            gpioset -c 0 26=0
+            sudo gpioset -c 0 26=0
             sleep 0.5
         done
     ) &
@@ -79,9 +79,9 @@ fi
 
 trap cleanup EXIT INT TERM
 
-gpioset -c 0 27=0
-gpioset -c 0 21=0
-gpioset -c 0 26=1
+sudo gpioset -c 0 27=0
+sudo gpioset -c 0 21=0
+sudo gpioset -c 0 26=1
 
 stop_runtime
 
@@ -91,21 +91,21 @@ git pull
 g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread -std=c++17
 LOADER_COMPILE_STATUS=$?
 if [ "$LOADER_COMPILE_STATUS" -ne 0 ]; then
-    gpioset -c 0 26=0
+    sudo gpioset -c 0 26=0
     exit "$LOADER_COMPILE_STATUS"
 fi
 
 g++ clear_screen.cpp -o clear_screen -lpigpio -lrt -lpthread -std=c++17
 CLEAR_COMPILE_STATUS=$?
 if [ "$CLEAR_COMPILE_STATUS" -ne 0 ]; then
-    gpioset -c 0 26=0
+    sudo gpioset -c 0 26=0
     exit "$CLEAR_COMPILE_STATUS"
 fi
 
 sudo ./load_synth_program &
 LOADER_PID=$!
 stop_blink
-gpioset -c 0 26=1
+sudo gpioset -c 0 26=1
 g++ \
   main.cpp \
   Reverb.cpp \
@@ -121,7 +121,7 @@ g++ \
 MAIN_COMPILE_STATUS=$?
 if [ "$MAIN_COMPILE_STATUS" -ne 0 ]; then
     rm -f main.tmp
-    gpioset -c 0 26=0
+    sudo gpioset -c 0 26=0
     exit "$MAIN_COMPILE_STATUS"
 fi
 
@@ -138,9 +138,9 @@ sudo rm -f /var/run/pigpio.pid
 while lsof -i :8888 > /dev/null; do 
     sleep 0.5
     if [ "$(gpioget 0 26)" = "1" ]; then
-        gpioset -c 0 26=0
+        sudo gpioset -c 0 26=0
     else
-        gpioset -c 0 26=1
+        sudo gpioset -c 0 26=1
     fi
 
 done
@@ -149,6 +149,6 @@ done
 
 sleep 1
 
-gpioset -c 0 26=0
-gpioset -c 0 21=0
-gpioset -c 0 27=1
+sudo gpioset -c 0 26=0
+sudo gpioset -c 0 21=0
+sudo gpioset -c 0 27=1
