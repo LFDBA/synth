@@ -5,6 +5,7 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 MAIN_PATH="$SCRIPT_DIR/main"
 LOADER_PATH="$SCRIPT_DIR/load_synth_program"
 RUN_PATH="$SCRIPT_DIR/run"
+GPIOCTL_PATH="$SCRIPT_DIR/gpioctl"
 
 BLINK_PID=""
 LOADER_PID=""
@@ -43,14 +44,7 @@ stop_runtime() {
 }
 
 start_blink() {
-    (
-        while true; do
-            sudo gpioset -c 0 26=1
-            sleep 0.5
-            sudo gpioset -c 0 26=0
-            sleep 0.5
-        done
-    ) &
+    sudo "$GPIOCTL_PATH" blink 26 &
     BLINK_PID=$!
 }
 
@@ -79,33 +73,41 @@ fi
 
 trap cleanup EXIT INT TERM
 
-sudo gpioset -c 0 27=0
-sudo gpioset -c 0 21=0
-sudo gpioset -c 0 26=1
-
 stop_runtime
 
-start_blink
 git stash
 git pull
+g++ "$SCRIPT_DIR/gpioctl.cpp" -o "$GPIOCTL_PATH" -lpigpio -lrt -lpthread -std=c++17
+GPIOCTL_COMPILE_STATUS=$?
+if [ "$GPIOCTL_COMPILE_STATUS" -ne 0 ]; then
+    exit "$GPIOCTL_COMPILE_STATUS"
+fi
+
+sudo "$GPIOCTL_PATH" set 27 0
+sudo "$GPIOCTL_PATH" set 21 0
+sudo "$GPIOCTL_PATH" set 26 1
+
+start_blink
 g++ loading.cpp -o load_synth_program -lpigpio -lrt -lpthread -std=c++17
 LOADER_COMPILE_STATUS=$?
 if [ "$LOADER_COMPILE_STATUS" -ne 0 ]; then
-    sudo gpioset -c 0 26=0
+    stop_blink
+    sudo "$GPIOCTL_PATH" set 26 0
     exit "$LOADER_COMPILE_STATUS"
 fi
 
 g++ clear_screen.cpp -o clear_screen -lpigpio -lrt -lpthread -std=c++17
 CLEAR_COMPILE_STATUS=$?
 if [ "$CLEAR_COMPILE_STATUS" -ne 0 ]; then
-    sudo gpioset -c 0 26=0
+    stop_blink
+    sudo "$GPIOCTL_PATH" set 26 0
     exit "$CLEAR_COMPILE_STATUS"
 fi
 
 sudo ./load_synth_program &
 LOADER_PID=$!
 stop_blink
-sudo gpioset -c 0 26=1
+sudo "$GPIOCTL_PATH" set 26 1
 g++ \
   main.cpp \
   Reverb.cpp \
@@ -121,7 +123,7 @@ g++ \
 MAIN_COMPILE_STATUS=$?
 if [ "$MAIN_COMPILE_STATUS" -ne 0 ]; then
     rm -f main.tmp
-    sudo gpioset -c 0 26=0
+    sudo "$GPIOCTL_PATH" set 26 0
     exit "$MAIN_COMPILE_STATUS"
 fi
 
@@ -135,20 +137,18 @@ LOADER_PID=""
 sudo killall pigpiod 2>/dev/null
 sudo fuser -k 8888/tcp 2>/dev/null
 sudo rm -f /var/run/pigpio.pid
-while lsof -i :8888 > /dev/null; do 
-    sleep 0.5
-    if [ "$(gpioget 0 26)" = "1" ]; then
-        sudo gpioset -c 0 26=0
-    else
-        sudo gpioset -c 0 26=1
-    fi
-
-done
+if lsof -i :8888 > /dev/null; then
+    start_blink
+    while lsof -i :8888 > /dev/null; do
+        sleep 0.5
+    done
+    stop_blink
+fi
 
 ./clear_screen
 
 sleep 1
 
-sudo gpioset -c 0 26=0
-sudo gpioset -c 0 21=0
-sudo gpioset -c 0 27=1
+sudo "$GPIOCTL_PATH" set 26 0
+sudo "$GPIOCTL_PATH" set 21 0
+sudo "$GPIOCTL_PATH" set 27 1
