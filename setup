@@ -1,14 +1,21 @@
 #!/bin/bash
-sudo apt install python3-pip -y
+
+
 sudo apt update -y
+sudo apt install python3-pip -y
+sudo apt install python3-venv -y
 sudo apt install -y g++ make cmake
 sudo apt install -y portaudio19-dev
 sudo apt install pulseaudio-utils -y
 sudo apt install alsa-utils -y
 sudo apt install librtaudio-dev -y
 sudo apt install libasound2-dev -y
+sudo apt install python3-setuptools python3-full wget make gcc unzip -y
 sudo apt install libncurses-dev -y
 sudo apt install pigpio libpigpio-dev -y
+
+python3 -m venv venv
+source venv/bin/activate
 
 
 pip install numpy
